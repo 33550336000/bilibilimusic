@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 底层原色 -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#FFFFFF" />
+            <size
+                android:width="56dp"
+                android:height="56dp" />
+        </shape>
+    </item>
+    <!-- 上层虚线边框（2dp宽，白色，虚线间距6dp） -->
+    <item>
+        <shape android:shape="oval">
+            <stroke
+                android:width="2dp"
+                android:color="#FFFFFF"
+                android:dashWidth="6dp"
+                android:dashGap="4dp" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+</layer-list>

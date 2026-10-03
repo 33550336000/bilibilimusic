@@ -1,0 +1,16 @@
+buildscript {
+    repositories {
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        maven { url = 'https://maven.aliyun.com/repository/google' }
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:9.4.0'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.20'
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

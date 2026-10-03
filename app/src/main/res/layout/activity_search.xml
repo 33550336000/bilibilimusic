@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:ignore="MergeRootFrame"
+    android:keepScreenOn="true">
+
+    <!-- 主界面搜索区域 -->
+    <LinearLayout
+        android:id="@+id/layout_search_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#000000">
+
+        <!-- 搜索栏 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="4dp">
+
+            <EditText
+                android:id="@+id/et_search"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/search_song_by_name"
+                android:textColor="#FFFFFF"
+                android:textColorHint="#888888"
+                android:background="#00000000"
+                android:padding="12dp"
+                android:inputType="text"
+                android:importantForAutofill="no" />
+
+            <ImageButton
+                android:id="@+id/btn_clear_search"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:contentDescription="@string/clear_search"
+                android:tint="#FF0000" />
+
+            <Button
+                android:id="@+id/btn_bili_toggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:text="@string/bilibili_source_off"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/button_float_bg" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/progress_bar"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center"
+            android:visibility="gone"
+            android:indeterminateTint="#FFFFFF"
+            android:indeterminate="true" />
+
+        <TextView
+            android:id="@+id/tv_searching_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/searching"
+            android:textColor="#AAAAAA"
+            android:textSize="14sp"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+<ListView
+    android:id="@+id/lv_search_result"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:background="#00000000"
+
+    android:scrollbars="vertical"
+    android:scrollbarThumbVertical="@android:color/transparent"
+    android:scrollbarTrackVertical="@android:color/transparent"
+    android:fadeScrollbars="false" />
+
+        <GridView
+            android:id="@+id/gv_bili_result"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:numColumns="2"
+            android:verticalSpacing="8dp"
+            android:horizontalSpacing="8dp"
+            android:padding="8dp"
+            android:background="#00000000"
+            android:visibility="gone"
+            android:stretchMode="columnWidth"/>
+
+        <Button
+            android:id="@+id/btn_sort"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/sort"
+            android:textColor="@color/white"
+            android:textSize="30sp"
+            android:background="@drawable/btn_bg_rounded"
+            android:layout_marginStart="12dp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- 全屏视频播放器容器 -->
+    <FrameLayout
+        android:id="@+id/layout_fullscreen_video"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#FF000000"
+        android:visibility="gone">
+
+        <!-- 上下滑动切换用的「目标视频预览层」。
+             刻意声明在 TextureView **之前**（z 序更低 = 位于视频之下）：
+             纵向拖动时只平移视频画面，这一层便从被让出的边缘逐渐露出，
+             呈现"下一条视频被拉进来"的效果，而不必真的再起一个播放器。
+
+             默认 gone，仅在纵向拖拽且该方向确实还有视频时显示。 -->
+        <FrameLayout
+            android:id="@+id/layout_switch_preview"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#FF000000"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/iv_switch_cover"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_gravity="center"
+                android:scaleType="fitCenter"
+                android:contentDescription="@null" />
+
+            <!-- 信息条：跟随方向吸附到"被让出"的那一侧（上滑→底部，下滑→顶部） -->
+            <LinearLayout
+                android:id="@+id/layout_switch_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom"
+                android:background="#99000000"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp">
+
+                <TextView
+                    android:id="@+id/tv_switch_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="2"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tv_switch_author"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <TextureView
+            android:id="@+id/vv_fullscreen"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center" />
+
+        <!-- 弹幕层：位于视频之上、控制栏之下。
+             默认 gone，由播放器按「弹幕开关」设置挂载。
+             必须 clickable=false，否则会吞掉全屏容器的手势（快进/长按倍速）。 -->
+        <com.tilixibiesi.ui.widget.DanmakuView
+            android:id="@+id/danmaku_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:clickable="false"
+            android:focusable="false"
+            android:visibility="gone" />
+
+        <!-- 顶部栏：关闭按钮 + 标题 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="12dp">
+
+            <ImageButton
+                android:id="@+id/btn_close_video"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:tint="#FFFFFF"
+                android:contentDescription="@string/close" />
+
+            <TextView
+                android:id="@+id/tv_video_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
+
+        <!-- 底部控制条（美化版） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="12dp">
+
+            <!-- 进度条，独占一行 -->
+            <SeekBar
+                android:id="@+id/sb_video_progress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxHeight="8dp"
+                android:minHeight="8dp"
+                android:paddingStart="0dp"
+                android:paddingEnd="0dp"
+                android:progressDrawable="@drawable/seekbar_progress"
+                android:thumb="@drawable/seekbar_thumbs"
+                android:splitTrack="false"
+                android:max="100"
+                android:progress="0" />
+
+            <!-- 播放按钮 + 时间，左右分散 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/btn_video_play_pause"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_media_pause"
+                    android:tint="#FFFFFF"
+                    android:contentDescription="@string/play_pause" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/tv_video_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#FFFFFF"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-condensed"
+                    android:text="@string/default_time_range" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- 登录 WebView 容器 -->
+    <FrameLayout
+        android:id="@+id/layout_webview_login"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/btn_close_webview"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="12dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_close_clear_cancel"
+            android:tint="#FFFFFF"
+            android:contentDescription="@string/close_login_dialog" />
+
+        <ProgressBar
+            android:id="@+id/progress_webview"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="3dp"
+            android:layout_gravity="top"
+            android:max="100"
+            android:visibility="gone" />
+    </FrameLayout>
+
+</FrameLayout>

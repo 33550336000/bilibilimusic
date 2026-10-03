@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/detail_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:keepScreenOn="true">
+
+    <ImageButton
+        android:id="@+id/btn_back"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:background="@android:color/transparent"
+        android:src="@android:drawable/ic_menu_revert"
+        android:layout_margin="8dp"
+        android:contentDescription="@string/back" />
+
+    <ImageButton
+        android:id="@+id/btn_add_playlist"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/ic_plus_custom"
+        android:background="@android:color/transparent"
+        android:layout_gravity="end"
+        android:layout_marginEnd="8dp"
+        android:contentDescription="@string/add_to_playlist" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/sub_playlist"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:padding="12dp"
+        android:visibility="gone"
+        android:id="@+id/tv_sub_playlist_title"/>
+
+    <HorizontalScrollView
+        android:id="@+id/hsv_sub_playlists"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:padding="8dp">
+
+        <LinearLayout
+            android:id="@+id/ll_sub_playlists"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
+
+    <ListView
+        android:id="@+id/lv_sub_playlist"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#00000000"
+        android:visibility="gone"/>
+
+    <EditText
+        android:id="@+id/et_search"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/search_in_playlist"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#888888"
+        android:background="#00000000"
+        android:padding="12dp"
+        android:inputType="text"
+        android:importantForAutofill="no" />
+
+    <ListView
+        android:id="@+id/lv_music_detail"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#00000000" />
+</LinearLayout>

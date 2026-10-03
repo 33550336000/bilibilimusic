@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 歌单：三条横线 + 音符，表示「列表中的音乐」 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,6h11v1.6H4z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,11.2h11v1.6H4z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M4,16.4h7v1.6H4z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M17.2,6.6v7.2a2.4,2.4 0,1 1,-1.6 -2.26V8.5l-1.3,0.3V7.2l2.9,-0.6z" />
+</vector>

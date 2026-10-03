@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:paddingTop="6dp"
+    android:paddingBottom="12dp"
+    android:paddingEnd="12dp"
+    android:paddingStart="12dp">
+
+    <TextView
+        android:id="@+id/tv_playlist_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:layout_toStartOf="@+id/btn_add_to_playlist"
+        android:layout_alignParentStart="true"
+        android:paddingStart="0dp"
+        android:paddingEnd="0dp"/>
+
+    <ImageButton
+        android:id="@+id/btn_add_to_playlist"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_alignParentEnd="true"
+        android:layout_centerVertical="true"
+        android:background="@android:color/transparent"
+        android:src="@drawable/ic_plus_custom"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
+        android:clickable="true"
+        android:contentDescription="@string/add_song_to_playlist"/>
+</RelativeLayout>

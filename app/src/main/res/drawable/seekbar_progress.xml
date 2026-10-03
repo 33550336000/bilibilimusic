@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background"
+          android:height="3dp"
+          android:gravity="center_vertical">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF"/>  <!-- 80%不透明度白色 -->
+            <corners android:radius="2dp"/>
+        </shape>
+    </item>
+    <item android:id="@android:id/secondaryProgress"
+          android:height="3dp"
+          android:gravity="center_vertical">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF"/>
+            <corners android:radius="2dp"/>
+        </shape>
+    </item>
+
+    <!-- 3. 已播放区域（进度）：蓝色 -->
+    <item android:id="@android:id/progress"
+          android:height="3dp"
+          android:gravity="center_vertical">
+        <shape android:shape="rectangle">
+            <solid android:color="#2196F3"/>
+            <corners android:radius="2dp"/>
+        </shape>
+    </item>
+
+</layer-list>

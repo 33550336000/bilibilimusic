@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 阴影 -->
+    <item android:bottom="2dp" android:right="2dp">
+        <shape android:shape="oval">
+            <solid android:color="#25000000" />
+        </shape>
+    </item>
+    <!-- 主拇指（深灰色） -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#EEEDF4" />
+        </shape>
+    </item>
+</layer-list>

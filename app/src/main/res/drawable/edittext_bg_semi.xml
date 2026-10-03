@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 1. 聚焦状态：黑色边框（必须写在前面） -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="8dp" />
+            <stroke android:width="2dp" android:color="#333333" />
+        </shape>
+    </item>
+
+    <!-- 2. 普通状态（默认兜底，必须写在最后） -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="8dp" />
+            <stroke android:width="1dp" android:color="#D0D0D0" />
+        </shape>
+    </item>
+</selector>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 歌曲：单个音符 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M20,4v10.6a3.4,3.4 0,1 1,-2 -3.1V7.3l-7,1.5v7.8a3.4,3.4 0,1 1,-2 -3.1V7.1l11,-2.4z" />
+</vector>

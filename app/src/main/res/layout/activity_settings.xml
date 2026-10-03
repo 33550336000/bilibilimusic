@@ -1,0 +1,763 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settings_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:keepScreenOn="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- 标题 -->
+        <TextView
+            android:id="@+id/title_settings_page"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/settings_title"
+            android:textColor="#000000"
+            android:textSize="24sp"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- ===== 卡片1：显示 ===== -->
+        <LinearLayout
+            android:id="@+id/title_section_display"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_background_semi"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/section_display"
+                    android:textColor="#99002BFF"
+                    android:textSize="16sp"/>
+
+                <Button
+                    android:id="@+id/btn_collapse_display"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_collapse"
+                    android:textSize="12sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"/>
+            </LinearLayout>
+
+            <!-- 字体颜色浮动标签 -->
+            <FrameLayout
+                android:id="@+id/container_font_color"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp">
+
+                <EditText
+                    android:id="@+id/et_font_color"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/edittext_bg_semi"
+                    android:paddingTop="20dp"
+                    android:paddingBottom="8dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:textColor="#000000"
+                    android:textColorHint="#888888"
+                    android:inputType="text"
+                    android:importantForAutofill="no" />
+
+                <TextView
+                    android:id="@+id/label_font_color"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_font_color"
+                    android:textColor="#888888"
+                    android:textSize="16sp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:layout_gravity="center_vertical|start"
+                    android:labelFor="@+id/et_font_color" />
+            </FrameLayout>
+
+            <!-- 全局字体颜色滑块 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_font_color_slider_desc"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_font_color_hue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="359"
+                android:progress="0"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:id="@+id/tv_font_color_preview"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/preview_font_color_default"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- 字体大小滑块 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_font_size_slider_desc"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_font_size"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="24"
+                android:min="12"
+                android:progress="15"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:id="@+id/tv_font_size_preview"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/preview_font_size_default"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- 字体大小直接输入 -->
+            <FrameLayout
+                android:id="@+id/container_font_size"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <EditText
+                    android:id="@+id/et_font_size_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/edittext_bg_semi"
+                    android:paddingTop="20dp"
+                    android:paddingBottom="8dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:textColor="#000000"
+                    android:textColorHint="#888888"
+                    android:inputType="number"
+                    android:hint="@string/hint_input_font_size"
+                    android:importantForAutofill="no" />
+
+                <TextView
+                    android:id="@+id/label_font_size"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/label_font_size"
+                    android:textColor="#888888"
+                    android:textSize="16sp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:layout_gravity="center_vertical|start"
+                    android:labelFor="@+id/et_font_size_input" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <!-- ===== 卡片2：背景 ===== -->
+        <LinearLayout
+            android:id="@+id/title_section_background"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_background_semi"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/section_background"
+                    android:textColor="#99002BFF"
+                    android:textSize="16sp"/>
+
+                <Button
+                    android:id="@+id/btn_collapse_background"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_collapse"
+                    android:textSize="12sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"/>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_select_default_background"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_select_default_bg"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_background_brightness"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginTop="8dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_background_alpha"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progress="100"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:id="@+id/tv_alpha_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/preview_brightness_default"
+                android:textColor="#000000"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_dialog_style"
+                android:textColor="#99002BFF"
+                android:textSize="16sp"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="12dp"/>
+
+            <!-- 对话框背景色 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_dialog_bg_color"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_dialog_bg_hue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="359"
+                android:progress="0"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+                <TextView
+                    android:id="@+id/tv_dialog_bg_preview"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/preview_dialog_bg_color_default"
+                    android:textColor="#000000"
+                    android:textSize="14sp" />
+                <View
+                    android:id="@+id/view_dialog_bg_sample"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="8dp"
+                    android:background="#FFFFFF" />
+            </LinearLayout>
+
+            <!-- 对话框字体颜色 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_dialog_font_color"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_dialog_font_hue"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="359"
+                android:progress="0"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+                <TextView
+                    android:id="@+id/tv_dialog_font_preview"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/preview_dialog_font_color_default"
+                    android:textColor="#000000"
+                    android:textSize="14sp" />
+                <View
+                    android:id="@+id/view_dialog_font_sample"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginStart="8dp"
+                    android:background="#FFFFFF" />
+                <Button
+                    android:id="@+id/btn_dialog_font_follow_global"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_follow_global"
+                    android:textSize="12sp"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:layout_marginStart="8dp"
+                    android:minWidth="0dp"
+                    android:padding="8dp" />
+            </LinearLayout>
+
+            <!-- 对话框透明度 -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_dialog_alpha"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_dialog_alpha"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="100"
+                android:progress="100"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:id="@+id/tv_dialog_alpha_preview"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/preview_dialog_alpha_default"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="12dp" />
+        </LinearLayout>
+
+        <!-- ===== 卡片3：音乐与播放 ===== -->
+        <LinearLayout
+            android:id="@+id/title_section_music" 
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_background_semi"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/section_music_play"
+                    android:textColor="#99002BFF"
+                    android:textSize="16sp"/>
+
+                <Button
+                    android:id="@+id/btn_collapse_music"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_collapse"
+                    android:textSize="12sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"/>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_volume_key_switch"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_volume_key_switch_off"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_blocked_words"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_blocked_words"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_toggle_search_mode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_toggle_search_page"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_adjust_search_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_adjust_search_position"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp"
+                android:visibility="gone"/>
+            <Button
+                android:id="@+id/btn_search_btn_style"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_search_style_transparent"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_show_today_duration"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_show_today_duration_off"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_video_notify_progress"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_video_notify_progress_on"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+        </LinearLayout>
+
+        <!-- ===== 卡片4：数据与工具 ===== -->
+        <LinearLayout
+            android:id="@+id/title_section_tools"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_background_semi"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/section_data_tools"
+                    android:textColor="#99002BFF"
+                    android:textSize="16sp"/>
+
+                <Button
+                    android:id="@+id/btn_collapse_tools"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_collapse"
+                    android:textSize="12sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"/>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_auto_cache"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_auto_cache"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp"/>
+            <Button
+                android:id="@+id/btn_playlist_footprint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_playlist_footprint"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_clear_cache"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_manage_files"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_send_notification"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_send_notification"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+        </LinearLayout>
+<!-- ===== 卡片5：其他设置 ===== -->
+        <LinearLayout
+            android:id="@+id/title_section_other"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_background_semi"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/section_other"
+                    android:textColor="#99002BFF"
+                    android:textSize="16sp"/>
+
+                <Button
+                    android:id="@+id/btn_collapse_other"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_collapse"
+                    android:textSize="12sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"/>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_switch_language"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/setting_language"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />  <!-- 改为 marginBottom，去掉 marginTop -->
+
+            <!-- 操作按钮 -->
+            <Button
+                android:id="@+id/btn_save_default"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_save_as_default"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_auto_load_default"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_auto_load_default"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_switch_play_mode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/play_mode_initial_text"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_restore_default"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_restore_default"
+                android:background="@drawable/button_background_restore"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+        </LinearLayout>
+
+        <!-- ===== 卡片6：界面与导航 ===== -->
+        <LinearLayout
+            android:id="@+id/title_section_ui_nav"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/card_background_semi"
+            android:elevation="4dp"
+            android:outlineProvider="background"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/section_ui_nav"
+                    android:textColor="#99002BFF"
+                    android:textSize="16sp"/>
+
+                <Button
+                    android:id="@+id/btn_collapse_ui_nav"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_collapse"
+                    android:textSize="12sp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"/>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_bottom_nav"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_bottom_nav_off"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+            <Button
+                android:id="@+id/btn_toggle_click_fx"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_toggle_click_fx"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

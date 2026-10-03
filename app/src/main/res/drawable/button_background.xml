@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#1A000000"> <!-- 黑色涟漪（半透明） -->
+
+    <!-- 默认：白底 -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="24dp" />
+            <stroke android:width="1dp" android:color="#E0E0E0" />
+        </shape>
+    </item>
+    <!-- 按压：变灰 -->
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#F0F0F0" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <!-- 聚焦：黑色边框 -->
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <stroke android:width="2dp" android:color="#EEEDF4" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+    <!-- 圆角蒙版 -->
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="24dp" />
+        </shape>
+    </item>
+</ripple>

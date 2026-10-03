@@ -1,0 +1,117 @@
+plugins {
+    id 'com.android.application'
+}
+
+// ========== 自定义 APK 输出配置（改这里即可）==========
+ext {
+    targetApkDir = file("./")
+    targetApkName = "缇宝.apk"
+}
+// ====================================================
+
+android {
+    namespace = "com.tilixibiesi"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "com.tilixibiesi"
+        minSdk = 30
+        targetSdk = 30
+        versionCode = 13
+        versionName = "33550336"
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+    }
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
+        }
+    }
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
+    }
+
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
+    buildFeatures {
+        buildConfig = false
+        resValues = false
+        shaders = false
+    }
+
+    packaging {
+        exclude 'META-INF/*.SF'
+        exclude 'META-INF/*.DSA'
+        exclude 'META-INF/*.RSA'
+        exclude 'META-INF/LICENSE*'
+        exclude 'META-INF/NOTICE*'
+    }
+    packagingOptions {
+        dex {
+            useLegacyPackaging = true
+        }
+    }
+signingConfigs {
+    release {
+        storeFile = file("${rootDir}/yuanshen.keystore")
+        storePassword = providers.gradleProperty('signing.password').get()
+        keyAlias = providers.gradleProperty('signing.alias').get()
+        keyPassword = providers.gradleProperty('signing.password').get()
+    }
+}
+
+    buildTypes {
+        release {
+            minifyEnabled = true
+            shrinkResources = true
+            zipAlignEnabled = true
+            debuggable = false
+            signingConfig = signingConfigs.release
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
+    }
+}
+
+dependencies {
+}
+
+// ========== APK 复制任务（支持自定义路径和文件名）==========
+project.afterEvaluate {
+    def assembleTask = tasks.findByName('assembleRelease')
+    if (assembleTask) {
+        def apkSource = project.file("build/outputs/apk/release/app-release.apk")
+        // 目标目录（使用自定义变量）
+        def destDir = project.ext.targetApkDir
+        // 确保目录存在（如果不存在则创建）
+        if (!destDir.exists()) {
+            destDir.mkdirs()
+        }
+        // 目标文件名（使用自定义变量）
+        def destFileName = project.ext.targetApkName
+
+        assembleTask.doLast {
+            if (apkSource.exists()) {
+                // 使用 NIO 复制，并重命名
+                java.nio.file.Files.copy(
+                    apkSource.toPath(),
+                    new File(destDir, destFileName).toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+                )
+                println "\033[32mAPK 已复制到: ${destDir.absolutePath}/${destFileName}"
+            } else {
+                println "\033[30未找到 APK 文件: ${apkSource.absolutePath}任务失败。"
+            }
+        }
+    }
+}

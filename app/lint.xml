@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<lint>
+
+    <issue id="IconLauncherShape" severity="ignore" />
+
+    <issue id="ExpiredTargetSdkVersion" severity="ignore" />
+
+    <issue id="ChromeOsAbiSupport" severity="ignore" />
+
+    <issue id="ScopedStorage" severity="ignore" />
+
+    <issue id="GradleDependency" severity="ignore" />
+
+    <issue id="SetJavaScriptEnabled" severity="ignore" />
+
+    <issue id="ExportedService" severity="ignore" />
+
+    <issue id="AppBundleLocaleChanges" severity="ignore" />
+
+    <!-- 自定义存储根目录：有意硬编码 /sdcard/.Path，忽略该提示 -->
+    <issue id="SdCardPath" severity="ignore" />
+
+</lint>

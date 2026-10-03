@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设置：齿轮 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,8.6a3.4,3.4 0,1 0,0 6.8a3.4,3.4 0,0 0,0 -6.8zM12,13.7a1.7,1.7 0,1 1,0 -3.4a1.7,1.7 0,0 1,0 3.4z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M20.3,13.6l-1.72,-0.3a6.9,6.9 0,0 0,-0.6 -1.45l1,-1.44l-1.42,-1.42l-1.44,1a6.9,6.9 0,0 0,-1.45 -0.6l-0.3,-1.72h-2.01l-0.3,1.72a6.9,6.9 0,0 0,-1.45 0.6l-1.44,-1l-1.42,1.42l1,1.44a6.9,6.9 0,0 0,-0.6 1.45l-1.72,0.3v2.01l1.72,0.3a6.9,6.9 0,0 0,0.6 1.45l-1,1.44l1.42,1.42l1.44,-1a6.9,6.9 0,0 0,1.45 0.6l0.3,1.72h2.01l0.3,-1.72a6.9,6.9 0,0 0,1.45 -0.6l1.44,1l1.42,-1.42l-1,-1.44a6.9,6.9 0,0 0,0.6 -1.45l1.72,-0.3v-2.01zM12,16.4a4.4,4.4 0,1 1,0 -8.8a4.4,4.4 0,0 1,0 8.8z" />
+</vector>

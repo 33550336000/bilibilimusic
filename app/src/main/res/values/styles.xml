@@ -1,0 +1,45 @@
+<resources>
+    <!-- 全局粗体样式（无斜体） -->
+    <style name="GlobalBoldTextStyle" parent="@android:style/Widget.Material.TextView">
+        <item name="android:textStyle">bold</item>
+        <item name="android:fontWeight">1000</item>
+    </style>
+
+    <!-- 应用主题（主界面） -->
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/activity_bg</item>
+        <item name="android:textViewStyle">@style/GlobalBoldTextStyle</item>
+        <item name="android:fontWeight">1000</item>
+        <!-- 不再设定任何颜色属性，全部由代码动态控制 -->
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <!-- 与 AppTheme 完全相同的别名（兼容 Manifest 中的旧引用） -->
+    <style name="AppTheme.NoTitleBar" parent="@style/AppTheme" />
+
+    <!-- 半透明“毛玻璃”风格对话框 -->
+    <style name="TransparentDialog" parent="@android:style/Theme.Material.Light.Dialog">
+        <item name="android:windowBackground">@color/dialog_translucent_bg</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+
+        <!-- 关闭系统默认的「点击弹窗外部空白即取消」行为，只允许按钮关闭 -->
+        <item name="android:windowCloseOnTouchOutside">false</item>
+        <item name="android:divider">@null</item>
+        <item name="android:dividerHeight">0dp</item>
+        <item name="android:textViewStyle">@style/GlobalBoldTextStyle</item>
+        <item name="android:buttonStyle">@style/DialogButtonStyle</item>
+        <item name="android:buttonBarButtonStyle">@style/DialogButtonStyle</item>
+    </style>
+
+    <!-- 对话框按钮样式（固定白色文字 + 实色背景，代码可覆盖） -->
+    <style name="DialogButtonStyle" parent="@android:style/Widget.Material.Button">
+        <item name="android:background">@drawable/material_btn_bg</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:paddingLeft">24dp</item>
+        <item name="android:paddingRight">24dp</item>
+    </style>
+</resources>

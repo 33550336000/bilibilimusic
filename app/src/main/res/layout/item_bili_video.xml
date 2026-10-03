@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="150dp"
+    android:orientation="vertical"
+    android:background="@drawable/card_background"
+    android:padding="0dp">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
+        android:background="#00333333">
+
+        <ImageView
+            android:id="@+id/iv_cover"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+    android:layout_gravity="top"
+            android:adjustViewBounds="true"
+            android:scaleType="centerCrop"
+            android:contentDescription="@string/video_cover" />
+
+        <!-- 标题：覆盖在底部，半透明背景（建议改成半透明黑） -->
+<TextView
+    android:id="@+id/tv_video_title"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom"
+    android:layout_marginBottom="20dp"
+    android:background="#00000000"
+    android:paddingHorizontal="8dp"
+    android:paddingVertical="6dp"
+    android:textColor="#1A1B21"
+    android:textSize="13sp"
+    android:maxLines="2"
+    android:ellipsize="end"/>
+
+        <!-- 作者：左下角 -->
+        <TextView
+            android:id="@+id/tv_video_author"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|start"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="8dp"
+            android:maxWidth="120dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="#1A1B21"
+            android:textSize="11sp"
+            android:background="#00000000"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="2dp"/>
+
+        <!-- 时长：右下角 -->
+        <TextView
+            android:id="@+id/tv_duration_badge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
+            android:textColor="#1A1B21"
+            android:textSize="11sp"
+            android:background="#00000000"
+            android:paddingHorizontal="4dp"
+            android:paddingVertical="2dp" />
+
+    </FrameLayout>
+
+    <!-- 如果你的原始布局中标题原本在外面，现在已移到封面内，所以这里不再重复 -->
+    <!-- 注意：原外层 LinearLayout 的 padding 依然保留，若觉得多余可删除 -->
+
+</LinearLayout>
