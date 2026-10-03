@@ -8,6 +8,7 @@ import com.tilixibiesi.ui.widget.DanmakuView
 import com.tilixibiesi.R
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.AtomicFileWriter
 import com.tilixibiesi.util.VideoPlaybackController
 import com.tilixibiesi.service.VideoPlaybackService
 
@@ -1231,14 +1232,14 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
     }
 
     private fun saveProgress(bvid: String, position: Int) {
-        Thread {
+        AppExecutors.io.execute {
             try {
                 val dir = AppPaths.getProgressDir(activity)
                 val file = File(dir, "$bvid.progress")
-                file.writeText(position.toString())
+                AtomicFileWriter.writeText(file, position.toString())
             } catch (e: Exception) {
             }
-        }.start()
+        }
     }
 
     private fun startProgressSaver() {
@@ -1582,7 +1583,7 @@ private fun toggleLandscape() {
 
         val thisRequestId = playRequestId.incrementAndGet()
 
-        Thread {
+        AppExecutors.io.execute {
             val cookie = SpUtils.getBiliCookie(activity)
             val info = fetchPlayInfo(bvid, cookie)
 
@@ -1621,7 +1622,7 @@ private fun toggleLandscape() {
                 activity.window.decorView.foreground = null
                 callback?.onFullscreenOpened()
             }
-        }.start()
+        }
     }
 
     /** 是否正在播放。签名与 [VideoPlaybackController.Target.isPlaying] 一致，一并作为其实现 */

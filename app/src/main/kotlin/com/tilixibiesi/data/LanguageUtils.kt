@@ -1,6 +1,7 @@
 package com.tilixibiesi.data
 import com.tilixibiesi.R
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.AtomicFileWriter
 
 import android.app.Activity
 import android.content.Context
@@ -176,7 +177,9 @@ object LanguageUtils {
                 if (!obj.has("strings")) return false
                 val file = getLanguageFile(context, code)
                 file.parentFile?.mkdirs()
-                file.writeText(jsonStr)
+                // 原子落盘：语言包是整份覆写，半截 JSON 会让该语言此后一直加载失败，
+                // 而 refreshLanguageMap 解析失败只会退化成空映射，用户看到的是整片空白文案。
+                AtomicFileWriter.writeText(file, jsonStr)
                 true
             } finally {
                 conn.disconnect()

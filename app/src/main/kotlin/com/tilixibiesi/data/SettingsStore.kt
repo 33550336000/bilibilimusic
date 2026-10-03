@@ -1,6 +1,7 @@
 package com.tilixibiesi.data
 
 import com.tilixibiesi.R
+import com.tilixibiesi.util.AtomicFileWriter
 import com.tilixibiesi.util.ContextUtils
 import com.tilixibiesi.util.ToastUtils
 
@@ -49,7 +50,7 @@ object SettingsStore {
             if (file.exists()) {
                 val json = JSONObject(file.readText())
                 json.put("language", langCode)
-                file.writeText(json.toString())
+                AtomicFileWriter.writeText(file, json.toString())
             }
         } catch (_: Exception) {
         }
@@ -77,7 +78,7 @@ object SettingsStore {
 
             val file = settingsFile()
             file.parentFile?.mkdirs()
-            file.writeText(json.toString())
+            AtomicFileWriter.writeText(file, json.toString())
             ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_settings_saved))
         } catch (e: Exception) {
             ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_save_failed, e.message))

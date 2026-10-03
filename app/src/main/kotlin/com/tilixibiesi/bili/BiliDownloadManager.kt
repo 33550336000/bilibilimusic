@@ -1,6 +1,8 @@
 package com.tilixibiesi.bili
 import com.tilixibiesi.data.AppPaths
 import com.tilixibiesi.data.LanguageUtils
+import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.AtomicFileWriter
 import com.tilixibiesi.R
 
 import android.app.AlertDialog
@@ -76,7 +78,7 @@ fun downloadVideoWithQuality(
         return
     }
     val (dialog, progressBar) = createProgressDialog(context, LanguageUtils.getString(context, R.string.download_desc, desc))
-    Thread {
+    AppExecutors.io.execute {
         try {
             val dir = AppPaths.mp4DownloadDir()
             dir.mkdirs()
@@ -87,7 +89,7 @@ fun downloadVideoWithQuality(
             if (!videoOk) {
                 vTemp.delete()
                 handler.post { dialog.dismiss() }
-                return@Thread
+                return@execute
             }
             var aTemp: File? = null
             if (audioUrl.isNotEmpty()) {
@@ -97,7 +99,7 @@ fun downloadVideoWithQuality(
                     aTemp.delete()
                     vTemp.delete()
                     handler.post { dialog.dismiss() }
-                    return@Thread
+                    return@execute
                 }
             }
 
@@ -133,7 +135,7 @@ fun downloadVideoWithQuality(
                 Toast.makeText(context, LanguageUtils.getString(context, R.string.download_failed_msg, e.message), Toast.LENGTH_SHORT).show()
             }
         }
-    }.start()
+    }
 }
     fun downloadAudioOnly(
         context: Context,
@@ -146,7 +148,7 @@ fun downloadVideoWithQuality(
             return
         }
         val (dialog, progressBar) = createProgressDialog(context, LanguageUtils.getString(context, R.string.download_desc, desc))
-        Thread {
+        AppExecutors.io.execute {
             try {
                 val dir = AppPaths.mp4DownloadDir()
                 dir.mkdirs()
@@ -156,7 +158,7 @@ fun downloadVideoWithQuality(
                 if (!ok) {
                     target.delete()
                     handler.post { dialog.dismiss() }
-                    return@Thread
+                    return@execute
                 }
                 handler.post {
                     dialog.dismiss()
@@ -168,7 +170,7 @@ fun downloadVideoWithQuality(
                     Toast.makeText(context, LanguageUtils.getString(context, R.string.download_failed_msg, e.message), Toast.LENGTH_SHORT).show()
                 }
             }
-        }.start()
+        }
     }
 
     /**
@@ -207,7 +209,7 @@ fun downloadVideoWithQuality(
                 safeName = sanitize(title) + lanPart + "_$trackIndex.srt"
             }
             val finalTarget = File(dir, safeName)
-            finalTarget.writeText(BiliSubtitleHelper.toSrt(cues))
+            AtomicFileWriter.writeText(finalTarget, BiliSubtitleHelper.toSrt(cues))
             finalTarget
         } catch (_: Exception) {
             null

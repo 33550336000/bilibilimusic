@@ -1,6 +1,7 @@
 package com.tilixibiesi.network
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.data.LanguageUtils
+import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.R
 import android.content.Context
 
@@ -16,7 +17,7 @@ object HttpUtils {
 
     // 原有方法：加载音乐列表
     fun getMusicListAsync(context: Context, listener: OnMusicListLoadListener?) {
-        Thread {
+        AppExecutors.io.execute {
             val musicList = mutableListOf<MusicBean>()
             var connection: HttpURLConnection? = null
             var reader: BufferedReader? = null
@@ -48,7 +49,7 @@ object HttpUtils {
                 try { reader?.close() } catch (_: Exception) {}
                 try { connection?.disconnect() } catch (_: Exception) {}
             }
-        }.start()
+        }
     }
 
     interface OnMusicListLoadListener {

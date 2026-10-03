@@ -1,6 +1,7 @@
 package com.tilixibiesi.bili
 
 import com.tilixibiesi.network.HttpUtils
+import com.tilixibiesi.util.AppExecutors
 import org.json.JSONObject
 
 import java.util.concurrent.ConcurrentHashMap
@@ -136,13 +137,13 @@ object BiliSubtitleHelper {
         }
         val latch = CountDownLatch(size)
         for (i in 0 until size) {
-            Thread {
+            AppExecutors.io.execute {
                 try {
                     mergeInto(acc, fetchSample(bvid, cid, cookie))
                 } finally {
                     latch.countDown()
                 }
-            }.start()
+            }
         }
         try {
             latch.await(20, TimeUnit.SECONDS)

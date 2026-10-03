@@ -43,6 +43,7 @@ import com.tilixibiesi.ui.AccessibleTextView
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.util.BackgroundHelper
+import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
 import java.io.File
 import java.lang.ref.WeakReference
@@ -476,12 +477,12 @@ class SongsPage(base: Context) : BasePage(base) {
         }
         val pageRef = WeakReference<SongsPage>(this)
         val mainHandler = handler
-        Thread {
+        AppExecutors.io.execute {
             try {
                 val biliBeans = BiliHistoryHelper.loadAll()
                 if (biliBeans.isEmpty()) {
                     synchronized(biliHistoryLock) { isLoadingBiliHistory = false }
-                    return@Thread
+                    return@execute
                 }
                 mainHandler.post {
                     val page = pageRef.get()
@@ -494,7 +495,7 @@ class SongsPage(base: Context) : BasePage(base) {
             } catch (e: Exception) {
                 synchronized(biliHistoryLock) { isLoadingBiliHistory = false }
             }
-        }.start()
+        }
     }
 
     /** 在主线程把 B 站历史合并进列表并复位加载标记 */
@@ -1029,9 +1030,9 @@ class SongsPage(base: Context) : BasePage(base) {
     }
 
     private fun removeBiliEntryFromHistory(bvid: String) {
-        Thread {
+        AppExecutors.io.execute {
             BiliHistoryHelper.removeByBvid(bvid)
-        }.start()
+        }
     }
 
     // ==================== 播放状态广播 ====================

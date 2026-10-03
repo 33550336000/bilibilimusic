@@ -4,6 +4,7 @@ import com.tilixibiesi.model.BiliVideo
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.StoragePaths
+import com.tilixibiesi.util.AtomicFileWriter
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -101,7 +102,9 @@ object BiliHistoryHelper {
             put("coverUrl", video.coverUrl)
         }
         jsonArray.put(newObj)
-        StoragePaths.resolveWrite(HISTORY_FILE_REL).writeText(jsonArray.toString(2))
+        // 原子落盘：历史是整份覆写，半截 JSON 会让 readJsonArray 返回空数组，
+        // 表现为「历史记录全部消失」
+        AtomicFileWriter.writeText(StoragePaths.resolveWrite(HISTORY_FILE_REL), jsonArray.toString(2))
     }
 
     /** 按 bvid 删除一条记录 */
@@ -115,7 +118,7 @@ object BiliHistoryHelper {
             else newArray.put(obj)
         }
         if (removed) {
-            StoragePaths.resolveWrite(HISTORY_FILE_REL).writeText(newArray.toString(2))
+            AtomicFileWriter.writeText(StoragePaths.resolveWrite(HISTORY_FILE_REL), newArray.toString(2))
         }
     }
 }

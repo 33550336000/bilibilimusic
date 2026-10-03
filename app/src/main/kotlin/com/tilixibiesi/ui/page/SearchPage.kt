@@ -14,6 +14,7 @@ import com.tilixibiesi.bili.BiliSubtitleHelper
 import com.tilixibiesi.bili.BiliSubtitleTrack
 import com.tilixibiesi.ui.widget.DanmakuView
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.WindowUtils
 import com.tilixibiesi.ui.adapter.MusicAdapter
@@ -187,7 +188,7 @@ class SearchPage(base: Context) : BasePage(base) {
         val cookie = SpUtils.getBiliCookie(this)
         if (cookie.isEmpty()) return
         isCheckingCookie = true
-        Thread {
+        AppExecutors.io.execute {
             try {
                 val url = URL("https://api.bilibili.com/x/web-interface/nav")
                 val conn = url.openConnection() as HttpURLConnection
@@ -213,7 +214,7 @@ class SearchPage(base: Context) : BasePage(base) {
                 isCheckingCookie = false
                 cookieValidChecked = true
             }
-        }.start()
+        }
     }
 
     // ---------- 生命周期 ----------
@@ -758,7 +759,7 @@ class SearchPage(base: Context) : BasePage(base) {
 
     /** 清理 WebView 落盘的缓存文件（销毁之后异步跑，不影响界面） */
     private fun clearWebViewCacheAsync() {
-        Thread {
+        AppExecutors.io.execute {
             // 前台只在页面销毁时清：这里用定点版而非激进版 purge()，
             // 因为应用可能仍在前台运行（关闭登录页），激进版会连
             // code_cache / app_textures / databases 一起清，打断正在运行的自身。
@@ -770,7 +771,7 @@ class SearchPage(base: Context) : BasePage(base) {
                 CookieManager.getInstance().removeAllCookies(null)
                 CookieManager.getInstance().flush()
             }
-        }.start()
+        }
     }
 
     private fun initPageButtons() {
@@ -858,7 +859,7 @@ class SearchPage(base: Context) : BasePage(base) {
         }
 
         val id = biliSearchRequestId.incrementAndGet()
-        Thread {
+        AppExecutors.io.execute {
             val cookie = SpUtils.getBiliCookie(this)
             val result = BiliSearchHelper.searchVideosPage(currentKeyword, page, cookie)
             if (id != biliSearchRequestId.get()) {
@@ -868,7 +869,7 @@ class SearchPage(base: Context) : BasePage(base) {
                     tvSearchingHint.visibility = View.GONE
                     lvFooterView.visibility = View.GONE
                 }
-                return@Thread
+                return@execute
             }
             handler.post {
                 if (id != biliSearchRequestId.get()) return@post
@@ -926,7 +927,7 @@ class SearchPage(base: Context) : BasePage(base) {
                 hasMorePage = hasMore
                 isLoadingMore = false
             }
-        }.start()
+        }
     }
 
     private fun hideSearchingHint() {
@@ -962,35 +963,39 @@ class SearchPage(base: Context) : BasePage(base) {
     private fun showDownloadQualityDialog(video: BiliVideo) {
         val dialog = DialogHelper.createLoadingDialog(this, LanguageUtils.getString(this@SearchPage, R.string.loading_fetch_quality))
         dialog.show()
-        Thread {
+        AppExecutors.io.execute {
             val cookie = SpUtils.getBiliCookie(this)
             val detail = BiliSearchHelper.getVideoDetail(video.bvid, cookie) ?: run {
                 handler.post { dialog.dismiss(); ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.video_info_fail)) }
-                return@Thread
+                return@execute
             }
             // 画质列表与字幕轨道互不依赖，并行拉取：
             // 字幕需要多次采样合并（详见 BiliSubtitleHelper），耗时明显，
             // 串行会让弹窗多等好几秒。失败视为"无字幕"，不阻断下载。
+            //
+            // 注意：这里是「池线程提交子任务后阻塞等待」的 fan-out。
+            // AppExecutors 用 CallerRunsPolicy，池满时子任务由本线程直接执行，
+            // 因此 latch 一定能倒数到 0，不会因线程耗尽而永久等待。
             val latch = CountDownLatch(2)
             var urls: BiliSearchHelper.PlayUrlResult? = null
             var subtitleTracks: List<BiliSubtitleTrack> = emptyList()
-            Thread {
+            AppExecutors.io.execute {
                 try {
                     urls = BiliSearchHelper.getPlayUrls(detail.bvid, detail.cid, cookie)
                 } finally { latch.countDown() }
-            }.start()
-            Thread {
+            }
+            AppExecutors.io.execute {
                 try {
                     // 内部先取稳定的语种清单确定"有几种字幕"，再并发采样补每种的下载 URL。
                     // 语种数量恒定不变，不会出现"时多时少 / 有时显示无字幕"。
                     subtitleTracks = BiliSubtitleHelper.fetchTracks(detail.bvid, detail.cid, cookie)
                 } finally { latch.countDown() }
-            }.start()
+            }
             try { latch.await() } catch (_: InterruptedException) { }
             // 用局部 val 接住：闭包里写过的 var 无法 smart cast 成非空
             val playUrls = urls ?: run {
                 handler.post { dialog.dismiss(); ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.quality_fetch_fail)) }
-                return@Thread
+                return@execute
             }
             handler.post {
                 dialog.dismiss()
@@ -1117,7 +1122,7 @@ class SearchPage(base: Context) : BasePage(base) {
                         .setNegativeButton(R.string.cancel, null)
                 )
             }
-        }.start()
+        }
     }
 
     /**
@@ -1137,7 +1142,7 @@ class SearchPage(base: Context) : BasePage(base) {
         indices: List<Int>,
         cookie: String
     ) {
-        Thread {
+        AppExecutors.io.execute {
             val saved = mutableListOf<String>()
             var failed = 0
             for (idx in indices) {
@@ -1163,7 +1168,7 @@ class SearchPage(base: Context) : BasePage(base) {
                     )
                 }
             }
-        }.start()
+        }
     }
 
     private fun showAddToHistoryDialog(bean: MusicBean) {
@@ -1180,9 +1185,9 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun recordBiliEntry(video: BiliVideo) {
-        Thread {
+        AppExecutors.io.execute {
             BiliHistoryHelper.addEntry(video)
-        }.start()
+        }
     }
 
     private fun recordBiliEntryFromBean(bean: MusicBean) {

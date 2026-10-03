@@ -6,6 +6,7 @@ import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.data.FootprintUtils
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.util.BackgroundHelper
+import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.ui.SettingsToggleDialogs
@@ -711,7 +712,7 @@ class SettingsPage(base: Context) : BasePage(base) {
     /** 下载指定语言资源并应用；成功则切换语言并重建，失败则提示 */
     private fun downloadAndApplyLanguage(code: String) {
         ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.language_downloading))
-        Thread {
+        AppExecutors.io.execute {
             val ok = LanguageUtils.downloadLanguage(this, code)
             runOnUiThread {
                 if (ok) {
@@ -721,8 +722,7 @@ class SettingsPage(base: Context) : BasePage(base) {
                     ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.language_download_failed))
                 }
             }
-        }.start()
-    }
+        }    }
     private fun applySettingsToUI() {
         val fontColor = SpUtils.getFontColor(this)
         etFontColor.setText(fontColor)

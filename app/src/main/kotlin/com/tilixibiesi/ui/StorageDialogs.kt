@@ -111,8 +111,11 @@ class StorageDialogs(
                     .setPositiveButton(LanguageUtils.getString(context, R.string.btn_delete)) { _, _ ->
                         val md5 = map[name] ?: return@setPositiveButton
                         File(cacheDir, md5).delete()
+                        // 用 updateCacheMap 在锁内重读最新映射再删：
+                        // 弹窗打开期间后台可能刚好缓存完一首歌，若拿本地这份
+                        // 旧 map 整份写回，那条新记录会被抹掉。
+                        cacheManager.updateCacheMap { it.remove(name) }
                         map.remove(name)
-                        cacheManager.saveCacheMap(map)
                         musicNames.remove(name)
                         adapter.notifyDataSetChanged()
                         if (map.isEmpty()) {

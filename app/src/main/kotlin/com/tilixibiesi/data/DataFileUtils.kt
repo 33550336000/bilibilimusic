@@ -3,6 +3,7 @@ import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.model.PlaylistBean
 import com.tilixibiesi.R
 import com.tilixibiesi.data.LanguageUtils
+import com.tilixibiesi.util.AtomicFileWriter
 
 import android.content.Context
 import android.os.Handler
@@ -91,11 +92,7 @@ object DataFileUtils {
         try {
             val dir = relWrite(APPDATA_REL)
             if (!dir.exists()) dir.mkdirs()
-            OutputStreamWriter(FileOutputStream(relWrite(RENAME_FILE_REL)), Charsets.UTF_8).use { writer ->
-                renameMap.forEach { (k, v) ->
-                    writer.write("$k=$v\n")
-                }
-            }
+            writeRenameFile()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -107,16 +104,24 @@ object DataFileUtils {
             try {
                 val dir = relWrite(APPDATA_REL)
                 if (!dir.exists()) dir.mkdirs()
-                OutputStreamWriter(FileOutputStream(relWrite(RENAME_FILE_REL)), Charsets.UTF_8).use { writer ->
-                    renameMap.forEach { (k, v) ->
-                        writer.write("$k=$v\n")
-                    }
-                }
+                writeRenameFile()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
         return removed
+    }
+
+    /**
+     * 把 [renameMap] 整份原子落盘。
+     *
+     * 原先两处调用各自 `FileOutputStream(...)` 直接写目标文件——先截断再写，
+     * 中途失败会把用户积累的全部重命名记录清空。改为临时文件 + rename。
+     */
+    private fun writeRenameFile() {
+        val sb = StringBuilder()
+        renameMap.forEach { (k, v) -> sb.append(k).append('=').append(v).append('\n') }
+        AtomicFileWriter.writeText(relWrite(RENAME_FILE_REL), sb.toString())
     }
     // ========== 以下方法保持不变 ==========
 
@@ -181,9 +186,8 @@ object DataFileUtils {
             for (bean in list) {
                 arr.put(musicBeanToJson(bean))
             }
-            OutputStreamWriter(FileOutputStream(relWrite(MUSIC_FILE_REL)), Charsets.UTF_8).use { writer ->
-                writer.write(arr.toString())
-            }
+            // 原子落盘：music.txt 是列表的完整快照，半截 JSON 会让整个列表读不出来
+            AtomicFileWriter.writeText(relWrite(MUSIC_FILE_REL), arr.toString())
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -214,9 +218,8 @@ object DataFileUtils {
             for (pl in playlists) {
                 arr.put(playlistToJson(pl))
             }
-            OutputStreamWriter(FileOutputStream(relWrite(PLAYLIST_FILE_REL)), Charsets.UTF_8).use { writer ->
-                writer.write(arr.toString())
-            }
+            // 原子落盘：歌单是递归结构，半截 JSON 会让全部歌单丢失
+            AtomicFileWriter.writeText(relWrite(PLAYLIST_FILE_REL), arr.toString())
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -318,9 +321,9 @@ object DataFileUtils {
         try {
             val dir = relWrite(APPDATA_REL)
             if (!dir.exists()) dir.mkdirs()
-            OutputStreamWriter(FileOutputStream(relWrite(BLOCKED_WORDS_FILE_REL)), Charsets.UTF_8).use { writer ->
-                words.forEach { writer.write("$it\n") }
-            }
+            val sb = StringBuilder()
+            words.forEach { sb.append(it).append('\n') }
+            AtomicFileWriter.writeText(relWrite(BLOCKED_WORDS_FILE_REL), sb.toString())
         } catch (e: Exception) {
             e.printStackTrace()
         }
