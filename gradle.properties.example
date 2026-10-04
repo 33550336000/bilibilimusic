@@ -1,0 +1,9 @@
+# 复制此文件为 ~/.gradle/gradle.properties 并填入真实值（不要提交真实密码）
+#
+# 本项目的 release 构建需要以下属性来签名 APK：
+signing.keyId=yuanshen
+signing.password=CHANGE_ME
+signing.alias=yuanshen
+signing.keystoreFile=yuanshen.keystore
+
+# 说明：yuanshen.keystore 需放在项目根目录，且已被 .gitignore 忽略。
