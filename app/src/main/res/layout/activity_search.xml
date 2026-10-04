@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 外层 FrameLayout 即「背景宿主」：背景层加到它的 index 0（位于所有内容之下）。
+     内层 layout_search_root 必须保持透明，背景才透得出来。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/search_bg_host"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#FF000000"
     tools:ignore="MergeRootFrame"
     android:keepScreenOn="true">
 
@@ -12,7 +16,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical"
-        android:background="#000000">
+        android:background="#00000000">
 
         <!-- 搜索栏 -->
         <LinearLayout

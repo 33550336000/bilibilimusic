@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- 外层 FrameLayout 只作「背景宿主」：视频背景必须与内容**叠放**（叠在内容之下），
+     而 ScrollView 只允许一个直接子 View——BackgroundHelper 往 ScrollView 里 addView
+     会抛 IllegalStateException("ScrollView can host only one direct child") 直接崩溃。
+     故这里套一层 FrameLayout 承载背景层；ScrollView 仍是唯一的滚动内容，
+     settings_root 的既有语义（滚动、点击空白收键盘）完全不变。 -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settings_bg_host"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:keepScreenOn="true">
+
+<ScrollView
     android:id="@+id/settings_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -761,3 +772,5 @@
 
     </LinearLayout>
 </ScrollView>
+
+</FrameLayout>

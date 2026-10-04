@@ -1201,8 +1201,10 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun applySettings() {
-        val root = findViewById<View>(R.id.layout_search_root) ?: return
-        BackgroundHelper.applyBackground(this, root, SpUtils.getBackgroundAlpha(this))
+        // 背景宿主是外层 FrameLayout：内容根 layout_search_root 保持透明，
+        // 背景层（index 0）才透得出来，且与内容层叠而非挤占空间。
+        val bgHost = findViewById<View>(R.id.search_bg_host) ?: return
+        BackgroundHelper.applyBackground(this, bgHost, SpUtils.getBackgroundAlpha(this))
         try {
             etSearch.setTextColor(Color.parseColor(SpUtils.getFontColor(this)))
         } catch (_: Exception) { etSearch.setTextColor(0xFFFFFFFF.toInt()) }

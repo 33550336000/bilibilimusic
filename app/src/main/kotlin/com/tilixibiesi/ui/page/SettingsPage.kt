@@ -65,6 +65,14 @@ class SettingsPage(base: Context) : BasePage(base) {
     private lateinit var btnRestoreDefault: Button
     private var tempBackgroundAlpha: Int = 100
     private lateinit var rootView: View
+    /**
+     * 背景宿主（最外层 FrameLayout）。
+     *
+     * 与 [rootView] 分开：rootView 是 ScrollView（负责滚动与「点空白收键盘」），
+     * 而 ScrollView 只能有一个直接子 View，无法承载视频背景层。
+     * 背景一律加到 [bgHost]，由它与内容层叠（详见 BackgroundHelper）。
+     */
+    private lateinit var bgHost: View
     private lateinit var btnBlockedWords: Button
     private lateinit var sbFontColorHue: SeekBar
     private lateinit var tvFontColorPreview: TextView
@@ -81,6 +89,7 @@ class SettingsPage(base: Context) : BasePage(base) {
         // 页标题"设置"需按当前语言动态设置，切换语言后才会刷新为日语
         findViewById<TextView>(R.id.title_settings_page)?.text = LanguageUtils.getString(this@SettingsPage, R.string.settings_title)
         rootView = findViewById<View>(R.id.settings_root)!!
+        bgHost = findViewById<View>(R.id.settings_bg_host)!!
         // 原 Activity.dispatchTouchEvent 的等价实现：
         // 点击字体大小/颜色输入框以外的地方时，清除焦点并收起软键盘，避免光标滞留。
         // 挂在页面根 View 上——只有在没有子 View 消费该 ACTION_DOWN 时才回调，
@@ -656,7 +665,9 @@ class SettingsPage(base: Context) : BasePage(base) {
 
     private fun applyBackground() {
         val alpha = tempBackgroundAlpha.coerceAtLeast(0)
-        BackgroundHelper.applyBackground(this, rootView, alpha)
+        // 必须加到 bgHost（FrameLayout）而非 rootView（ScrollView）：
+        // 后者只允许一个直接子 View，视频背景会直接抛异常崩溃。
+        BackgroundHelper.applyBackground(this, bgHost, alpha)
     }
 
     private fun showLanguageDialog() {

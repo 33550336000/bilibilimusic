@@ -37,7 +37,8 @@ class PlaylistDetailActivity : BaseActivity() {
     private lateinit var musicList: MutableList<MusicBean>
     private var playlistId: String? = null
     private lateinit var btnBack: ImageButton
-    private lateinit var rootView: View
+    /** 背景宿主（外层 FrameLayout），承载与内容层叠的背景层 */
+    private lateinit var bgHost: View
     private var gestureDetector: GestureDetector? = null
     private var allMusicList: List<MusicBean> = emptyList()
     private lateinit var etSearch: EditText
@@ -62,7 +63,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
     setContentView(R.layout.activity_playlist_detail)   // 先设置布局
     setFullScreen()                                    // 再全屏
 
-    rootView = findViewById(R.id.detail_root)
+    bgHost = findViewById(R.id.detail_bg_host)
     lvMusic = findViewById(R.id.lv_music_detail)
     btnBack = findViewById(R.id.btn_back)
     etSearch = findViewById(R.id.et_search)
@@ -445,7 +446,7 @@ private fun initSwipeGesture() {
 
     private fun applyBackground() {
         val alphaPercent = SpUtils.getBackgroundAlpha(this)
-        BackgroundHelper.applyBackground(this, rootView, alphaPercent)
+        BackgroundHelper.applyBackground(this, bgHost, alphaPercent)
     }
 
 @Deprecated("Deprecated in Java")

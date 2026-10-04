@@ -793,7 +793,8 @@ class SongsPage(base: Context) : BasePage(base) {
 
     private fun applyBackgroundSettings() {
         val alphaPercent = SpUtils.getBackgroundAlpha(this)
-        BackgroundHelper.applyBackground(this, findViewById(R.id.activity_main_root)!!, alphaPercent)
+        // 背景宿主是外层 FrameLayout：视频背景与内容层叠，而非把内容挤下去。
+        BackgroundHelper.applyBackground(this, findViewById(R.id.main_bg_host)!!, alphaPercent)
     }
 
     private fun applyTitleStyle() {
