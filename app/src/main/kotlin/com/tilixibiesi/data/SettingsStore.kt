@@ -7,6 +7,8 @@ import com.tilixibiesi.util.ToastUtils
 
 import android.content.Context
 import android.net.Uri
+import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -123,11 +125,15 @@ object SettingsStore {
     }
 
     /**
-     * 把用户选中的图片复制为「默认背景」，并清掉旧的所有默认背景文件。
+     * 把用户选中的图片或视频复制为「默认背景」，并清掉旧的所有默认背景文件。
      *
-     * 落盘文件名固定为 `default_background`（不带扩展名），
-     * 由 [com.tilixibiesi.util.BackgroundHelper] 按前缀匹配读取，
-     * 这样更换图片时无需关心格式变化。
+     * 落盘文件名固定为 `default_background.<扩展名>`，
+     * 由 [com.tilixibiesi.util.BackgroundHelper] 按前缀匹配读取。
+     *
+     * 扩展名必须保留：BackgroundHelper 靠扩展名区分图片与视频
+     * （视频交给 VideoView 播放，图片走 BitmapFactory 解码），
+     * 若去掉后缀，视频会被当成图片解码失败而显示为黑屏。
+     * 扩展名取自来源 URI 的显示名，取不到时按 MIME 类型兜底。
      *
      * @return 新文件的绝对路径；失败返回 null
      */
@@ -147,8 +153,8 @@ object SettingsStore {
                 }
             }
 
-            // 保存新文件，去掉后缀
-            val destFile = File(dir, "default_background")
+            // 保存新文件，保留扩展名（视频/图片的判定依赖它）
+            val destFile = File(dir, "default_background." + resolveExtension(context, srcUri))
             FileOutputStream(destFile).use { output ->
                 inputStream.copyTo(output)
             }
@@ -157,5 +163,39 @@ object SettingsStore {
             e.printStackTrace()
             null
         }
+    }
+
+    /**
+     * 推断来源 URI 的扩展名（不含点，已转小写）。
+     * 优先用文件显示名的后缀；显示名没有后缀时按 MIME 类型映射；
+     * 都拿不到时回退 "img"，保证图片仍能按「非视频」分支正常解码。
+     */
+    private fun resolveExtension(context: Context, srcUri: Uri): String {
+        // 1. 显示名后缀
+        try {
+            context.contentResolver.query(srcUri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val name = cursor.getString(0)
+                        val ext = name?.substringAfterLast('.', "")?.lowercase()
+                        if (!ext.isNullOrEmpty() && ext.length <= 5 && ext.all { it.isLetterOrDigit() }) {
+                            return ext
+                        }
+                    }
+                }
+        } catch (_: Exception) {
+        }
+
+        // 2. MIME 类型映射
+        try {
+            val mime = context.contentResolver.getType(srcUri)
+            if (!mime.isNullOrEmpty()) {
+                val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
+                if (!ext.isNullOrEmpty()) return ext.lowercase()
+            }
+        } catch (_: Exception) {
+        }
+
+        return "img"
     }
 }

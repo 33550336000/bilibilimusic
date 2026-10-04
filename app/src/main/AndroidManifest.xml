@@ -36,6 +36,21 @@
     <uses-permission android:name="android.permission.ACCESS_DOWNLOAD_MANAGER" />
     <uses-permission android:name="android.permission.READ_CLIPBOARD" />
     <uses-permission android:name="android.permission.WRITE_CLIPBOARD" />
+
+    <!-- ========== 软件包可见性（Android 11 / API 30 起） ==========
+         设置页「选择默认背景」需要探测系统文件选择器能否处理 ACTION_OPEN_DOCUMENT。
+         targetSdk 30 起，未在此声明的应用对查询不可见：resolveActivity() /
+         queryIntentActivities() 会把它们当作不存在而返回 null，但 startActivity()
+         本身不受影响（vivo 可见、OPPO/ColorOS 不可见，即由此导致）。
+         声明下面这一组 intent，使各家文件选择器重新对查询可见。 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.OPEN_DOCUMENT" />
+            <category android:name="android.intent.category.OPENABLE" />
+            <data android:mimeType="*/*" />
+        </intent>
+    </queries>
+
     <application
         android:name=".MyApplication"
         android:theme="@style/AppTheme"
