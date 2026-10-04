@@ -1154,6 +1154,9 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         videoNotificationActive = true
         VideoPlaybackController.attach(this)
         VideoPlaybackService.show(activity, currentVideoTitle, currentVideoAuthor)
+        // 歌词通常比通知先到（取词约 0.16s，起播要 1~3s），那份结果被暂存着，
+        // 通知挂出后必须补推一次，否则本视频的歌词永远不会显示。
+        flushPendingLyric()
     }
 
     /** 收起通知并摘掉控制面；通知本就没挂出时空转 */
@@ -1162,6 +1165,9 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         // 在途的歌词请求一并作废：本视频的通知都要撤了，
         // 它的歌词自然也不该再推给下一条通知
         cancelLyricLoad()
+        // 暂存但尚未补推的歌词同样作废，避免串到下一条通知上
+        pendingLyric = null
+        pendingLyricBvid = null
         if (!videoNotificationActive) return
         videoNotificationActive = false
         VideoPlaybackService.stop(activity)
@@ -1209,12 +1215,50 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
                 // 与弹幕的校验方式一致（都拿 playRequestId 比对），
                 // 因为歌词同样可能比切视频的收尾晚回来。
                 if (requestId != playRequestId.get()) return@post
-                if (!videoNotificationActive) return@post
-                // 传 null 也是有效信息：服务据此明确"没有歌词"，退回默认文案
-                VideoPlaybackService.attachLyric(activity, lyric)
+                // **先存下来，不因为"通知还没挂出"就丢掉。**
+                //
+                // 这里曾经直接 `if (!videoNotificationActive) return`，造成一个真实 bug：
+                // 歌词整条链路只要约 0.16 秒（wbi/v2 0.12s + 字幕 0.04s），
+                // 而视频要取链 + 缓冲、约 1~3 秒后才 onPrepared 并挂出通知。
+                // 于是歌词**总是**比通知先到，被这行丢弃，且 lyricInFlight 仍为 true
+                // 永不重试 —— 表现为"视频通知永远没有歌词，只显示 UP 主名"。
+                // （音乐侧不受影响：它是在 onPrepared 之后才发起取词的。）
+                pendingLyric = lyric
+                pendingLyricBvid = bvid
+                // 通知已在（歌词较慢的情况）：立即推给服务
+                if (videoNotificationActive) {
+                    VideoPlaybackService.attachLyric(activity, lyric)
+                }
+                // 通知尚未挂出：什么都不做，等 attachVideoNotification() 起播后补推
             }
         }
     }
+
+    /**
+     * 把"歌词先于通知到达"时暂存的结果补推给视频通知。
+     *
+     * 在 [attachVideoNotification] 挂出通知之后调用（见那里的说明）。
+     * 没有暂存内容时（歌词比通知慢，或该视频无歌词）不做任何事——
+     * 那条情况下歌词到达时会自行推送。
+     */
+    private fun flushPendingLyric() {
+        val bvid = pendingLyricBvid ?: return
+        // 期间已切视频：暂存内容作废
+        if (bvid != currentBvid) {
+            pendingLyric = null
+            pendingLyricBvid = null
+            return
+        }
+        val lyric = pendingLyric
+        pendingLyric = null
+        pendingLyricBvid = null
+        // 传 null 也是有效信息：服务据此明确"没有歌词"，退回默认文案
+        VideoPlaybackService.attachLyric(activity, lyric)
+    }
+
+    /** 先于通知到达的歌词结果；由 [flushPendingLyric] 补推后清空 */
+    private var pendingLyric: BiliLyric? = null
+    private var pendingLyricBvid: String? = null
 
     /**
      * 作废在途的歌词请求并允许下一次重新拉取。

@@ -871,7 +871,14 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         // 起播即开始后台取歌词；取到后会主动刷新一次通知。
         // 放在这里而不是 playResolved：只有真正起播（Prepared）了才值得为它花三个请求，
         // 取链失败自动跳下一首的情况不该产生任何歌词请求。
-        currentBvid?.takeIf { it.isNotEmpty() }?.let { bvid ->
+        //
+        // **bvid 必须从 currentMusicBean 取，不能用 currentBvid。**
+        // currentBvid 只在 playResolved 的"B 站网络音频"分支里赋值，
+        // 而"缓存命中"与"本地已下载"那两条分支会提前 return ——
+        // 若依赖 currentBvid，凡是已缓存/已下载的 B 站音乐都拿不到歌词
+        // （表现为"同一首歌：视频里播放有歌词、主页播放却没有"）。
+        // currentMusicBean 在上述所有分支都会先被赋值，是可靠来源。
+        currentMusicBean?.bvid?.takeIf { it.isNotEmpty() }?.let { bvid ->
             startLyricLoad(bvid, (resolveDurationMs() / 1000L).toInt())
         }
     }
