@@ -469,6 +469,20 @@ override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) 
         super.onResume()
         refreshMusicList()
         applyBackground()
+        // 本 Activity 可见：背景视频播放并出声
+        BackgroundHelper.setActive(bgHost, true)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // 不可见（含被别的 Activity 覆盖）：暂停解码并静音
+        BackgroundHelper.setActive(bgHost, false)
+    }
+
+    override fun onDestroy() {
+        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
+        BackgroundHelper.release(bgHost)
+        super.onDestroy()
     }
 
     // ---------- 对话框样式 ----------

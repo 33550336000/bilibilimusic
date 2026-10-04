@@ -155,6 +155,8 @@ class SongsPage(base: Context) : BasePage(base) {
     override fun onResume() {
         stopBiliBackgroundPlayback()
         applyBackgroundSettings()
+        // 本页成为当前页：背景视频恢复播放并出声
+        BackgroundHelper.setActive(findViewById(R.id.main_bg_host)!!, true)
         applyTitleStyle()
         updateSearchFloatVisibility()
         btnSearchFloat.post {
@@ -176,6 +178,8 @@ class SongsPage(base: Context) : BasePage(base) {
     override fun onPause() {
         if (isAdjustMode) exitAdjustMode()
         PlaybackStatsManager.stopUpdater()
+        // 离开本页：暂停背景视频并静音
+        BackgroundHelper.setActive(findViewById(R.id.main_bg_host)!!, false)
     }
 
     override fun onDestroy() {
@@ -184,6 +188,8 @@ class SongsPage(base: Context) : BasePage(base) {
         PlaybackStatsManager.stopUpdater()
         PlaybackStatsManager.releaseViews()
         unregisterPageReceiver(playStateReceiver)
+        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
+        findViewById<View>(R.id.main_bg_host)?.let { BackgroundHelper.release(it) }
         super.onDestroy()
     }
 

@@ -69,9 +69,22 @@ class PlaylistPage(base: Context) : BasePage(base) {
 
     override fun onResume() {
         applyBackground()
+        // 本页成为当前页：背景视频恢复播放并出声（其余页在宿主派发的 onPause 里静音）
+        BackgroundHelper.setActive(bgHost, true)
         applyTitleStyle()
         loadPlaylists()
         adapter.notifyDataSetChanged()
+    }
+
+    override fun onPause() {
+        // 离开本页：立即暂停解码并静音，避免多页背景音叠加
+        BackgroundHelper.setActive(bgHost, false)
+    }
+
+    override fun onDestroy() {
+        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
+        BackgroundHelper.release(bgHost)
+        super.onDestroy()
     }
 
     private fun showMaterialDialog(builder: AlertDialog.Builder): AlertDialog =

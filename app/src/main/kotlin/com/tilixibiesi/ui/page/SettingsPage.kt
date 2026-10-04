@@ -120,6 +120,22 @@ class SettingsPage(base: Context) : BasePage(base) {
         setupCollapsibleSections()
     }
 
+    override fun onResume() {
+        // 本页成为当前页：背景视频恢复播放并出声
+        BackgroundHelper.setActive(bgHost, true)
+    }
+
+    override fun onPause() {
+        // 离开本页：暂停背景视频并静音
+        BackgroundHelper.setActive(bgHost, false)
+    }
+
+    override fun onDestroy() {
+        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
+        BackgroundHelper.release(bgHost)
+        super.onDestroy()
+    }
+
     /**
      * 让底部导航栏的增删立即生效。
      *

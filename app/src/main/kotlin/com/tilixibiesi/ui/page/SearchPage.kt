@@ -228,6 +228,8 @@ class SearchPage(base: Context) : BasePage(base) {
      */
     override fun onPause() {
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.releaseCovers()
+        // 离开本页：暂停背景视频并静音（避免多页背景音叠加）
+        findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.setActive(it, false) }
         // 应用不可见 / 离开本页时销毁登录 WebView。
         //
         // 两个目的：
@@ -289,6 +291,8 @@ class SearchPage(base: Context) : BasePage(base) {
         updateBiliButtonState()
         updateListVisibility()
         applySettings()
+        // 本页成为当前页：背景视频恢复播放并出声
+        findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.setActive(it, true) }
         if (!::videoPlayer.isInitialized) return
         videoPlayer.onHostResume()
         val layoutFullscreen = findViewById<FrameLayout>(R.id.layout_fullscreen_video) ?: return
@@ -303,6 +307,8 @@ class SearchPage(base: Context) : BasePage(base) {
         BiliVideoPlayer.stopCurrentVideo()
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.shutdown()
         destroyLoginWebView()
+        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
+        findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.release(it) }
     }
 
     override fun onBackPressed(): Boolean {
