@@ -1159,6 +1159,9 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
     /** 收起通知并摘掉控制面；通知本就没挂出时空转 */
     private fun detachVideoNotification() {
         VideoPlaybackController.detach(this)
+        // 在途的歌词请求一并作废：本视频的通知都要撤了，
+        // 它的歌词自然也不该再推给下一条通知
+        cancelLyricLoad()
         if (!videoNotificationActive) return
         videoNotificationActive = false
         VideoPlaybackService.stop(activity)
@@ -1169,6 +1172,62 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         if (!videoNotificationActive) return
         VideoPlaybackService.updateState(activity, mediaPlayer?.isPlaying == true)
     }
+
+    // ==================== 歌词 ====================
+
+    /**
+     * 拉取当前视频的歌词，成功后交给视频通知服务。
+     *
+     * 在**弹幕之后紧跟着**发起（都在同一个 io 线程里）：
+     * 歌词与弹幕一样不在"正在等画面"的关键路径上，慢一点不影响起播。
+     *
+     * [BiliLyricHelper] 主链路走的是「B 站音乐曲库」，与视频有没有字幕、
+     * 有没有弹幕都无关，也不要求登录态，因此大多数情况下能直接命中。
+     *
+     * @param bvid        稿件号
+     * @param cid         当前分 P 的 cid（曲库歌词只对应 P1，即顶层 cid）
+     * @param durationSec 视频总时长（秒），仅用于时间轴合理性兜底校验
+     * @param requestId   发起时的播放请求序号，用于丢弃过期的歌词
+     */
+    private fun loadLyric(bvid: String, cid: Long, durationSec: Int, requestId: Int) {
+        // 同一视频只拉一次：setOnPreparedListener 与 setOnCompletionListener
+        // 都会走到 attachVideoNotification → 这里是它们的下游，
+        // 而单曲循环播完一轮不该把歌词接口重打一遍
+        if (lyricInFlight) return
+        lyricInFlight = true
+        AppExecutors.io.execute {
+            val lyric = BiliLyricHelper.fetch(
+                bvid = bvid,
+                cid = cid,
+                durationSec = durationSec,
+                // 字幕兜底需要登录态（不带 Cookie 时 wbi/v2 的轨道恒为 0）；
+                // 曲库链路用不到它，但传上去没有副作用
+                cookie = SpUtils.getBiliCookie(activity)
+            )
+            handler.post {
+                // 已切视频 / 播放器已关闭：丢弃，别把旧歌词推给新通知。
+                // 与弹幕的校验方式一致（都拿 playRequestId 比对），
+                // 因为歌词同样可能比切视频的收尾晚回来。
+                if (requestId != playRequestId.get()) return@post
+                if (!videoNotificationActive) return@post
+                // 传 null 也是有效信息：服务据此明确"没有歌词"，退回默认文案
+                VideoPlaybackService.attachLyric(activity, lyric)
+            }
+        }
+    }
+
+    /**
+     * 作废在途的歌词请求并允许下一次重新拉取。
+     *
+     * 在途请求的回调会拿 [playRequestId] 比对（与弹幕同一套校验），
+     * 切视频时那个序号已被顶掉，因此这里的清标记不会让旧结果漏进来。
+     */
+    private fun cancelLyricLoad() {
+        lyricInFlight = false
+    }
+
+    /** 在途歌词请求标记：仅用于避免同一视频重复发起 */
+    private var lyricInFlight = false
 
     // ---------- VideoPlaybackController.Target ----------
 
@@ -1614,6 +1673,10 @@ private fun toggleLandscape() {
                 // 弹幕早于 prepareMediaPlayer 启动：MediaPlayer 缓冲期间弹幕已在跑，
                 // 观感上就是"打开即有弹幕"，而不是等画面出来才冒第一条。
                 loadDanmaku(info.cid, cookie, thisRequestId)
+                // 歌词同样是"取到就顺带刷一下通知"，不与起播抢时间：
+                // 它跑在同一个 io 线程里、排在弹性最大的弹幕请求之后。
+                // 时长用稿件时长（BiliVideo.duration 是 "MM:SS"，解析成秒）做兜底校验。
+                loadLyric(bvid, info.cid, parseDurationSeconds(video.duration), thisRequestId)
                 prepareMediaPlayer(url, actualStartPos, thisRequestId)
 
                 tvTitle.text = video.title
@@ -1627,6 +1690,22 @@ private fun toggleLandscape() {
 
     /** 是否正在播放。签名与 [VideoPlaybackController.Target.isPlaying] 一致，一并作为其实现 */
     override fun isPlaying(): Boolean = mediaPlayer?.isPlaying == true
+
+    /**
+     * 把 `BiliVideo.duration`（`"MM:SS"` 或 `"HH:MM:SS"`）解析成秒。
+     *
+     * 与 [BiliHistoryHelper] 里的同类解析口径一致；非法值按 0 处理，
+     * 0 会让歌词的时间轴校验自行跳过（宁可显示也不误丢）。
+     */
+    private fun parseDurationSeconds(raw: String): Int {
+        val parts = raw.split(":")
+        return when (parts.size) {
+            2 -> (parts[0].toIntOrNull() ?: 0) * 60 + (parts[1].toIntOrNull() ?: 0)
+            3 -> (parts[0].toIntOrNull() ?: 0) * 3600 +
+                (parts[1].toIntOrNull() ?: 0) * 60 + (parts[2].toIntOrNull() ?: 0)
+            else -> parts.getOrNull(0)?.toIntOrNull() ?: 0
+        }
+    }
 
     private fun getStatusBarHeight(): Int {
         val insets = activity.window.decorView.rootWindowInsets
