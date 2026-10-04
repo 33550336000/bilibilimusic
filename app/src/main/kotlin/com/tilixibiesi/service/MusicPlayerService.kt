@@ -8,6 +8,8 @@ import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.PlaybackDetails
 import com.tilixibiesi.data.StoragePaths
 import com.tilixibiesi.bili.BiliApiHelper
+import com.tilixibiesi.bili.BiliLyric
+import com.tilixibiesi.bili.BiliLyricHelper
 import com.tilixibiesi.bili.BiliSearchHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.AudioFocusController
@@ -175,6 +177,37 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     private val biliRetryIndex = mutableMapOf<String, Int>()              // bvid -> 当前尝试到的索引
     private var currentBvid: String? = null                                // 正在播放的 B 站视频 bvid
     private var currentMusicBean: MusicBean? = null                        // 正在播放的 MusicBean
+
+    // ---------- 歌词（通知文案用） ----------
+
+    /**
+     * 当前曲目的歌词；null 表示这首歌没有可用歌词（或还没加载完）。
+     *
+     * 只在**主线程**读写（加载完成后 post 回来），因此无需加锁。
+     * 为 null 时通知照旧显示「正在播放 / 已暂停」——这是绝大多数情况下的正常路径，
+     * 不是异常（实测 B 站音乐稿件只有约四成能拿到歌词）。
+     */
+    private var currentLyric: BiliLyric? = null
+
+    /**
+     * 当前正在加载歌词的 bvid。
+     *
+     * 用来避免重复加载：曲目未变时（暂停→恢复、拖动进度、切播放模式）
+     * 不该把三个接口重打一遍。
+     */
+    private var lyricLoadingBvid: String? = null
+
+    /**
+     * 上一次真正写进通知的副标题文案（歌词某句，或回退文案）。
+     *
+     * 进度循环每秒跑一次，但通知**只在文案真的变化时才重建**：
+     * 重建整条通知会让 SystemUI 重绘大视图（表现为通知闪烁），
+     * 这与 [MediaSessionManager.setTrackMetadata] 里刻意避免重复 setMetadata 是同一个考量。
+     *
+     * 由 [buildNotification] 统一写入 —— 它是"通知上到底显示了什么"的唯一真相来源。
+     * 让写入点跟着真正构建通知的地方走，可以避免这个缓存与通知实际内容脱节。
+     */
+    private var lastContentText: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -435,6 +468,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         errorCount = 0
         stopProgressUpdates()
         resetPlayState()
+        // 切歌：上一首的歌词必须立刻作废，否则新歌起播到歌词加载完之间
+        // 通知上会挂着上一首的歌词（错得比"正在播放"更离谱）
+        clearLyricState()
         audioFocus.request()
         return gen
     }
@@ -832,6 +868,12 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         if (!wakeLock.isHeld) wakeLock.acquire()
         if (!wifiLock.isHeld) wifiLock.acquire()
         savePlayState()
+        // 起播即开始后台取歌词；取到后会主动刷新一次通知。
+        // 放在这里而不是 playResolved：只有真正起播（Prepared）了才值得为它花三个请求，
+        // 取链失败自动跳下一首的情况不该产生任何歌词请求。
+        currentBvid?.takeIf { it.isNotEmpty() }?.let { bvid ->
+            startLyricLoad(bvid, (resolveDurationMs() / 1000L).toInt())
+        }
     }
 
     override fun onError(mp: MediaPlayer, what: Int, extra: Int): Boolean {
@@ -949,6 +991,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             }
             val name = currentPlayingName ?: ""
             sendPlayStateBroadcast(true, name)
+            // 恢复播放：位置没变，通知上的那句歌词也没变。这里照常重建通知
+            // （按钮要从「播放」翻成「暂停」），而 [lastContentText] 会由
+            // buildNotification 算出与上次相同的文案，不会额外引发重绘。
             updateNotification(name, true)
             startProgressUpdates()
             if (!wakeLock.isHeld) wakeLock.acquire()
@@ -963,6 +1008,10 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             isPaused = true
             isUserPaused = true
             stopProgressUpdates()
+            // 暂停期间位置不变，但文案必须按"暂停这一刻的位置"重算一次：
+            // 若暂停恰好发生在两次每秒刷新之间，通知上可能还是上上一句。
+            // 不用在这里手动置空缓存——紧接着的 updateNotification 会重建通知，
+            // 由 buildNotification 重新计算并刷新缓存。
             mediaPlayer?.let {
                 // 暂停时速度必须为 0：否则 SystemUI 会按上一档速度继续插值推进进度条
                 mediaSessionManager.updatePlaybackState(PlaybackState.STATE_PAUSED, it.currentPosition.toLong(), 0f)
@@ -981,6 +1030,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         stopProgressUpdates()
         resetPlayState()
         resetBiliState()
+        clearLyricState()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         flushStatsIfReady()
@@ -1007,6 +1057,101 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     // ---------- 通知与进度 ----------
 
+    /**
+     * 通知副标题文案 —— 有歌词且当前时刻有词时显示这句，否则回退
+     * 「正在播放 / 已暂停」。
+     *
+     * @param positionMs 取歌词用的播放位置。默认取播放器当前值；
+     *                   暂停/恢复等时刻调用方也可显式传入。
+     */
+    private fun notificationContentText(isPlaying: Boolean, positionMs: Long): String {
+        val lyric = currentLyric
+        if (lyric != null) {
+            val text = lyric.textAt(positionMs)
+            if (!text.isNullOrEmpty()) return text
+        }
+        return LanguageUtils.getString(
+            this,
+            if (isPlaying) R.string.text_playing else R.string.text_paused
+        )
+    }
+
+    /**
+     * 起播/切歌时加载歌词。**不阻塞播放**：后台取，取到后回主线程刷新一次通知。
+     *
+     * 失败（无歌词、断网、接口改版）一律静默：通知退回默认文案即可，
+     * 用户不该因为歌词取不到而看到任何错误提示。
+     *
+     * cid 在这里现取（[BiliSearchHelper.resolveCid] 内部有内存缓存，
+     * 同一 bvid 只会真正请求一次）——本服务播放 B 站音频时只记录了 bvid，
+     * 并没有存下 cid，而歌词与字幕都必须按 cid 定位到具体那个分 P。
+     *
+     * @param durationSec 视频总时长（秒），传给 helper 做时间轴合理性兜底校验
+     */
+    private fun startLyricLoad(bvid: String, durationSec: Int) {
+        // 这首歌已加载完（不论有没有结果）就不再重复请求：
+        // 暂停→恢复、拖动进度、切换播放模式都会走到这里，重复打接口纯属浪费。
+        if (lyricFinishedBvid == bvid) return
+
+        lyricLoadingBvid = bvid
+        currentLyric = null
+        // 置空以强制下一次构建通知时重新计算文案（新歌可能没有歌词）
+        lastContentText = null
+
+        AppExecutors.io.execute {
+            val cid = BiliSearchHelper.resolveCid(bvid) ?: 0L
+            if (cid <= 0L) {
+                mainHandler.post { if (lyricLoadingBvid == bvid) lyricFinishedBvid = bvid }
+                return@execute
+            }
+            // 只走曲库链路，不传任何登录态：本项目播放 B 站音频全程不用登录态
+            // （见 playResolved 的注释），歌词同样没必要破例。
+            val lyric = BiliLyricHelper.fetch(
+                bvid = bvid,
+                cid = cid,
+                durationSec = durationSec,
+                // 字幕兜底需要登录态（不带 Cookie 时 wbi/v2 的轨道恒为 0）。
+                // 注：本服务播放音频本身不用登录态，但**歌词的字幕兜底**需要——
+                // 用户没登录时只是少一层兜底，曲库链路照常工作。
+                cookie = SpUtils.getBiliCookie(this@MusicPlayerService)
+            )
+            mainHandler.post {
+                // 期间用户可能已切歌：丢弃过期结果，别把旧歌的歌词贴到新歌上
+                if (lyricLoadingBvid != bvid) return@post
+                lyricFinishedBvid = bvid
+                currentLyric = lyric
+                // 立即刷新一次：等下一次每秒 tick 的话，最多要 1 秒后才出现歌词
+                val name = currentPlayingName ?: return@post
+                updateNotification(name, isPlaying())
+            }
+        }
+    }
+
+    /** 已完成加载（不论有无结果）的 bvid，避免对"没有歌词"的歌反复重试 */
+    private var lyricFinishedBvid: String? = null
+
+    /**
+     * 通知文案的推进：每秒由进度循环调用（拖动进度时也会即时调用）。
+     *
+     * 只要**算出来的文案**与上次写进通知的不同就重建通知——这样
+     * "进入前奏 / 唱完最后一句 / 单曲循环回到开头"这几种情况都会
+     * 自动退回「正在播放」，而不会把上一句歌词永久冻在通知上。
+     */
+    private fun tickNotificationLyric(positionMs: Long) {
+        val name = currentPlayingName ?: return
+        val next = notificationContentText(isPlaying(), positionMs)
+        if (next == lastContentText) return
+        updateNotification(name, isPlaying())
+    }
+
+    /** 切歌/停止时清空歌词状态，避免上一首的歌词残留 */
+    private fun clearLyricState() {
+        currentLyric = null
+        lyricLoadingBvid = null
+        lyricFinishedBvid = null
+        lastContentText = null
+    }
+
     private fun buildNotification(musicName: String, isPlaying: Boolean): Notification {
         val contentIntent = Intent(this, MainPagerActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -1028,9 +1173,16 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
         // minSdk 30：直接使用 2 参构造器（带通知渠道）
         val builder: Notification.Builder = Notification.Builder(this, CHANNEL_ID)
+        // 先算出文案，再连同"它已经上屏"这件事一起记下来。
+        // 让唯一的写入点紧贴真正的构建处，可以保证 [lastContentText]
+        // 与通知上显示的内容永远一致（回调、暂停、拖动等路径都从这里过）。
+        val contentText = notificationContentText(isPlaying, currentLyricPosition())
+        lastContentText = contentText
         builder
             .setContentTitle(musicName)
-            .setContentText(if (isPlaying) LanguageUtils.getString(this, R.string.text_playing) else LanguageUtils.getString(this, R.string.text_paused))
+            // 副标题优先显示歌词（见 notificationContentText）；没有歌词时
+            // 退回「正在播放 / 已暂停」，也就是改动前的行为。
+            .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -1045,6 +1197,27 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         NotificationHelper.addAction(this, builder, playPauseIcon, playPauseTitle, piPlay)
         NotificationHelper.addAction(this, builder, android.R.drawable.ic_media_next, LanguageUtils.getString(this, R.string.btn_next_short), piNext)
         return builder.build()
+    }
+
+    /**
+     * 当前播放位置（毫秒），读不到时返回 0。
+     *
+     * 取歌词必须用真实位置，不能用 [currentPosition]（那是**列表下标**，含义完全不同）。
+     *
+     * **必须先用 [isPrepared] 拦住，不能只靠 try/catch。** 播放器处于 Idle
+     * （服务刚被拉起、[restorePlayState] 只恢复了"上一首"的名字但没 prepare）时读位置，
+     * MediaPlayerNative 会报 `error(-38,0)`，而那会走 [onError] —— 它内部有
+     * "重新取链并播放"的重试逻辑，于是**每次进入应用都会自动开始播放**。
+     * 这个坑在 [onStartCommand] 的 `ACTION_REQUEST_PROGRESS` 分支里已经写明，
+     * 那里同样是先判 `isPrepared` 再读；此处保持一致。
+     *
+     * 注意 try/catch 拦不住它：异常虽被吞掉，但 native 层的 error 回调已经发出，
+     * 副作用（触发重试播放）照样发生。所以判 `isPrepared` 是**必须**的前置条件。
+     */
+    private fun currentLyricPosition(): Long {
+        val mp = mediaPlayer ?: return 0L
+        if (!isPrepared) return 0L
+        return try { mp.currentPosition.toLong() } catch (_: IllegalStateException) { 0L }
     }
 
     private fun updateNotification(musicName: String, isPlaying: Boolean) {
@@ -1153,6 +1326,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                             )
                         }
                         currentPlayingName?.let { statsManager.addOneSecond(it) }
+                        // 歌词换句时重建通知。放在统计之后：即使通知刷新抛错，
+                        // 播放时长也已经记上了。
+                        tickNotificationLyric(current.toLong())
                     }
                 } catch (e: IllegalStateException) {
                 } finally {
@@ -1180,6 +1356,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 setPackage(packageName)
                 sendBroadcast(this)
             }
+            // 拖动进度会让时间轴跳变，通知上的歌词句必须立刻跟着跳，
+            // 而不是等下一次每秒 tick（拖动时可能一秒内跳好几句）。
+            tickNotificationLyric(mp.currentPosition.toLong())
         }
     }
 
@@ -1345,5 +1524,8 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             pos,
             if (playing) 1.0f else 0f
         )
+        // 从通知的进度条拖动（走 MediaSession 回调，不经过 ACTION_SEEK）时，
+        // 通知上的歌词句也要立刻跳到新位置对应的一句
+        tickNotificationLyric(pos)
     }
 }

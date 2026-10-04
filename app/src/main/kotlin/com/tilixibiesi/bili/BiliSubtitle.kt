@@ -3,11 +3,12 @@ package com.tilixibiesi.bili
 /**
  * 字幕轨道。
  *
- * 来源是**两个接口的合并结果**，不是单一接口：
- *  - `x/web-interface/view` 的 `data.subtitle.list`：**稳定**的完整语种清单，但 `subtitle_url` 恒为空；
- *  - `x/player/v2` 的 `data.subtitle.subtitles[]`：**每次只随机返回其中 1~2 条**（带可用的 `subtitle_url`）。
+ * 来源是 `x/player/wbi/v2` 的 `data.subtitle.subtitles[]`——**一次请求即返回全部轨道**
+ * （人传字幕与 AI 字幕都在内），每条都带可用的 `subtitle_url`。
  *
- * 因此单个字段的语义与其来源绑定：`lan`/`lanDoc` 来自稳定清单，`subtitleUrl` 来自采样。
+ * 不要改用旧路径 `x/player/v2`：那个路径会返回互不相同、且内容错误的字幕
+ * （详情见 [BiliSubtitleHelper] 的类注释）。历史上"每次只随机返回 1~2 条、
+ * 必须多次采样"的说法正是那个 bug 造成的误解，已不成立。
  */
 data class BiliSubtitleTrack(
     val lan: String,

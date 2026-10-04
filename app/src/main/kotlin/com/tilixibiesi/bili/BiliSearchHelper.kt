@@ -49,12 +49,15 @@ object BiliSearchHelper {
         Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY).toString()
 
     /**
-     * 取稿件 cid（播放/弹幕/字幕都需要的定位标识）。
+     * 取稿件 cid（播放/弹幕/字幕/歌词都需要的定位标识）。
      *
      * 结果缓存在内存中：同一 bvid 的 cid 恒定，重复请求纯属浪费，
      * 而它处在「点播放」的等待路径上，省一次往返就是省一次可感知的延迟。
+     *
+     * 对 B 站来说，顶层 cid 就是 P1 的 cid —— 本项目播放的正是它，
+     * 因此它也正好对应曲库歌词所关联的那一支单曲（见 [BiliLyricHelper]）。
      */
-    private fun resolveCid(bvid: String): Long? {
+    fun resolveCid(bvid: String): Long? {
         cidCache[bvid]?.let { return it }
         return try {
             val json = HttpUtils.get(

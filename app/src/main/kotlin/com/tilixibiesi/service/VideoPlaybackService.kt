@@ -1,6 +1,7 @@
 package com.tilixibiesi.service
 
 import com.tilixibiesi.R
+import com.tilixibiesi.bili.BiliLyric
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.ui.MainPagerActivity
@@ -89,6 +90,32 @@ class VideoPlaybackService : Service() {
         /** 最近一次的副标题（UP 主）；大视图里显示在标题下方 */
         @Volatile
         private var currentSubtitle: String = ""
+
+        /**
+         * 当前视频的歌词；null 表示没有可用歌词（或还没加载完）。
+         *
+         * 由播放器加载后经 [attachLyric] 塞进来，而不是本服务自己取：
+         * bvid/cid 的身份归播放器所有（[VideoPlaybackController] 也是同一套单向桥思路），
+         * 服务只管渲染。设为 [Volatile] 是因为它会被播放器的后台线程写入、
+         * 由本服务的主线程读取。
+         */
+        @Volatile
+        private var currentLyric: BiliLyric? = null
+
+        /**
+         * 播放器歌词加载完成后调用。
+         *
+         * 传 null 也表示"这首歌没有歌词"，服务会退回原来的文案
+         * （UP 主名，再退「正在播放 / 已暂停」）。
+         */
+        fun attachLyric(context: Context, lyric: BiliLyric?) {
+            currentLyric = lyric
+            // 没挂通知时什么都不用做（例如歌词比播放先到，或播放早已结束）
+            if (!active) return
+            // 复用 ACTION_SHOW 这条现成的重绘路径：它会按最新状态整条重建通知。
+            // 歌名/位置都不用改，因此这里不传 title，由服务沿用 [currentTitle]。
+            deliver(context, ACTION_SHOW, null, VideoPlaybackController.isPlaying())
+        }
 
         /**
          * 视频真正开始播放：挂出/刷新前台通知，并让音乐暂停。
@@ -331,8 +358,63 @@ class VideoPlaybackService : Service() {
     /** 进度条开关：关闭后不再有定时刷新，通知退回「标题 + 播放/暂停」 */
     private fun isProgressEnabled(): Boolean = SpUtils.isVideoNotifyProgressEnabled(this)
 
+    /**
+     * 通知副标题文案 —— 有歌词且当前时刻有词时显示这句，否则沿用改动前的两级回退。
+     *
+     * 注意回退顺序与改动前完全一致：**先 UP 主名、再「正在播放 / 已暂停」**，
+     * 只是把歌词插在了最前面。这样"没歌词"的视频观感与改动前没有任何差别。
+     */
+    private fun notificationContentText(positionMs: Long, subtitle: String, playing: Boolean): String {
+        val lyric = currentLyric
+        if (lyric != null) {
+            val text = lyric.textAt(positionMs)
+            if (!text.isNullOrEmpty()) return text
+        }
+        return subtitle.takeIf { it.isNotEmpty() }
+            ?: if (playing) LanguageUtils.getString(this, R.string.text_playing)
+            else LanguageUtils.getString(this, R.string.text_paused)
+    }
+
+    /**
+     * 当前视频播放位置（毫秒）。
+     *
+     * 直接读播放器而不是缓存——拖动、缓冲、倍速都会让位置跳变，
+     * 自算必然对不上。播放器未就绪时 [VideoPlaybackController] 自己会兜底为 0。
+     */
+    private fun videoPositionMs(): Long = VideoPlaybackController.getPosition().toLong()
+
+    /**
+     * 通知副标题是否需要更新（歌词换句、或前奏/尾奏处需要退回 UP 主名）。
+     *
+     * SystemUI 已经拿到播放进度，会按 speed 自行插值推进进度条，所以**不需要**
+     * 为了进度每秒重发通知；但副标题是通知里的静态文本，SystemUI 推不动它，
+     * 只能由这里在文案变化时主动重发一次。
+     *
+     * 判据用"算出来的文案"而不是"歌词对象里的句子"：这样"唱到前奏/尾奏"
+     * 也会被识别成一次变化，从而正确退回 UP 主名，而不是把最后一句冻在通知上。
+     *
+     * @return true 表示文案确实变了、需要重发通知
+     */
+    private fun contentTextChanged(positionMs: Long, subtitle: String, playing: Boolean): Boolean {
+        // 只比较、不写：[lastContentText] 的唯一写入点是 buildNotification，
+        // 这样"缓存"始终等于"通知上真正显示的内容"。
+        return notificationContentText(positionMs, subtitle, playing) != lastContentText
+    }
+
+    /**
+     * 上一次写进通知的副标题。
+     *
+     * 唯一写入点是 [buildNotification]，与音乐侧保持一致：这样这个缓存
+     * 永远等于"通知上真正显示的内容"，不会出现缓存说"变了"、而通知其实
+     * 因为某条路径没走构建器而没变（或反之）的脱节。
+     * 撤通知时必须置空，否则下一个视频若恰好落在同一句上会被误判为"没变化"。
+     */
+    private var lastContentText: String? = null
+
     private fun releaseMediaSession() {
         stopProgressTicker()
+        // 整条通知即将被撤掉，上一首的"上一句歌词"必须一起作废。
+        lastContentText = null
         mediaSession?.let { session ->
             runCatching {
                 // 置为非活动：视频不播了，系统媒体控制中心应把控制权交还给音乐服务
@@ -432,6 +514,7 @@ class VideoPlaybackService : Service() {
         active = false
         currentTitle = ""
         currentSubtitle = ""
+        currentLyric = null
         releaseMediaSession()
         super.onDestroy()
     }
@@ -458,16 +541,23 @@ class VideoPlaybackService : Service() {
     }
 
     /**
-     * 进度条推进器。
+     * 进度条推进器 / 歌词推进器。
      *
-     * 只在「开关打开 + 视频正在播放」时跑：暂停时位置不变，没必要每秒重发通知
-     * （那正是这个功能最容易被诟病的后台开销）。
+     * 两个理由之一成立就值得跑起这个每秒循环：
+     *  - **进度条开着**：每秒把真实位置写回 session。通知本身不重发
+     *    （MediaStyle 绑了 token 后 SystemUI 会按 speed 自行插值推进并纠偏），
+     *    但拖动、缓冲、倍速都会让位置跳变，这层纠偏不能省。
+     *  - **有歌词**：歌词是通知里的静态文本，SystemUI 推不动它，
+     *    只能在换句时主动重发一次通知。
+     *
+     * 两者都不成立时（没歌词 + 关了进度条）仍然直接返回，不做无谓的后台唤醒。
+     *
      * 每轮都向播放器要最新位置，而不是自己累加 —— 用户拖动、缓冲、
      * 倍速播放都会让位置跳变，自算必然对不上。
      */
     private fun restartProgressTicker() {
         stopProgressTicker()
-        if (!isProgressEnabled()) return
+        if (!isProgressEnabled() && currentLyric == null) return
         progressTicker = object : Runnable {
             override fun run() {
                 if (!active || !VideoPlaybackController.isAttached()) {
@@ -476,22 +566,29 @@ class VideoPlaybackService : Service() {
                 }
                 val playing = VideoPlaybackController.isPlaying()
                 currentPlaying = playing
-                val pos = VideoPlaybackController.getPosition().toLong()
+                val pos = videoPositionMs()
                 val dur = VideoPlaybackController.getDuration().toLong()
-                // 播放中**不**重发通知：MediaStyle 绑了 token 后，
-                // 进度条由 SystemUI 监听 session 状态自行推进（并按 speed 插值），
-                // 每秒重发整条通知是纯粹的浪费。
-                updateSession(currentTitle, currentSubtitle, playing, pos, dur)
-                // 播放中才持续推进；暂停时停掉本轮循环，
-                // 等下一次恢复播放（ACTION_SHOW / onPlay）再重新启动。
+                // 进度条关闭时不写 session：那时通知里没有任何会变化的进度，
+                // 每秒一次 binder 调用 + SystemUI 重绘纯属浪费。
+                if (isProgressEnabled()) {
+                    updateSession(currentTitle, currentSubtitle, playing, pos, dur)
+                }
                 if (playing) {
+                    // 只在副标题文案真的变了（换句，或唱到前奏/尾奏要退回 UP 主名）
+                    // 时才重发通知：每秒无条件重发会让 SystemUI 反复重绘大视图，
+                    // 用户看到的就是通知一直在闪。
+                    if (contentTextChanged(pos, currentSubtitle, playing)) {
+                        pushNotification(currentTitle, currentSubtitle, playing)
+                    }
                     mainHandler.postDelayed(this, PROGRESS_TICK_MS)
                 } else {
                     // 只在自己仍是当前推进器时清空引用：期间可能已被 restartProgressTicker 换掉，
                     // 无条件置 null 会把新推进器的引用抹掉，导致它再也无法被 stop 掉。
                     if (progressTicker === this) progressTicker = null
                     // 暂停时补发一次通知，把按钮从「暂停」翻成「播放」
-                    // （MediaStyle 的按钮来自通知自身的 actions，不随 session 变化）
+                    // （按钮来自通知自身的 actions，不随 session 变化，必须重发）。
+                    // 文案由 pushNotification → buildNotification 按当前位置重算，
+                    // 因此暂停那一刻会落在正确的歌词句上。
                     pushNotification(currentTitle, currentSubtitle, playing)
                 }
             }
@@ -519,6 +616,7 @@ class VideoPlaybackService : Service() {
         active = false
         currentTitle = ""
         currentSubtitle = ""
+        currentLyric = null
         releaseMediaSession()
         runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
         stopSelf()
@@ -552,11 +650,14 @@ class VideoPlaybackService : Service() {
 
         val builder = Notification.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
+            // 与音乐侧同一套做法：先算出文案，再连同"它已经上屏"一起记下来。
+            // 让唯一的写入点紧贴真正的构建处，[lastContentText] 就永远与
+            // 通知上显示的内容一致——ACTION_SHOW / 暂停 / 进度推进 / 歌词到达
+            // 全都经过这里，不存在"缓存与通知脱节"的窗口。
             .setContentText(
-                // 有 UP 主时优先显示它（大视图标题下方），否则退回「正在播放/已暂停」
-                subtitle.takeIf { it.isNotEmpty() }
-                    ?: if (playing) LanguageUtils.getString(this, R.string.text_playing)
-                    else LanguageUtils.getString(this, R.string.text_paused)
+                notificationContentText(videoPositionMs(), subtitle, playing).also {
+                    lastContentText = it
+                }
             )
             .setSmallIcon(android.R.drawable.ic_media_play)
             .setOngoing(true)
