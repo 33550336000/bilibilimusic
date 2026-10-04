@@ -92,6 +92,24 @@ class SelectMusicActivity : BaseActivity() {
         applyBackground()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 本 Activity 可见：背景视频播放并出声
+        BackgroundHelper.setActive(bgHost, true)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // 不可见：暂停解码并静音
+        BackgroundHelper.setActive(bgHost, false)
+    }
+
+    override fun onDestroy() {
+        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
+        BackgroundHelper.release(bgHost)
+        super.onDestroy()
+    }
+
     private fun filterMusic(keyword: String) {
         filteredList.clear()
         if (keyword.isEmpty()) {
