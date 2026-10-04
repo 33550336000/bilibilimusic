@@ -836,20 +836,22 @@ class SettingsPage(base: Context) : BasePage(base) {
             LanguageUtils.getString(this@SettingsPage, R.string.btn_search_style_transparent)
     }
     private fun pickDefaultBackground() {
+        // 背景同时支持图片与视频。Intent 只有一个 type 字段，填 "image/*" 会把视频排除在外，
+        // 因此 type 用 "*/*"，再用 EXTRA_MIME_TYPES 声明真正要过滤的两大类。
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "image/*"
+            type = "*/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
         }
-        // 检测系统是否有文件选择器能处理该 Intent；没有则提示，避免崩溃
-        val resolveInfo = packageManager.resolveActivity(
-            intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
-        )
-        if (resolveInfo == null) {
+        // 这里不能用 resolveActivity() 预检：targetSdk 30 起包可见性会过滤查询结果，
+        // 选择器明明存在也可能返回 null（OPPO/ColorOS 实测，vivo 则正常），
+        // 而 startActivity 本身不受可见性限制。故直接启动，仅在确实无法处理时捕获提示。
+        try {
+            startActivityForResult(intent, REQUEST_PICK_DEFAULT_BG)
+        } catch (e: android.content.ActivityNotFoundException) {
             ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_no_file_picker))
-            return
         }
-        startActivityForResult(intent, REQUEST_PICK_DEFAULT_BG)
     }
 
     private fun restoreDefaultSettings() {
