@@ -28,7 +28,8 @@ class SelectMusicActivity : BaseActivity() {
     private lateinit var btnCancel: Button
     private lateinit var btnConfirm: Button
     private val selectedPositions = HashSet<Int>()
-    private lateinit var rootView: View
+    /** 背景宿主（外层 FrameLayout），承载与内容层叠的背景层 */
+    private lateinit var bgHost: View
     private var playlistId: String? = null
     private lateinit var etSearch: EditText
 
@@ -37,7 +38,7 @@ class SelectMusicActivity : BaseActivity() {
         setContentView(R.layout.activity_select_music)
         setFullScreen()
 
-        rootView = findViewById(R.id.select_root)
+        bgHost = findViewById(R.id.select_bg_host)
         lvSelect = findViewById(R.id.lv_select)
         btnCancel = findViewById(R.id.btn_cancel)
         btnConfirm = findViewById(R.id.btn_confirm)
@@ -113,7 +114,7 @@ private fun setFullScreen() {
 
     private fun applyBackground() {
         val alphaPercent = SpUtils.getBackgroundAlpha(this)
-        BackgroundHelper.applyBackground(this, rootView, alphaPercent)
+        BackgroundHelper.applyBackground(this, bgHost, alphaPercent)
     }
 
     inner class SelectAdapter : BaseAdapter() {

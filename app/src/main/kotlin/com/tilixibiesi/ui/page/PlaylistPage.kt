@@ -41,7 +41,8 @@ class PlaylistPage(base: Context) : BasePage(base) {
     private lateinit var adapter: PlaylistAdapter
     private lateinit var btnAddPlaylist: ImageButton
     private lateinit var tvPlaylistHint: TextView
-    private lateinit var rootView: View
+    /** 背景宿主（外层 FrameLayout），承载与内容层叠的背景层 */
+    private lateinit var bgHost: View
     private var pendingPlaylistId: String? = null
 
     companion object {
@@ -51,7 +52,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
     override fun onCreate(savedInstanceState: Bundle?) {
         setContentView(R.layout.activity_playlist)
 
-        rootView = findViewById(R.id.playlist_root)!!
+        bgHost = findViewById(R.id.playlist_bg_host)!!
         lvPlaylists = findViewById(R.id.lv_playlists)!!
         btnAddPlaylist = findViewById(R.id.btn_add_playlist)!!
         tvPlaylistHint = findViewById(R.id.tv_playlist_hint)!!
@@ -78,7 +79,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
 
     private fun applyBackground() {
         val alphaPercent = SpUtils.getBackgroundAlpha(this)
-        BackgroundHelper.applyBackground(this, rootView, alphaPercent)
+        BackgroundHelper.applyBackground(this, bgHost, alphaPercent)
     }
 
     private fun applyTitleStyle() {

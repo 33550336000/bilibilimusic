@@ -1,7 +1,12 @@
+<!-- 外层 FrameLayout 作「背景宿主」：承载背景层（视频/图片/纯色），
+     内层 activity_main_root 是页面内容并保持透明，背景才透得出来。
+     背景宿主必须允许子 View 重叠——FrameLayout 正是如此（详见 BackgroundHelper）。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main_bg_host"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#FF121212"
     tools:ignore="MergeRootFrame"
     android:keepScreenOn="true">
 
@@ -10,8 +15,7 @@
         android:id="@+id/activity_main_root"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:background="#FF121212">
+        android:orientation="vertical">
 
         <!-- 顶部标题栏（原来的 RelativeLayout，内部无统计 TextView） -->
         <RelativeLayout
