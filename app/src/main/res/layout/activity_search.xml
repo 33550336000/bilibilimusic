@@ -59,7 +59,13 @@
                 android:layout_marginStart="4dp"
                 android:text="@string/bili_toggle_off"
                 android:textColor="#FFFFFF"
-                android:background="@drawable/button_float_bg" />
+                android:background="@drawable/button_float_bg"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="8dp" />
         </LinearLayout>
 
         <ProgressBar
