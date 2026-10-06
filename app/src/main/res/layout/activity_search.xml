@@ -48,9 +48,8 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_close_clear_cancel"
-                android:contentDescription="@string/clear_search"
-                android:tint="#FF0000" />
+                android:src="@drawable/ic_clear_search"
+                android:contentDescription="@string/clear_search" />
 
             <Button
                 android:id="@+id/btn_bili_toggle"

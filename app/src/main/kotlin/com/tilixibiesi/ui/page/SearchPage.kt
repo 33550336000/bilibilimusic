@@ -362,7 +362,11 @@ class SearchPage(base: Context) : BasePage(base) {
         btnSort?.visibility = View.GONE
 
         val btnClearSearch = findViewById<ImageButton>(R.id.btn_clear_search)
-        btnClearSearch?.setOnClickListener { etSearch.text.clear() }
+        btnClearSearch?.apply {
+            // 只在输入框有内容时显示
+            visibility = View.GONE
+            setOnClickListener { etSearch.text.clear() }
+        }
 
         musicAdapter = MusicAdapter(this, searchResultList).apply {
             // MusicBean.equals 仅按歌名判等，B 站条目与本地同名歌曲会互相命中，
@@ -393,6 +397,8 @@ class SearchPage(base: Context) : BasePage(base) {
         etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                // 清空按钮跟随输入框内容显隐；被清空时顺带清掉已有结果
+                btnClearSearch?.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
                 if (s.isNullOrEmpty()) clearSearchResults()
             }
             override fun afterTextChanged(s: Editable?) {}
@@ -1166,6 +1172,8 @@ class SearchPage(base: Context) : BasePage(base) {
         bvid = this@toMusicBean.bvid
         author = this@toMusicBean.author
         duration = this@toMusicBean.duration.toIntOrNull() ?: 0
+        // 顺带带上封面：加入歌单/加入主页面后，正在播放页就不必再为封面发一次请求
+        coverUrl = this@toMusicBean.coverUrl.takeIf { it.isNotEmpty() }
     }
 
     private fun applySettings() {

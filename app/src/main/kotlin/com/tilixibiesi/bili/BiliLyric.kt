@@ -54,7 +54,19 @@ data class BiliLyric(
      * 直接接到下一句的开始，所以纯音乐段落里仍是上一句停留着，而不是文案来回跳。
      */
     fun textAt(positionMs: Long): String? {
-        if (lines.isEmpty()) return null
+        val index = indexAt(positionMs)
+        return if (index < 0) null else lines[index].text
+    }
+
+    /**
+     * 取 [positionMs] 时刻对应的歌词**行下标**；这一刻没有歌词时返回 -1。
+     *
+     * 与 [textAt] 同源（后者就是它的薄封装）：调用方若拿下标去驱动 UI，
+     * 就不必按"文本相等"反查——重复句（副歌）在 LRC 里非常常见，
+     * 按文本反查会一律命中第一处，导致高亮停在错误的那一句上。
+     */
+    fun indexAt(positionMs: Long): Int {
+        if (lines.isEmpty()) return -1
         val sec = positionMs / 1000f
 
         // 二分找最后一条 fromSec <= sec 的
@@ -70,11 +82,10 @@ data class BiliLyric(
                 hi = mid - 1
             }
         }
-        if (found < 0) return null
+        if (found < 0) return -1
 
-        val line = lines[found]
         // 只可能是最后一句：它的结束时间是"自己加一个固定尾长"，播完就该退回默认文案
-        if (sec > line.toSec) return null
-        return line.text
+        if (sec > lines[found].toSec) return -1
+        return found
     }
 }

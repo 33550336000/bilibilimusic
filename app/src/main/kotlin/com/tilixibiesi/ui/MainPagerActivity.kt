@@ -298,6 +298,9 @@ class MainPagerActivity : BaseActivity(), PageHost {
     }
 
     override fun onBackPressed() {
+        // 「正在播放」覆盖层优先：它盖在所有页面之上，返回键必须先收它，
+        // 否则一次返回会越过它直接把主页面切走/退出应用。
+        if ((pages.getOrNull(PAGE_SONGS) as? SongsPage)?.handleNowPlayingBack() == true) return
         val page = pages.getOrNull(currentPosition)
         if (page?.created == true && page.onBackPressed()) return
         // 非歌曲页：先回到歌曲页；已在歌曲页才真正退出

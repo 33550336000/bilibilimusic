@@ -22,6 +22,9 @@ import java.net.URL
  * 与列表页保持一致的两点：
  *  - `//` 开头的协议相对 URL 补成 `https:`；
  *  - 未带 `@Nw` 后缀的封面补上宽度参数（B 站图床按该后缀裁剪）。
+ *
+ * 另提供 [fetch]：把「取图」与「塞进哪个 ImageView」解耦，
+ * 供正在播放页把同一张封面同时铺到主图与模糊背景上，避免下载两次。
  */
 object BiliCoverLoader {
 
@@ -29,6 +32,17 @@ object BiliCoverLoader {
     private val cache = object : LruCache<String, Bitmap>(12 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
     }
+
+    /**
+     * 下载失败的 URL。
+     *
+     * [LruCache] 不允许存 null，而"这张图下不下来"必须被记住：
+     * 否则每次重绘都会再打一次注定失败的网络请求（断网时尤其明显）。
+     * 只记 URL、不记时间，一次失败即视为永久失败——封面地址失效后不会再恢复，
+     * 而网络抖动导致的失败会在下次进入播放页时（进程内缓存仍在）表现为直接显示占位图，
+     * 这正是可接受的行为。
+     */
+    private val failed = HashSet<String>()
 
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
@@ -60,6 +74,44 @@ object BiliCoverLoader {
                 if (imageView.tag == url) imageView.setImageBitmap(bitmap)
             }
         }
+    }
+
+    /**
+     * 取封面位图，回主线程交付。
+     *
+     * 与 [load] 的分工：本方法不碰任何 View，只负责"拿到图"，
+     * 因此调用方可以把同一张位图铺到多个 View 上（主封面 + 模糊背景），
+     * 而不会重复下载或重复解码。
+     *
+     * @param onDone 主线程回调；拿不到图时传 null（调用方据此显示占位图）。
+     *               空 URL 会**立即同步**回调 null。
+     */
+    fun fetch(coverUrl: String, onDone: (Bitmap?) -> Unit) {
+        if (coverUrl.isEmpty()) {
+            onDone(null)
+            return
+        }
+        val url = normalize(coverUrl)
+        val cached = cache.get(url)
+        if (cached != null) {
+            onDone(cached)
+            return
+        }
+        if (isFailed(url)) {
+            onDone(null)
+            return
+        }
+        AppExecutors.io.execute {
+            val bitmap = runCatching { download(url) }.getOrNull()
+            if (bitmap != null) cache.put(url, bitmap) else markFailed(url)
+            mainHandler.post { onDone(bitmap) }
+        }
+    }
+
+    private fun isFailed(url: String): Boolean = synchronized(failed) { failed.contains(url) }
+
+    private fun markFailed(url: String) {
+        synchronized(failed) { failed.add(url) }
     }
 
     private fun normalize(original: String): String {

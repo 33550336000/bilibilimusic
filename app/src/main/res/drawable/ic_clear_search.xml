@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  搜索栏「清空」按钮图标。
+
+  设计：红色实心圆底 + 白色圆头叉。
+  实心圆底保证在搜索页任意背景（视频/图片/纯色）上都有足够对比度，
+  白色叉在红色圆底上可读性最好；叉用 strokeLineCap=round，
+  在放大到 40dp 的按钮里边缘依然圆润、不发尖。
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+
+    <!-- 圆底：以 (12,12) 为圆心、半径 10 的整圆 -->
+    <path
+        android:fillColor="#E53935"
+        android:pathData="M12,2 a10,10 0 1,0 0,20 a10,10 0 1,0 0,-20 z" />
+
+    <!-- 叉：两条对角线，圆头描边 -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M8.6,8.6 L15.4,15.4 M15.4,8.6 L8.6,15.4" />
+</vector>

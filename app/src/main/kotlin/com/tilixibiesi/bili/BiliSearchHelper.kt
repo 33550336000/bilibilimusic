@@ -23,7 +23,14 @@ object BiliSearchHelper {
         val title: String,
         val coverUrl: String,
         val author: String,
-        val duration: Int
+        val duration: Int,
+        /**
+         * 稿件所属「合集」的名称；不属于任何合集时为 null。
+         *
+         * 正在播放页用它当专辑名：合集稿件的"专辑"就是合集本身，
+         * 单个视频没有专辑概念，那里退回用视频标题（见 NowPlayingPage）。
+         */
+        val collectionTitle: String? = null
     )
 
     data class QualityOption(
@@ -205,7 +212,13 @@ object BiliSearchHelper {
                 title = cleanHtml(data.getString("title")),
                 coverUrl = data.getString("pic"),
                 author = data.getJSONObject("owner").getString("name"),
-                duration = data.getInt("duration")
+                duration = data.getInt("duration"),
+                // 合集名称：只有合集稿件才有 ugc_season（实测单个视频该字段整个缺失），
+                // 因此这里必须用 optJSONObject 而不是 getJSONObject，否则会抛异常把
+                // 整个详情请求判成失败——那会连带让"取画质/字幕"也跟着失效。
+                collectionTitle = data.optJSONObject("ugc_season")
+                    ?.optString("title", "")
+                    ?.takeIf { it.isNotEmpty() }
             )
         } catch (e: Exception) { null }
     }

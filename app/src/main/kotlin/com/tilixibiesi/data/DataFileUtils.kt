@@ -286,6 +286,7 @@ object DataFileUtils {
         put("bvid", bean.bvid ?: "")
         put("author", bean.author ?: "")
         put("duration", bean.duration)
+        put("coverUrl", bean.coverUrl ?: "")
     }
 
     private fun jsonToMusicBean(obj: JSONObject): MusicBean =
@@ -297,6 +298,7 @@ object DataFileUtils {
             bvid = obj.optString("bvid", "").ifEmpty { null }
             author = obj.optString("author", "").ifEmpty { null }
             duration = obj.optInt("duration", 0)
+            coverUrl = obj.optString("coverUrl", "").ifEmpty { null }
         }
 
     // ========== 屏蔽字管理 ==========

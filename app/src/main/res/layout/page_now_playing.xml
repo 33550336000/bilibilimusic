@@ -1,0 +1,345 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  「正在播放」覆盖层。整页由代码加到 decorView 顶层（见 NowPlayingPage），
+  因此这里的根节点必须是可点击的：它要吃掉落在自己身上的触摸，
+  否则事件会穿透到后面的分页容器，滑动歌词时会把整页翻走。
+
+  两个互斥的容器：
+    np_player —— 正在播放页（封面 / 文字 / 进度 / 控制 / 查看歌词）
+    np_lyrics —— 歌词页（封面模糊背景 / 顶部三行信息 / 逐行歌词）
+  切页只切这两者的可见性，不重建视图。
+
+  横竖屏：本页所在 Activity 声明了 configChanges=orientation|screenSize，
+  旋转时**不会重建**，所以 layout-land 资源限定符永远不会生效。
+  布局差异一律由代码在 onConfigurationChanged 里切换（见 applyOrientationLayout）：
+  这里给出的属性是竖屏默认值，横屏会覆盖掉其中若干项。
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/np_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/now_playing_bg"
+    android:clickable="true"
+    android:focusable="true">
+
+    <!-- ==================== 正在播放页 ==================== -->
+    <LinearLayout
+        android:id="@+id/np_player"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- 顶栏：仅保留收起箭头。参考图右上角的「...」没有任何对应功能，故不绘制。 -->
+        <LinearLayout
+            android:id="@+id/np_topbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="8dp">
+
+            <ImageButton
+                android:id="@+id/iv_np_collapse"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_chevron_down"
+                android:contentDescription="@string/now_playing_collapse" />
+        </LinearLayout>
+
+        <!-- 中段容器。
+             竖屏：单列，封面在上、文字与控件在下，整体垂直居中。
+             横屏：由代码改成横向双列（封面在左、信息在右）。
+             横屏**必须**双列：横屏高度只剩屏宽的零头，竖屏那套纵向排布
+             连标题+进度+控制键都放不下，更不用说还要塞一个正方形封面。 -->
+        <LinearLayout
+            android:id="@+id/np_content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingHorizontal="24dp">
+
+            <!-- 封面：正方形 + 圆角。圆角裁剪（clipToOutline）由代码开启：
+                 clipToOutline 没有对应的 XML 属性，只能在 init 里设置。
+                 边长由 SquareLayout 按 sizeRatio / maxHeightFraction 算出。 -->
+            <com.tilixibiesi.ui.widget.SquareLayout
+                android:id="@+id/np_cover_box"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:background="@drawable/np_cover_bg">
+
+                <ImageView
+                    android:id="@+id/iv_np_cover"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_cover_placeholder"
+                    android:contentDescription="@string/now_playing_cover" />
+            </com.tilixibiesi.ui.widget.SquareLayout>
+
+            <!-- 文字与控件。包一层是为了横屏时能整体作为"右列"与封面并排：
+                 竖屏占满宽度（match_parent），横屏改成 0dp + weight=1。 -->
+            <LinearLayout
+                android:id="@+id/np_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- 标题 / 艺术家 / 专辑 -->
+                <TextView
+                    android:id="@+id/tv_np_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="28dp"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFFFF"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tv_np_artist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textSize="15sp"
+                    android:textColor="#FFB0B0B0"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tv_np_album"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="13sp"
+                    android:textColor="#FF7E7E7E"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <!-- 进度条 + 两端时间 -->
+                <SeekBar
+                    android:id="@+id/sb_np_progress"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/np_seekbar_track"
+                    android:thumb="@drawable/np_seekbar_thumb"
+                    android:splitTrack="false" />
+
+                <LinearLayout
+                    android:id="@+id/np_times"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_np_cur"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="00:00"
+                        android:textSize="13sp"
+                        android:textColor="#FFB0B0B0" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/tv_np_total"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="00:00"
+                        android:textSize="13sp"
+                        android:textColor="#FFB0B0B0" />
+                </LinearLayout>
+
+                <!-- 播放控制：上一首 / 播放暂停 / 下一首。
+                     参考图里还有随机与播放列表两个按钮，但本应用底部控制栏没有对应功能，
+                     为避免出现点了没反应的按钮，这里只保留真正生效的三个。 -->
+                <LinearLayout
+                    android:id="@+id/np_controls"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:layout_gravity="center_horizontal"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <ImageButton
+                        android:id="@+id/btn_np_prev"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:src="@android:drawable/ic_media_previous"
+                        android:contentDescription="@string/previous" />
+
+                    <!-- 播放键：白色圆底 + 深色图标（与参考图一致） -->
+                    <ImageButton
+                        android:id="@+id/btn_np_play"
+                        android:layout_width="68dp"
+                        android:layout_height="68dp"
+                        android:layout_marginHorizontal="18dp"
+                        android:background="@drawable/play_pause_circle"
+                        android:padding="20dp"
+                        android:scaleType="fitCenter"
+                        android:src="@android:drawable/ic_media_play"
+                        android:contentDescription="@string/play_pause" />
+
+                    <ImageButton
+                        android:id="@+id/btn_np_next"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:src="@android:drawable/ic_media_next"
+                        android:contentDescription="@string/next" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- 横屏专用的底部栏：放置「播放控制键 + 查看歌词」。
+             竖屏时 GONE（那时控制键在 np_info 内、歌词按钮单独占一行），
+             横屏由代码把两者搬进来（见 NowPlayingPage.placeBottomControls）。
+
+             存在的意义：横屏高度只有屏宽的零头，纵向放不下
+             「文字 + 进度 + 控制 + 歌词按钮」这么多行。若控制键留在可伸缩的
+             中段里，内容一超高就会被 LinearLayout 压缩，白色圆底被压成椭圆。
+             放进这个高度固定的栏后，中段（np_content，weight=1）成为唯一伸缩者，
+             超高只影响封面与文字，控制键始终保持原始尺寸。 -->
+        <LinearLayout
+            android:id="@+id/np_bottom_bar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingTop="4dp"
+            android:paddingBottom="24dp"
+            android:visibility="gone" />
+
+        <!-- 「查看歌词」入口 -->
+        <Button
+            android:id="@+id/btn_np_lyrics"
+            android:layout_width="wrap_content"
+            android:layout_height="46dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="28dp"
+            android:background="@drawable/lyrics_pill_bg"
+            android:drawableStart="@drawable/ic_lyrics"
+            android:drawablePadding="8dp"
+            android:gravity="center"
+            android:paddingHorizontal="22dp"
+            android:text="@string/now_playing_view_lyrics"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFFFF"
+            android:textSize="15sp" />
+    </LinearLayout>
+
+    <!-- ==================== 歌词页 ==================== -->
+    <FrameLayout
+        android:id="@+id/np_lyrics"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <!-- 封面模糊背景。
+             API 30 没有 RenderEffect（31 才加入），因此这里不是真实高斯模糊：
+             代码把封面大幅降采样后交给这个 ImageView，靠双线性放大得到柔和的色块，
+             再压一层深色遮罩保证文字可读。拿不到封面时这一层为空，只剩纯色底。 -->
+        <ImageView
+            android:id="@+id/iv_np_blur"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerCrop"
+            android:contentDescription="@null" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#A6000000" />
+
+        <!-- paddingTop 在横屏会被代码调小：竖屏留 72dp 是给顶部呼吸感，
+             横屏高度紧张，同样的值会白白吃掉五行歌词的空间。 -->
+        <LinearLayout
+            android:id="@+id/np_lyrics_body"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:paddingTop="72dp"
+            android:paddingHorizontal="20dp"
+            android:paddingBottom="24dp">
+
+            <!-- 顶部三行：标题 / 艺术家 / 专辑（与正在播放页同源） -->
+            <TextView
+                android:id="@+id/tv_lrc_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFFFF"
+                android:maxLines="2"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tv_lrc_artist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:textSize="15sp"
+                android:textColor="#FFD0D0D0"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tv_lrc_album"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:textSize="13sp"
+                android:textColor="#FF9E9E9E"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <!-- 逐行歌词。行数不定，故用 ScrollView 承载。
+                 点「查看歌词」后若确认没有歌词，整块隐藏，改显示下方的「暂无歌词」。 -->
+            <ScrollView
+                android:id="@+id/sv_np_lyrics"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginTop="36dp"
+                android:scrollbars="none"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:id="@+id/ll_np_lyrics"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingBottom="80dp" />
+            </ScrollView>
+
+            <!-- 无歌词占位。没有歌词时只显示这一行，位置与参考图一致（垂直居中偏上）。 -->
+            <TextView
+                android:id="@+id/tv_np_no_lyrics"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="@string/now_playing_no_lyrics"
+                android:textColor="#FFB0B0B0"
+                android:textSize="17sp"
+                android:visibility="gone" />
+        </LinearLayout>
+    </FrameLayout>
+</FrameLayout>
