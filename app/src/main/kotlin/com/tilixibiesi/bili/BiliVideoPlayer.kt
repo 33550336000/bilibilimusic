@@ -178,6 +178,13 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
     private var hasDanmakuData = false
     /** 弹幕开关（对应播放器上的弹幕按钮） */
     private var danmakuEnabled: Boolean = true
+    /**
+     * 宿主页面当前是否可见（由 [onHostResume] / [onHostPause] 维护）。
+     *
+     * 用来避免"在后台把弹幕解冻"：起播（onPrepared）可能发生在宿主已退到后台时
+     * （取链/缓冲期间用户切走），这时绝不能因为视频在播就恢复帧回调。
+     */
+    private var hostVisible: Boolean = true
     private val longPressRunnable = Runnable {
         // 双保险：ACTION_DOWN 时已在播放，但这 800ms 内可能被暂停/播完
         // （缓冲停滞、切后台、播放结束）。此时不加速，也不置 longPressTriggered，
@@ -1047,6 +1054,9 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
                 // `layoutFullscreen.visibility = VISIBLE` 执行）。
                 view.seek(getCurrentPosition().toLong())
                 view.start()
+                // 这里刻意不碰暂停位：若此刻宿主在后台（onHostPause 已冻结弹幕），
+                // 擅自解除会让帧回调在后台空转耗电；起播时的解除统一由
+                // onPrepared 里的 resumeDanmakuIfPlaying() 负责。
             }
         }
     }
@@ -1102,12 +1112,38 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
      * 不触碰播放状态——是否继续出声由音频焦点/用户决定。
      */
     fun onHostPause() {
+        hostVisible = false
+        // 没有播放器（此页还没起播任何视频）时不需要冻结弹幕；
+        // 此时若置上暂停位，它会一直粘到下一次起播，导致弹幕僵住
+        if (mediaPlayer == null) return
         danmakuView?.setPaused(true)
     }
 
-    /** 宿主回到前台时调用：仅当播放器确实在播放时才恢复弹幕渲染 */
+    /**
+     * 宿主回到前台时调用：仅当播放器确实在播放时才恢复弹幕渲染。
+     *
+     * **还没有 mediaPlayer 时绝不能置暂停位。** 页面每次回到前台都会走这里，
+     * 而此时通常并没有视频在播（mediaPlayer == null），一旦把弹幕置成 paused，
+     * 这个状态会一直粘着：随后 play() 里 loadDanmaku() 只调 start()，
+     * 而 [DanmakuView.start] 不会清除暂停位，于是弹幕整场僵在屏幕上不动，
+     * 直到用户手动「暂停→播放」才被 togglePlayPause 里的 setPaused(false) 解开。
+     * 没有播放器就代表没有需要冻结的弹幕，直接返回即可。
+     */
     fun onHostResume() {
-        danmakuView?.setPaused(mediaPlayer?.isPlaying != true)
+        hostVisible = true
+        val mp = mediaPlayer ?: return
+        danmakuView?.setPaused(!mp.isPlaying)
+    }
+
+    /**
+     * 起播/续播后解除弹幕冻结。
+     *
+     * [onHostResume] 在 preparing 阶段（媒体尚未开始播放）可能把弹幕置成暂停，
+     * 而 onPrepared 之后不会再有人解除；这里在确认「宿主可见且确实在播」后补一刀，
+     * 保证弹幕跟随画面一起动起来。
+     */
+    private fun resumeDanmakuIfPlaying() {
+        if (hostVisible && mediaPlayer?.isPlaying == true) danmakuView?.setPaused(false)
     }
 
     fun onConfigurationChanged(newConfig: Configuration) {
@@ -1622,6 +1658,8 @@ private fun toggleLandscape() {
                 hideAllControls()
                 setPlaybackSpeed(1.0f)
                 isExpectedPrepare = false
+                // 真正起播：解除可能存在的弹幕冻结（见 resumeDanmakuIfPlaying）
+                resumeDanmakuIfPlaying()
             }
 
             setOnCompletionListener {
@@ -1636,6 +1674,7 @@ private fun toggleLandscape() {
                     formatTime(mediaPlayer?.duration ?: 0)
                 )
                 startProgressUpdater()
+                resumeDanmakuIfPlaying()
             }
 
             setOnErrorListener { _, what, extra ->
