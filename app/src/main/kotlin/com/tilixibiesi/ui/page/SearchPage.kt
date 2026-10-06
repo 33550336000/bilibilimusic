@@ -36,8 +36,11 @@ import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.TextureView
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -102,6 +105,8 @@ class SearchPage(base: Context) : BasePage(base) {
     private val biliSearchRequestId = AtomicInteger(0)
     private var hasExtractedCookie = false
     private var currentKeyword = ""
+    /** 用户最后一次按「确定键」提交的关键词（输入框实时内容未必等于它） */
+    private var submittedKeyword = ""
     private var currentPage = 1
     private var hasMorePage = false
     private var isLoadingMore = false
@@ -278,7 +283,7 @@ class SearchPage(base: Context) : BasePage(base) {
         lastSourceSize = sourceSize
         allMusicList = buildSourceList().toMutableList()
 
-        val kw = etSearch.text.toString()
+        val kw = submittedKeyword
         if (::etSearch.isInitialized && kw.isNotEmpty()) {
             // 本地模式才需要按新数据源重算；B 站模式走网络分页，不受影响
             if (!isBiliMode) filterMusic(kw)
@@ -389,13 +394,29 @@ class SearchPage(base: Context) : BasePage(base) {
             } else false
         }
 
+        // 输入过程中不触发搜索：输入法的拼音串（未上屏文本）在 onTextChanged 里
+        // 也会被回调，逐字搜索既浪费网络请求、又会让列表结果乱跳。
+        // 这里仅在输入框被清空时清掉已有结果，真正的搜索由「确定键」触发。
         etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                filterMusic(s.toString())
+                if (s.isNullOrEmpty()) clearSearchResults()
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+
+        // 软键盘上的「确定/搜索」回车键（以及外接键盘 Enter）才执行搜索
+        etSearch.setOnEditorActionListener { _, actionId, event ->
+            val isImeConfirm = actionId == EditorInfo.IME_ACTION_SEARCH ||
+                actionId == EditorInfo.IME_ACTION_DONE
+            val isEnterKey = event != null &&
+                event.keyCode == KeyEvent.KEYCODE_ENTER &&
+                event.action == KeyEvent.ACTION_DOWN
+            if (isImeConfirm || isEnterKey) {
+                performSearch()
+                true
+            } else false
+        }
 
         lvSearchResult.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, _ ->
             if (position < 0 || position >= searchResultList.size) return@OnItemClickListener
@@ -667,15 +688,10 @@ class SearchPage(base: Context) : BasePage(base) {
             isBiliMode = !isBiliMode
             updateBiliButtonState()
             updateListVisibility()
-            val kw = etSearch.text.toString()
+            val kw = etSearch.text.toString().trim()
+            submittedKeyword = kw
             if (kw.isNotEmpty()) filterMusic(kw)
-            else {
-                searchResultList.clear()
-                biliVideoList.clear()
-                refreshAdapters()
-                hideSearchingHint()
-                resetPagination()
-            }
+            else clearSearchResults()
         }
         btnBiliToggle.setOnLongClickListener {
             showFullBiliSourceDialog()
@@ -800,6 +816,30 @@ class SearchPage(base: Context) : BasePage(base) {
                 }
             }
         })
+    }
+
+    /** 按下软键盘「确定/搜索」键后才真正执行搜索 */
+    private fun performSearch() {
+        val keyword = etSearch.text.toString().trim()
+        submittedKeyword = keyword
+        hideSoftKeyboard()
+        etSearch.clearFocus()
+        filterMusic(keyword)
+    }
+
+    /** 输入框被清空时同步清掉结果列表（不触发搜索） */
+    private fun clearSearchResults() {
+        submittedKeyword = ""
+        searchResultList.clear()
+        biliVideoList.clear()
+        refreshAdapters()
+        hideSearchingHint()
+        resetPagination()
+    }
+
+    private fun hideSoftKeyboard() {
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
+        imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
     }
 
     private fun filterMusic(keyword: String) {

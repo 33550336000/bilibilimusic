@@ -38,6 +38,9 @@
                 android:background="#00000000"
                 android:padding="12dp"
                 android:inputType="text"
+                android:imeOptions="actionSearch"
+                android:singleLine="true"
+                android:maxLines="1"
                 android:importantForAutofill="no" />
 
             <ImageButton
