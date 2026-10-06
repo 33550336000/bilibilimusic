@@ -200,7 +200,11 @@
     <string name="add_song_to_playlist">添加歌曲到该歌单</string>
     <string name="search_song_by_name">输入歌名搜索</string>
     <string name="clear_search">清空搜索</string>
-    <string name="bilibili_source_off">B站源 OFF</string>
+    <string name="bili_toggle_on">开</string>
+    <string name="bili_toggle_off">关</string>
+    <string name="add_to_main_page">加入主页面</string>
+    <string name="add_to_target_title">添加到</string>
+    <string name="add_to_target_message">将《%1$s》添加到：</string>
     <string name="searching">正在搜索中，请稍后…</string>
     <string name="sort">排序</string>
     <string name="default_time_range">00:00 / 00:00</string>
@@ -288,14 +292,9 @@
     <string name="audio_url_not_available">音频链接不可用</string>
     <string name="select_at_least_one_quality">请至少选择一项画质或音频</string>
     <string name="loading_fetch_quality">获取画质列表…</string>
-    <string name="bili_toggle_on_template">B站源 开%1$s</string>
-    <string name="bili_toggle_off_template">B站源 关%1$s</string>
-    <string name="bili_full_suffix"> [完]</string>
     <string name="video_quality_format">视频: %1$s</string>
     <string name="audio_quality_format">音频: %1$s</string>
     <string name="separator_audio">--- 音频 ---</string>
-    <string name="add_to_history_title">添加到B站历史</string>
-    <string name="add_to_history_message">确定要将《%1$s》添加到历史记录吗？</string>
     <string name="webpage_load_failed">网页加载失败，请检查网络</string>
     <string name="quality_select_title">选择画质（可单选，也可视频+音频合并）</string>
 

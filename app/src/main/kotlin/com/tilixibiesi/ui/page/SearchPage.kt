@@ -124,8 +124,6 @@ class SearchPage(base: Context) : BasePage(base) {
     private val biliVideoList = mutableListOf<BiliVideo>()
     private var currentVideoIndex = -1
 
-    private lateinit var lvFooterView: View
-
     private lateinit var webViewContainer: FrameLayout
     /**
      * 登录 WebView。**按需创建、用完即毁**：它已从布局里移除，改在这里 new 出来。
@@ -366,11 +364,6 @@ class SearchPage(base: Context) : BasePage(base) {
         val btnClearSearch = findViewById<ImageButton>(R.id.btn_clear_search)
         btnClearSearch?.setOnClickListener { etSearch.text.clear() }
 
-        lvFooterView = layoutInflater.inflate(R.layout.footer_loading, lvSearchResult, false).apply {
-            visibility = View.GONE
-        }
-        lvSearchResult.addFooterView(lvFooterView, null, false)
-
         musicAdapter = MusicAdapter(this, searchResultList).apply {
             // MusicBean.equals 仅按歌名判等，B 站条目与本地同名歌曲会互相命中，
             // 导致序号错乱。此处按引用定位（列表内元素唯一）。
@@ -433,11 +426,6 @@ class SearchPage(base: Context) : BasePage(base) {
         musicAdapter.onAddToPlaylistClickListener = object : MusicAdapter.OnAddToPlaylistClickListener {
             override fun onAddToPlaylistClick(position: Int, musicBean: MusicBean) {
                 PlaylistDialogHelper.showAddToPlaylistDialog(this@SearchPage, musicBean)
-            }
-        }
-        musicAdapter.onAddToHistoryClickListener = object : MusicAdapter.OnAddToBiliHistoryClickListener {
-            override fun onAddToHistoryClick(position: Int, musicBean: MusicBean) {
-                showAddToHistoryDialog(musicBean)
             }
         }
     }
@@ -531,8 +519,6 @@ class SearchPage(base: Context) : BasePage(base) {
             SpUtils.saveBiliCookie(this, fullCookie.trimEnd(';', ' '))
             SpUtils.setFullBiliSource(this, true)
             isFullBiliSource = true
-            updateBiliButtonState()
-            updateListVisibility()
             Toast.makeText(this, R.string.login_success_full, Toast.LENGTH_SHORT).show()
             handler.postDelayed({ closeLoginWebView() }, 500)
         }
@@ -557,11 +543,15 @@ class SearchPage(base: Context) : BasePage(base) {
             setOnClickListener {
                 if (currentVideoIndex in biliVideoList.indices) {
                     val video = biliVideoList[currentVideoIndex]
+                    // 三个按钮：加入歌单 / 加入主页面 / 取消。第三个按钮是为了防止误触。
                     DialogHelper.createStyledDialog(activity,
                         AlertDialog.Builder(this@SearchPage)
-                            .setTitle(R.string.add_to_history_title)
-                            .setMessage(LanguageUtils.getString(this@SearchPage, R.string.add_to_history_message, video.title))
-                            .setPositiveButton(R.string.ok) { _, _ ->
+                            .setTitle(R.string.add_to_target_title)
+                            .setMessage(LanguageUtils.getString(this@SearchPage, R.string.add_to_target_message, video.title))
+                            .setPositiveButton(R.string.add_to_playlist_title) { _, _ ->
+                                PlaylistDialogHelper.showPlaylistSelector(this@SearchPage, video.toMusicBean())
+                            }
+                            .setNeutralButton(R.string.add_to_main_page) { _, _ ->
                                 recordBiliEntry(video)
                                 Toast.makeText(this@SearchPage, R.string.history_added, Toast.LENGTH_SHORT).show()
                             }
@@ -700,27 +690,21 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun updateBiliButtonState() {
-        val suffix = if (isFullBiliSource) LanguageUtils.getString(this@SearchPage, R.string.bili_full_suffix) else ""
-        btnBiliToggle.text = if (isBiliMode) {
-            LanguageUtils.getString(this@SearchPage, R.string.bili_toggle_on_template, suffix)
-        } else {
-            LanguageUtils.getString(this@SearchPage, R.string.bili_toggle_off_template, suffix)
-        }
+        // 文字只区分开/关；是否完整模式（是否带登录 Cookie 搜索）不在按钮上体现
+        btnBiliToggle.text = LanguageUtils.getString(
+            this@SearchPage,
+            if (isBiliMode) R.string.bili_toggle_on else R.string.bili_toggle_off
+        )
     }
 
+    /** 开：显示视频封面列表；关：显示本地歌曲列表 */
     private fun updateListVisibility() {
-        if (isBiliMode && isFullBiliSource) {
-            lvSearchResult.visibility = View.GONE
-            gvBiliResult.visibility = View.VISIBLE
-        } else {
-            lvSearchResult.visibility = View.VISIBLE
-            gvBiliResult.visibility = View.GONE
-        }
+        lvSearchResult.visibility = if (isBiliMode) View.GONE else View.VISIBLE
+        gvBiliResult.visibility = if (isBiliMode) View.VISIBLE else View.GONE
     }
 
     private fun showFullBiliSourceDialog() {
-        val current = isFullBiliSource
-        if (current) {
+        if (isFullBiliSource) {
             DialogHelper.createStyledDialog(activity,
                 AlertDialog.Builder(this)
                     .setTitle(R.string.full_bili_source_title)
@@ -728,8 +712,6 @@ class SearchPage(base: Context) : BasePage(base) {
                     .setPositiveButton(R.string.ok) { _, _ ->
                         SpUtils.setFullBiliSource(this, false)
                         isFullBiliSource = false
-                        updateBiliButtonState()
-                        updateListVisibility()
                         Toast.makeText(this, R.string.full_bili_source_disabled_toast, Toast.LENGTH_SHORT).show()
                     }
                     .setNegativeButton(R.string.cancel, null)
@@ -739,8 +721,6 @@ class SearchPage(base: Context) : BasePage(base) {
             if (savedCookie.isNotEmpty()) {
                 SpUtils.setFullBiliSource(this, true)
                 isFullBiliSource = true
-                updateBiliButtonState()
-                updateListVisibility()
                 Toast.makeText(this, R.string.full_bili_source_enabled_toast, Toast.LENGTH_SHORT).show()
             } else {
                 openBiliLoginWebView()
@@ -797,16 +777,6 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun initPageButtons() {
-        lvSearchResult.setOnScrollListener(object : AbsListView.OnScrollListener {
-            override fun onScrollStateChanged(view: AbsListView?, scrollState: Int) {}
-            override fun onScroll(view: AbsListView?, firstVisibleItem: Int, visibleItemCount: Int, totalItemCount: Int) {
-                if (!isBiliMode || isLoadingMore || currentKeyword.isEmpty() || !hasMorePage) return
-                if (firstVisibleItem + visibleItemCount >= totalItemCount - 1) {
-                    loadPage(currentPage + 1)
-                }
-            }
-        })
-
         gvBiliResult.setOnScrollListener(object : AbsListView.OnScrollListener {
             override fun onScrollStateChanged(view: AbsListView?, scrollState: Int) {}
             override fun onScroll(view: AbsListView?, firstVisibleItem: Int, visibleItemCount: Int, totalItemCount: Int) {
@@ -881,7 +851,6 @@ class SearchPage(base: Context) : BasePage(base) {
             searchResultList.addAll(scoredList.map { it.first })
 
             musicAdapter.notifyDataSetChanged()
-            musicAdapter.showAddToHistoryButton = false
         } else {
             resetPagination()
             currentKeyword = keyword
@@ -900,20 +869,16 @@ class SearchPage(base: Context) : BasePage(base) {
         progressBar.visibility = View.VISIBLE
         tvSearchingHint.visibility = View.VISIBLE
 
-        if (!isFullBiliSource || !isBiliMode) {
-            lvFooterView.visibility = View.VISIBLE
-        }
-
         val id = biliSearchRequestId.incrementAndGet()
         AppExecutors.io.execute {
-            val cookie = SpUtils.getBiliCookie(this)
+            // 非完整模式不带登录 Cookie（公开搜索无需登录态）；完整模式才传递
+            val cookie = if (isFullBiliSource) SpUtils.getBiliCookie(this) else ""
             val result = BiliSearchHelper.searchVideosPage(currentKeyword, page, cookie)
             if (id != biliSearchRequestId.get()) {
                 handler.post {
                     isLoadingMore = false
                     progressBar.visibility = View.GONE
                     tvSearchingHint.visibility = View.GONE
-                    lvFooterView.visibility = View.GONE
                 }
                 return@execute
             }
@@ -932,42 +897,15 @@ class SearchPage(base: Context) : BasePage(base) {
                 val videos = result.videos
                 val hasMore = result.hasMore
 
-                // 若首页返回空且无更多页（非 -101 导致的空），可能是搜索无结果，正常显示空列表即可
+                // 搜索结果一律以视频封面列表呈现
                 if (page == 1) {
-                    searchResultList.clear()
                     biliVideoList.clear()
+                    biliVideoAdapter.clearData()
                 }
-
                 biliVideoList.addAll(videos)
-
-                if (isFullBiliSource && isBiliMode) {
-                    if (page == 1) {
-                        biliVideoAdapter.dataList = biliVideoList
-                    } else {
-                        biliVideoAdapter.addData(videos)
-                    }
-                    biliVideoAdapter.hasMore = hasMore
-                    biliVideoAdapter.notifyDataSetChanged()
-                } else {
-                    for (v in videos) {
-                        searchResultList.add(
-                            MusicBean(v.title, "").apply {
-                                isBilibili = true
-                                bvid = v.bvid
-                                author = v.author
-                                duration = v.duration.toIntOrNull() ?: 0
-                            }
-                        )
-                    }
-                    musicAdapter.notifyDataSetChanged()
-                    if (page == 1) lvSearchResult.setSelection(0)
-                }
-
-                lvFooterView.visibility = if (!isBiliMode || !isFullBiliSource) {
-                    if (hasMore && isBiliMode) View.VISIBLE else View.GONE
-                } else {
-                    View.GONE
-                }
+                biliVideoAdapter.addData(videos)
+                biliVideoAdapter.hasMore = hasMore
+                biliVideoAdapter.notifyDataSetChanged()
 
                 currentPage = page
                 hasMorePage = hasMore
@@ -992,7 +930,6 @@ class SearchPage(base: Context) : BasePage(base) {
         currentPage = 1
         hasMorePage = false
         isLoadingMore = false
-        lvFooterView.visibility = View.GONE
         biliVideoAdapter.hasMore = false
         biliVideoAdapter.notifyDataSetChanged()
     }
@@ -1217,33 +1154,18 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    private fun showAddToHistoryDialog(bean: MusicBean) {
-        DialogHelper.createStyledDialog(activity,
-            AlertDialog.Builder(this)
-                .setTitle(R.string.add_to_history_title)
-                .setMessage(LanguageUtils.getString(this@SearchPage, R.string.add_to_history_message, DataFileUtils.getDisplayName(bean.musicName)))
-                .setPositiveButton(R.string.ok) { _, _ ->
-                    recordBiliEntryFromBean(bean)
-                    Toast.makeText(this, R.string.history_added, Toast.LENGTH_SHORT).show()
-                }
-                .setNegativeButton(R.string.cancel, null)
-        )
-    }
-
     private fun recordBiliEntry(video: BiliVideo) {
         AppExecutors.io.execute {
             BiliHistoryHelper.addEntry(video)
         }
     }
 
-    private fun recordBiliEntryFromBean(bean: MusicBean) {
-        bean.bvid?.let { bvid ->
-            val video = BiliVideo(
-                title = bean.musicName, author = bean.author ?: "", bvid = bvid,
-                coverUrl = "", duration = bean.duration.toString()
-            )
-            recordBiliEntry(video)
-        }
+    /** 转成统一音乐条目，供「加入歌单」使用 */
+    private fun BiliVideo.toMusicBean() = MusicBean(title, "").apply {
+        isBilibili = true
+        bvid = this@toMusicBean.bvid
+        author = this@toMusicBean.author
+        duration = this@toMusicBean.duration.toIntOrNull() ?: 0
     }
 
     private fun applySettings() {

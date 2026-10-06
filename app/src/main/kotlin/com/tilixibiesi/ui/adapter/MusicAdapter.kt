@@ -26,8 +26,6 @@ class MusicAdapter(
     var onDeleteClickListener: OnDeleteClickListener? = null
     var originalIndexProvider: ((MusicBean) -> Int)? = null
     var showDeleteButton: Boolean = false
-    var showAddToHistoryButton: Boolean = false
-    var onAddToHistoryClickListener: OnAddToBiliHistoryClickListener? = null
 
     override fun getCount(): Int = musicList.size
     override fun getItem(position: Int): Any = musicList[position]
@@ -103,15 +101,7 @@ class MusicAdapter(
         holder.btnAddToPlaylist.visibility =
             if (onAddToPlaylistClickListener != null) View.VISIBLE else View.GONE
 
-        if (showAddToHistoryButton && onAddToHistoryClickListener != null) {
-            holder.btnDelete.visibility = View.VISIBLE
-            holder.btnDelete.text = "+"
-            holder.btnDelete.rotation = 0f
-            holder.btnDelete.setTextColor(Color.parseColor("#2196F3"))
-            holder.btnDelete.setOnClickListener {
-                onAddToHistoryClickListener?.onAddToHistoryClick(position, musicBean)
-            }
-        } else if (showDeleteButton && onDeleteClickListener != null) {
+        if (showDeleteButton && onDeleteClickListener != null) {
             holder.btnDelete.visibility = View.VISIBLE
             holder.btnDelete.text = "+"
             holder.btnDelete.rotation = 45f
@@ -152,10 +142,6 @@ class MusicAdapter(
     // 接口定义不变...
     interface OnMoveClickListener {
         fun onMoveClick(position: Int, musicBean: MusicBean)
-    }
-
-    interface OnAddToBiliHistoryClickListener {
-        fun onAddToHistoryClick(position: Int, musicBean: MusicBean)
     }
 
     interface OnItemLongClickListener {
