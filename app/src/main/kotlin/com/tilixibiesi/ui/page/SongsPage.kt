@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.drawable.Drawable
 import android.media.AudioManager
@@ -41,6 +42,7 @@ import com.tilixibiesi.network.HttpUtils
 import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.ui.AccessibleTextView
 import com.tilixibiesi.ui.MainPagerActivity
+import com.tilixibiesi.ui.NowPlayingPage
 import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.AppExecutors
@@ -125,6 +127,15 @@ class SongsPage(base: Context) : BasePage(base) {
     private val biliHistoryLock = Any()
     private var isLoadingBiliHistory = false
 
+    /**
+     * 「正在播放」覆盖层。懒创建：绝大多数会话不会用到它，
+     * 而它内部要 inflate 整页布局并注册广播，没必要在页面创建时就付这份开销。
+     */
+    private var nowPlaying: NowPlayingPage? = null
+
+    /** 当前正在播放的条目，供正在播放页展示标题/艺术家/专辑/封面 */
+    private var currentPlayBean: MusicBean? = null
+
     // ==================== 生命周期 ====================
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -173,6 +184,18 @@ class SongsPage(base: Context) : BasePage(base) {
             PlaybackStatsManager.stopUpdater()
         }
         musicAdapter.notifyDataSetChanged()
+        // 回到本页时「正在播放」页可能仍开着（例如去设置页改了背景再滑回来）：
+        // 重新同步一次，避免它停在离开前的旧状态。
+        nowPlaying?.takeIf { it.isVisible }?.let { page ->
+            resolveCurrentBean()?.let { bean ->
+                if (bean !== currentPlayBean) {
+                    currentPlayBean = bean
+                    page.updateTrack(bean)
+                }
+            }
+            page.refresh()
+            sendServiceAction(MusicPlayerService.ACTION_REQUEST_PROGRESS)
+        }
     }
 
     override fun onPause() {
@@ -182,9 +205,23 @@ class SongsPage(base: Context) : BasePage(base) {
         BackgroundHelper.setActive(findViewById(R.id.main_bg_host)!!, false)
     }
 
+    /**
+     * 屏幕旋转。
+     *
+     * 宿主声明了 configChanges=orientation|screenSize，旋转不会重建 Activity，
+     * 页面也不会重新 inflate，因此这里要主动把新方向转给「正在播放」覆盖层
+     * ——它挂在 decorView 上，不在本页视图树里，收不到任何自动刷新。
+     */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        nowPlaying?.onConfigurationChanged()
+    }
+
     override fun onDestroy() {
         playTimer.cancel()
         songDetailDialogs.dismiss()
+        // 正在播放页挂在 decorView 上，不在页面视图树里：不显式释放就是一处 Activity 泄漏
+        nowPlaying?.release()
+        nowPlaying = null
         PlaybackStatsManager.stopUpdater()
         PlaybackStatsManager.releaseViews()
         unregisterPageReceiver(playStateReceiver)
@@ -352,16 +389,8 @@ class SongsPage(base: Context) : BasePage(base) {
             }
         }
 
-        btnPrev.setOnClickListener {
-            if (currentPlayPosition == -1 || musicList.isEmpty()) return@setOnClickListener
-            val prevPos = if (currentPlayPosition - 1 < 0) musicList.size - 1 else currentPlayPosition - 1
-            playAtPosition(prevPos, musicList)
-        }
-        btnNext.setOnClickListener {
-            if (currentPlayPosition == -1 || musicList.isEmpty()) return@setOnClickListener
-            val nextPos = (currentPlayPosition + 1) % musicList.size
-            playAtPosition(nextPos, musicList)
-        }
+        btnPrev.setOnClickListener { playPrevious() }
+        btnNext.setOnClickListener { playNext() }
 
         btnPlayMode.setOnClickListener {
             val nextModeOrdinal = (currentPlayMode.ordinal + 1) % SpUtils.PlayMode.values().size
@@ -381,6 +410,14 @@ class SongsPage(base: Context) : BasePage(base) {
         playerControlLayout.isFocusable = true
         playerControlLayout.isFocusableInTouchMode = true
         applyBackgroundSettings()
+
+        // 点底部控制栏进入「正在播放」页。
+        //
+        // 监听挂在控制栏容器与标题上，而不是每个按钮：按钮自己消费点击，
+        // 事件不会冒泡到容器，因此点空白处与点歌名都能进页面，
+        // 而点播放/上一首/下一首/定时器等按钮时行为完全不变。
+        playerControlLayout.setOnClickListener { openNowPlaying() }
+        tvCurrentMusic.setOnClickListener { openNowPlaying() }
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
@@ -559,6 +596,24 @@ class SongsPage(base: Context) : BasePage(base) {
 
     // ==================== 播放控制 ====================
 
+    /**
+     * 上一首 / 下一首。
+     *
+     * 抽成独立方法而不是内联在按钮监听里：正在播放页的「上一首/下一首」
+     * 也要走同一套定位规则（含首尾环绕），两份实现迟早会走岔。
+     */
+    private fun playPrevious() {
+        if (currentPlayPosition == -1 || musicList.isEmpty()) return
+        val prevPos = if (currentPlayPosition - 1 < 0) musicList.size - 1 else currentPlayPosition - 1
+        playAtPosition(prevPos, musicList)
+    }
+
+    private fun playNext() {
+        if (currentPlayPosition == -1 || musicList.isEmpty()) return
+        val nextPos = (currentPlayPosition + 1) % musicList.size
+        playAtPosition(nextPos, musicList)
+    }
+
     private fun setPlayerControlVisible(visible: Boolean) {
         playerControlLayout.visibility = if (visible) View.VISIBLE else View.GONE
         val bottomPadding = if (visible) CONTROL_BAR_HEIGHT_DP else 0
@@ -656,6 +711,102 @@ class SongsPage(base: Context) : BasePage(base) {
             if (notifyList) musicAdapter.notifyDataSetChanged()
             lvMusic.smoothScrollToPosition(position)
         }
+    }
+
+    // ==================== 正在播放页 ====================
+
+    /**
+     * 打开「正在播放」页。
+     *
+     * 没有任何正在播放的曲目时不打开：否则用户会看到一个全是"未知"的空页面，
+     * 比不响应更让人困惑。
+     */
+    private fun openNowPlaying() {
+        val bean = resolveCurrentBean() ?: return
+        currentPlayBean = bean
+        val page = ensureNowPlaying()
+        page.updateTrack(bean)
+        page.show()
+        // 页面里的进度条要立刻显示真实进度，而不是等下一次每秒广播
+        sendServiceAction(MusicPlayerService.ACTION_REQUEST_PROGRESS)
+    }
+
+    /**
+     * 取当前播放条目。
+     *
+     * 优先用已记录的下标，但它可能因 B 站历史插入而整体偏移（见 applyBiliBeans），
+     * 因此拿不到或对不上时回退按歌名定位——与 restorePlayingHighlight 同一套判据。
+     */
+    private fun resolveCurrentBean(): MusicBean? {
+        musicList.getOrNull(currentPlayPosition)?.let { return it }
+        val playingName = MusicPlayerService.currentPlayingName ?: return null
+        val index = musicList.indexOfFirst {
+            DataFileUtils.getDisplayName(it.musicName) == playingName
+        }
+        return musicList.getOrNull(index)
+    }
+
+    private fun ensureNowPlaying(): NowPlayingPage {
+        nowPlaying?.let { return it }
+        val page = NowPlayingPage(activity, object : NowPlayingPage.Commands {
+            override fun onPlayPause() {
+                // 复用底部控制栏的同一段逻辑，避免两处对"播放/暂停"的理解走岔
+                btnPlayPause.performClick()
+            }
+
+            override fun onPrev() = playPrevious()
+            override fun onNext() = playNext()
+            override fun onSeek(positionMs: Int) {
+                sendServiceAction(
+                    MusicPlayerService.ACTION_SEEK,
+                    MusicPlayerService.EXTRA_SEEK_POSITION to positionMs
+                )
+                sendServiceAction(MusicPlayerService.ACTION_REQUEST_PROGRESS)
+            }
+        })
+        nowPlaying = page
+        return page
+    }
+
+    /**
+     * 返回键：交给正在播放页消费。
+     *
+     * @return true 表示已消费（歌词页 → 正在播放页，或收起整页）
+     */
+    fun handleNowPlayingBack(): Boolean = nowPlaying?.handleBack() == true
+
+    /**
+     * 把播放广播转发给正在播放页；页面未创建时是空操作。
+     *
+     * @param listIndex  曲目在 [musicList] 中的下标；未知传 null
+     * @param currentMs  播放位置（毫秒）；广播未携带时传 null（暂停广播就是这种）
+     * @param durationMs 总时长（毫秒）；广播未携带时传 null
+     */
+    private fun syncNowPlaying(
+        musicName: String?,
+        listIndex: Int?,
+        currentMs: Int?,
+        durationMs: Int?,
+        isPlaying: Boolean?
+    ) {
+        val page = nowPlaying ?: return
+        // 歌名变化才重新解析元数据：进度广播每秒都来，
+        // 每次都重算标题/发起封面请求会白耗流量与内存。
+        if (!musicName.isNullOrEmpty()) {
+            val bean = musicList.getOrNull(listIndex ?: -1)
+                ?: musicList.firstOrNull {
+                    DataFileUtils.getDisplayName(it.musicName) == musicName
+                }
+            if (bean != null && bean !== currentPlayBean) {
+                currentPlayBean = bean
+                page.updateTrack(bean)
+            }
+        }
+        page.updateProgress(
+            positionMs = currentMs,
+            durationMs = durationMs,
+            isPlaying = isPlaying ?: MusicPlayerService.isPlaying
+        )
     }
 
     private fun refreshPlayerUIForStop() {
@@ -1076,6 +1227,24 @@ class SongsPage(base: Context) : BasePage(base) {
                 val duration = intent.getIntExtra(MusicPlayerService.EXTRA_DURATION, 0)
                 updateSeekBarState(current, duration)
             }
+
+            // 转发给「正在播放」页（未创建时内部直接返回）。
+            // 放在最后：它只读已算好的值，不参与上面的列表刷新决策。
+            syncNowPlaying(
+                musicName = musicName,
+                listIndex = currentPlayPosition.takeIf { it != -1 },
+                // 用 hasExtra 判定而不是 getIntExtra(…, 0)：暂停广播不带位置，
+                // 按 0 读会让正在播放页的进度条在按下暂停时跳回开头。
+                currentMs = if (intent.hasExtra(MusicPlayerService.EXTRA_CURRENT_POSITION)) {
+                    intent.getIntExtra(MusicPlayerService.EXTRA_CURRENT_POSITION, 0)
+                } else null,
+                durationMs = if (intent.hasExtra(MusicPlayerService.EXTRA_DURATION)) {
+                    intent.getIntExtra(MusicPlayerService.EXTRA_DURATION, 0)
+                } else null,
+                isPlaying = if (intent.hasExtra(MusicPlayerService.EXTRA_IS_PLAYING)) {
+                    intent.getBooleanExtra(MusicPlayerService.EXTRA_IS_PLAYING, false)
+                } else null
+            )
 
             // 上面各处只改数据，这里统一刷一次列表：
             // isPlaying 高亮与其它改动合并成一次 notifyDataSetChanged，

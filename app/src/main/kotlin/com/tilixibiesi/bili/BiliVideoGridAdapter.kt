@@ -149,7 +149,9 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
 
         // 2. 异步加载：同一 URL 去重，多个复用的 item 共用同一次请求结果
         val imageView = holder.ivCover
-        imageView.setImageResource(android.R.drawable.ic_menu_gallery)
+        // 占位图与「正在播放页拿不到封面时」用的是同一张（见 ic_cover_placeholder），
+        // 加载中与加载失败都会停在这张图上。
+        imageView.setImageResource(R.drawable.ic_cover_placeholder)
         imageView.tag = coverUrl
 
         synchronized(pendingHolders) {

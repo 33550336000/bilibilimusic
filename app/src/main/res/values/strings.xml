@@ -460,5 +460,14 @@
     <string name="subtitle_complete_multi">已保存 %1$d 份字幕（失败 %2$d）</string>
     <string name="subtitle_failed">字幕下载失败</string>
 
+    <!-- 正在播放页（点底部控制栏进入） -->
+    <string name="now_playing_unknown_title">未知标题</string>
+    <string name="now_playing_unknown_artist">未知艺术家</string>
+    <string name="now_playing_unknown_album">未知专辑</string>
+    <string name="now_playing_view_lyrics">查看歌词</string>
+    <string name="now_playing_no_lyrics">暂无歌词</string>
+    <string name="now_playing_collapse">收起</string>
+    <string name="now_playing_cover">封面</string>
+
     <!-- 开机启动 -->
 </resources>

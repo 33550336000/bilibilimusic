@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  正在播放页的底色。
+
+  自上而下的极暗渐变：顶部带一点偏红的暖调（呼应封面本身的暖色，
+  在纯黑背景上形成一层很淡的光晕），向下迅速收进近黑。
+  刻意压得很暗：封面与文字才是主角，背景只负责让画面不"死黑"。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="#FF2A0E16"
+        android:centerColor="#FF121214"
+        android:endColor="#FF08080A"
+        android:type="linear" />
+</shape>

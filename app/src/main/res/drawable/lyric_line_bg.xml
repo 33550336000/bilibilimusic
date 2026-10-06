@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  歌词行的按压反馈。
+
+  用低透明度白色 ripple：歌词页背景是封面的模糊色块，深色/浅色都可能出现，
+  半透明白在两种底上都能看出"按下去了"，又不会盖住歌词文字。
+
+  圆角 + 左右内缩，让它看起来像"点了这一句"而不是"选中了一整条横带"。
+-->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#33FFFFFF">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFFFF" />
+            <corners android:radius="12dp" />
+        </shape>
+    </item>
+</ripple>

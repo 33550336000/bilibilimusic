@@ -70,6 +70,9 @@ object BiliHistoryHelper {
             bvid = obj.getString("bvid")
             author = obj.optString("author", "")
             duration = if (durationAsSeconds) parseDurationSeconds(rawDuration) else rawDuration.toIntOrNull() ?: 0
+            // 封面：addEntry 一直在写，但此前没人读回来，于是主页面播放时拿不到封面。
+            // 老记录可能没有这个字段，optString 给空串，交给上层决定是否按 bvid 现取。
+            coverUrl = obj.optString("coverUrl", "").ifEmpty { null }
             musicUrl = ""
             if (normalizeName) {
                 this.musicName = DataFileUtils.getDisplayName(title)
