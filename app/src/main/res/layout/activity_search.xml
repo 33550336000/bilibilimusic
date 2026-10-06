@@ -57,7 +57,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
-                android:text="@string/bilibili_source_off"
+                android:text="@string/bili_toggle_off"
                 android:textColor="#FFFFFF"
                 android:background="@drawable/button_float_bg" />
         </LinearLayout>

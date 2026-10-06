@@ -48,14 +48,6 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
 
     var hasMore: Boolean = false
 
-    var dataList: List<BiliVideo>
-        get() = internalList
-        set(value) {
-            internalList.clear()
-            internalList.addAll(value)
-            notifyDataSetChanged()
-        }
-
     fun addData(videos: List<BiliVideo>) {
         internalList.addAll(videos)
         notifyDataSetChanged()
