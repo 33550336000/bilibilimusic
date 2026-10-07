@@ -65,7 +65,10 @@ object PlaybackStatsManager {
     private fun updateDisplay() {
         val ctx = tvToday?.get()?.context ?: tvTotal?.get()?.context ?: return
         val enabled = SpUtils.isShowTodayDurationEnabled(ctx)
-        val name = MusicPlayerService.currentPlayingName
+        // 明细文件的键是**实际名称**（见 MusicPlayerService.currentPlayingRawName），
+        // 因此这里必须按实际名称查表；显示名会随重命名变化，查不到任何记录。
+        val name = MusicPlayerService.currentPlayingRawName
+            ?: MusicPlayerService.currentPlayingName
         val playing = MusicPlayerService.isPlaying
         val todayView = tvToday?.get()
         val totalView = tvTotal?.get()
@@ -123,15 +126,34 @@ object PlaybackStatsManager {
     }
 
     /**
-     * 汇总全量播放明细。
+     * 历史分片的解析结果缓存：文件名 -> (最后修改时间, 解析结果)。
+     *
+     * 为什么可以缓存历史、但绝不缓存今天：
+     * [PlaybackStatsWriter.addOneSecond] 每次都以「当天日期」为文件名写入，
+     * 也就是说**只有今天那一片在变**，昨天及更早的分片一经写入就不会再被改写。
+     * 于是每次加载只需实读今天这一片，历史分片按 (文件名, mtime) 命中缓存即可，
+     * 既保证数字实时，又不必把用过的每一天都重新解析一遍。
+     */
+    private class CachedShard(
+        val lastModified: Long,
+        val parsed: Map<String, Map<String, Long>>
+    )
+
+    private val shardCache = HashMap<String, CachedShard>()
+    private val shardCacheLock = Any()
+
+    /**
+     * 汇总全量播放明细：歌曲名 -> 日期 -> 秒。
      *
      * 数据源只有 `details/<日期>.json` 分片（按天一个文件）。
      * 单个分片解析失败会跳过并继续，避免一天的数据损坏导致整个统计不可用。
+     *
+     * 历史分片走缓存、今天分片永远实读（见 [shardCache]），因此重复调用
+     * 的 IO 成本与「用过多少天」无关，只与今天这一片有关。
      */
     fun loadPlaybackDetails(): Map<String, Map<String, Long>> {
         val result = mutableMapOf<String, MutableMap<String, Long>>()
-
-        fun mergeParsed(parsed: Map<String, Map<String, Long>>) {
+        forEachShard { parsed ->
             parsed.forEach { (name, dateMap) ->
                 val m = result.getOrPut(name) { mutableMapOf() }
                 dateMap.forEach { (date, seconds) ->
@@ -139,16 +161,61 @@ object PlaybackStatsManager {
                 }
             }
         }
+        return result
+    }
 
-        // 分片目录：单个分片损坏只跳过该文件，不影响其余日期
-        val dir = StoragePaths.resolveRead(PlaybackDetails.DIR_REL)
-        val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
-        if (files != null) {
-            for (file in files) {
-                runCatching { mergeParsed(PlaybackDetails.parse(file.readText())) }
+    /**
+     * 只取**某一首歌**的每日明细：日期 -> 秒。
+     *
+     * 与 [loadPlaybackDetails] 读的是同一批分片（缓存策略也相同），
+     * 区别只是不再为其余歌曲建表。详情弹窗点进某首歌时用它，
+     * 避免为了一首歌的明细去汇总整份数据。
+     */
+    fun loadSongDetails(rawName: String): Map<String, Long> {
+        val result = mutableMapOf<String, Long>()
+        forEachShard { parsed ->
+            parsed[rawName]?.forEach { (date, seconds) ->
+                result[date] = (result[date] ?: 0L) + seconds
             }
         }
         return result
+    }
+
+    /**
+     * 遍历全部分片并把解析结果交给 [action]。
+     *
+     * 分片集合以本次列目录结果为准，顺带清掉缓存里已消失的文件，
+     * 避免用户清空数据后缓存里还留着幽灵记录。
+     */
+    private fun forEachShard(action: (Map<String, Map<String, Long>>) -> Unit) {
+        synchronized(shardCacheLock) {
+            val dir = StoragePaths.resolveRead(PlaybackDetails.DIR_REL)
+            val todayName = "${dateFormat.format(Date())}.json"
+            val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
+                ?: return
+            val seen = HashSet<String>(files.size)
+            for (file in files) {
+                seen.add(file.name)
+                readShard(file, todayName)?.let(action)
+            }
+            shardCache.keys.retainAll(seen)
+        }
+    }
+
+    /**
+     * 读一个分片；今天那一片永远实读，历史分片按 mtime 命中缓存。
+     * 解析失败返回 null（跳过该文件，不影响其余日期）。
+     */
+    private fun readShard(file: File, todayName: String): Map<String, Map<String, Long>>? {
+        // 今天这片每秒都在被重写，缓存它必然导致显示滞后
+        if (file.name == todayName) {
+            return runCatching { PlaybackDetails.parse(file.readText()) }.getOrNull()
+        }
+        val mtime = file.lastModified()
+        shardCache[file.name]?.let { if (it.lastModified == mtime) return it.parsed }
+        val parsed = runCatching { PlaybackDetails.parse(file.readText()) }.getOrNull() ?: return null
+        shardCache[file.name] = CachedShard(mtime, parsed)
+        return parsed
     }
 
     /**
