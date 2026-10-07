@@ -71,7 +71,22 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         /** 「通知进度条」开关变化后立即刷新（见 [refreshProgressSetting]） */
         const val ACTION_REFRESH_PROGRESS_SETTING = "com.tilixibiesi.ACTION_REFRESH_PROGRESS_SETTING"
         var isPlaying = false
+        /**
+         * 当前曲目的**显示名**（`DataFileUtils.getDisplayName`）。
+         *
+         * 供界面展示与「按歌名定位列表项」使用——与主页面列表项同一套口径，
+         * 因此用户重命名后这里跟着变，页面高亮/标题都能对上。
+         */
         var currentPlayingName: String? = null
+        /**
+         * 当前曲目的**实际名称**（原始 musicName，未经重命名）。
+         *
+         * 播放时长统计一律用它作键写入 details/<日期>.json：
+         * 显示名会随用户重命名而变，用它写会把同一首歌拆成多条记录；
+         * 实际名称在重命名前后都不变，天然是同一首歌的稳定标识。
+         * 展示时再经 [DataFileUtils.getDisplayName] 还原成显示名。
+         */
+        var currentPlayingRawName: String? = null
         var currentPlayingIndex = -1
         private var errorCount = 0
 
@@ -463,6 +478,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         currentDisplayName = null
         currentPosition = position
         currentPlayingIndex = position
+        currentPlayingRawName = bean.musicName
         currentPlayingName = DataFileUtils.getDisplayName(bean.musicName)
         isPlaying = true
         errorCount = 0
@@ -662,13 +678,17 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             filePlayIndex = 0
         }
         isFileMode = true
+        // 缓存映射的键就是缓存时的**实际名称**（原始 musicName），
+        // 是这里能拿到的最可靠的"实际名称"来源；取不到才退回传入名/文件名。
+        val cachedRawName = getDisplayNameFromCache(filePath)
         val rawName = displayName
-            ?: getDisplayNameFromCache(filePath)
+            ?: cachedRawName
             ?: File(filePath).name
         currentDisplayName = DataFileUtils.getDisplayName(rawName)
         currentPosition = -1
         currentPlayingIndex = -1
         currentPlayingName = currentDisplayName
+        currentPlayingRawName = cachedRawName ?: rawName
         isPlaying = true
         try {
             mediaPlayer?.setDataSource(filePath)
@@ -1043,6 +1063,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         flushStatsIfReady()
         isPlaying = false
         currentPlayingName = null
+        currentPlayingRawName = null
         currentPlayingIndex = -1
         currentPosition = -1
         biliHistoryList = emptyList()
@@ -1332,7 +1353,11 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                                 PlaybackState.STATE_PLAYING, current.toLong(), 1.0f
                             )
                         }
-                        currentPlayingName?.let { statsManager.addOneSecond(it) }
+                        // 统计按**实际名称**落盘（不是显示名）：显示名会随重命名变化，
+                        // 用它作键会把同一首歌拆成多条记录。展示时再由详情弹窗
+                        // 经 getDisplayName 还原，与主页面列表项同一套口径。
+                        (currentPlayingRawName ?: currentPlayingName)
+                            ?.let { statsManager.addOneSecond(it) }
                         // 歌词换句时重建通知。放在统计之后：即使通知刷新抛错，
                         // 播放时长也已经记上了。
                         tickNotificationLyric(current.toLong())
@@ -1399,6 +1424,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         if (index != -1) {
             currentPosition = index
             currentPlayingName = savedDisplayName
+            // 恢复态同样记下实际名称：随后用户按播放会走 playMusic(index) 重设，
+            // 但在此之前统计若被触发也不该退化成用显示名落盘。
+            currentPlayingRawName = list[index].musicName
             isPlaying = false
             biliHistoryList = emptyList()
             biliHistoryIndex = -1
@@ -1416,6 +1444,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                         it.musicName == savedDisplayName
                     }
                     currentPlayingName = savedDisplayName
+                    // B 站历史条目的 musicName 本就是归一化后的名字，
+                    // 这里直接沿用，统计键不会随重命名漂移。
+                    currentPlayingRawName = biliBean.musicName
                     isPlaying = false
                     currentPosition = -1
                     currentPlayingIndex = -1
