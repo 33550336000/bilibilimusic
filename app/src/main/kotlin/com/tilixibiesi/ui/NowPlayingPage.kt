@@ -242,9 +242,10 @@ class NowPlayingPage(
 
         // 记下控制键与歌词按钮的原始父容器与布局参数：
         // 横屏会把它们搬进底部固定栏，竖屏必须能原样搬回来。
-        // 参数存**副本**：addView 会复用传入的 LayoutParams 对象，
-        // 若直接存引用，横屏期间对 margin 的改动会污染这份"原始值"，
-        // 切回竖屏就还原不成 XML 里定义的样子了。
+        // 这里存**副本**，因为 addView 是直接持有传入的 LayoutParams 对象（不拷贝），
+        // 横屏期间对 margin 的就地修改会污染"原始值"。
+        // 注意：光在存的时候拷贝还不够——[restoreControlsFromBottomBar] 每次
+        // 也必须交出新的副本，否则这份原始值会再次变成视图的活动参数而被改写。
         controlsHome = npControls.parent as? ViewGroup
         controlsHomeParams = (npControls.layoutParams as? LinearLayout.LayoutParams)
             ?.let { LinearLayout.LayoutParams(it) }
@@ -495,13 +496,24 @@ class NowPlayingPage(
         if (npBottomBar.visibility == View.GONE && npControls.parent !== npBottomBar) return
         npBottomBar.removeView(npControls)
         npBottomBar.removeView(btnLyrics)
+        // 每次都必须传**新副本**，不能把 controlsHomeParams / lyricsHomeParams 本体交给 addView。
+        //
+        // addView(view, params) 最终执行 View.setLayoutParams(params)，是**直接持有该对象**、
+        // 不做拷贝的。若把"原始参数"本体交出去，它此后就是视图的活动参数；下一轮横屏
+        // moveControlsToBottomBar() 对 margin 的就地修改会永久污染这份"原始值"，
+        // 于是第一次转屏正常、第二次转屏按钮位置就偏了（丢失 bottomMargin、多了 marginStart）。
+        // 交给 addView 的永远是临时副本，存储的那份原始值就再也不会被改写。
         controlsHome?.let { home ->
             (npControls.parent as? ViewGroup)?.removeView(npControls)
-            home.addView(npControls, controlsHomeParams)
+            val lp = controlsHomeParams
+            if (lp != null) home.addView(npControls, LinearLayout.LayoutParams(lp))
+            else home.addView(npControls)
         }
         lyricsHome?.let { home ->
             (btnLyrics.parent as? ViewGroup)?.removeView(btnLyrics)
-            home.addView(btnLyrics, lyricsHomeParams)
+            val lp = lyricsHomeParams
+            if (lp != null) home.addView(btnLyrics, LinearLayout.LayoutParams(lp))
+            else home.addView(btnLyrics)
         }
         npBottomBar.visibility = View.GONE
     }

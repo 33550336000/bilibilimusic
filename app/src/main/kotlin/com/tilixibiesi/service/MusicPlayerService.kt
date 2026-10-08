@@ -53,6 +53,16 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         const val ACTION_PLAY_FILE = "com.tilixibiesi.ACTION_PLAY_FILE"
         const val ACTION_REQUEST_PROGRESS = "com.tilixibiesi.ACTION_REQUEST_PROGRESS"
         const val EXTRA_POSITION = "EXTRA_POSITION"
+        /**
+         * 点击列表项时置 true：若该位置就是当前曲目，则**切换播放/暂停并保留进度**，
+         * 而不是从头重播。
+         *
+         * 为什么用显式 extra 而不是让服务自己判断"位置是否等于当前曲目"：
+         * 上一首/下一首（尤其单曲列表）同样会带 EXTRA_POSITION，那样会把
+         * "下一首"误判成"点当前曲目"而变成暂停。只有真正来自列表点击的
+         * 请求才带这个标记。
+         */
+        const val EXTRA_TOGGLE_IF_CURRENT = "EXTRA_TOGGLE_IF_CURRENT"
         const val EXTRA_MODE = "EXTRA_MODE"
         const val EXTRA_SEEK_POSITION = "EXTRA_SEEK_POSITION"
         const val EXTRA_FILE_PATH = "EXTRA_FILE_PATH"
@@ -339,8 +349,12 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         when (intent.action) {
             ACTION_PLAY -> {
                 val position = intent.getIntExtra(EXTRA_POSITION, -1)
+                val toggleIfCurrent = intent.getBooleanExtra(EXTRA_TOGGLE_IF_CURRENT, false)
                 isUserPaused = false
                 when {
+                    // 点击的正是当前曲目：切换播放/暂停，保留进度，不从头重播
+                    toggleIfCurrent && position != -1 && !isFileMode &&
+                        resolveCurrentIndex() == position -> toggleCurrentPlayback()
                     position != -1 -> playMusic(position)
                     isPaused -> resumePlay()
                     mediaPlayer?.isPlaying == true -> { /* 已播放，无动作 */ }
@@ -1006,6 +1020,29 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     // ---------- 播放控制 ----------
 
+    /**
+     * 点击"当前正在播放的那首歌"时切换播放/暂停，**保留进度**。
+     *
+     * 与直接 [playMusic] 的区别：后者会重新 prepare 播放器，进度必然归零。
+     * 这里在暂停与恢复之间切换，播放器实例不动，`currentPosition` 自然延续。
+     *
+     * 三分支覆盖了播放器的全部状态：
+     *  - 正在播 → 暂停；
+     *  - 已暂停 → 从原位置恢复；
+     *  - 既没在播也没暂停（服务刚启动时 [restorePlayState] 只恢复了"上一首"的名字，
+     *    播放器还停在 Idle，此时**没有进度可保留**）→ 正常起播。
+     */
+    private fun toggleCurrentPlayback() {
+        when {
+            mediaPlayer?.isPlaying == true -> pausePlay()
+            isPaused && mediaPlayer != null -> resumePlay()
+            else -> {
+                val index = resolveCurrentIndex()
+                if (index != -1) playMusic(index)
+            }
+        }
+    }
+
     private fun resumePlay() {
         if (isPaused && mediaPlayer != null) {
             audioFocus.request()
@@ -1034,6 +1071,14 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             mediaPlayer?.pause()
             isPaused = true
             isUserPaused = true
+            // 静态标志必须跟着翻转：它表示"播放器此刻是否在出声"，
+            // 而 onResume → syncPlayerControlState() 正是读它来画底部播放键
+            // （true 画暂停图标、false 画播放图标）。不置 false 的话，
+            // 暂停后切走再切回主页面，按钮会显示成"点我会暂停"——
+            // 与"点它会继续"的实际行为相反，用户会误以为音乐还在播。
+            // 顺带让 onResume 里"是否启动统计刷新"的判断也回到正确分支
+            // （暂停时无需每秒读盘刷新今日时长）。
+            isPlaying = false
             stopProgressUpdates()
             // 暂停期间位置不变，但文案必须按"暂停这一刻的位置"重算一次：
             // 若暂停恰好发生在两次每秒刷新之间，通知上可能还是上上一句。

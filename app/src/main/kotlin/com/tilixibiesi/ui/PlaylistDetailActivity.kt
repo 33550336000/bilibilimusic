@@ -106,6 +106,9 @@ lvMusic.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, 
     val intent = Intent(this@PlaylistDetailActivity, MusicPlayerService::class.java).apply {
         action = MusicPlayerService.ACTION_PLAY
         putExtra(MusicPlayerService.EXTRA_POSITION, realPos)
+        // 与主页面列表项同一语义：点的若是当前曲目，切换播放/暂停并保留进度，
+        // 而不是从头重播。
+        putExtra(MusicPlayerService.EXTRA_TOGGLE_IF_CURRENT, true)
     }
     startService(intent)
 }
