@@ -5,5 +5,5 @@ data class BiliVideo(
     val author: String,
     val bvid: String,
     val coverUrl: String,
-    val duration: String,       // 如 "03:25"
+    val duration: String,
 )

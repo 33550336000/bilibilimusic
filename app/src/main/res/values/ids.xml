@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 底部导航项内图标/文字视图的 setTag 键（供高亮时取回引用换色） -->
     <item name="nav_icon_view" type="id" />
     <item name="nav_text_view" type="id" />
 </resources>

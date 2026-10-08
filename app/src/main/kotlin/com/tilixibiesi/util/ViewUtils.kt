@@ -11,10 +11,6 @@ import android.widget.ProgressBar
 
 object ViewUtils {
 
-    /**
-     * 递归遍历视图树，为所有 Button 和 ProgressBar 添加按下缩放效果。
-     * 适用于静态布局（如 Activity 根布局），不适用于动态列表。
-     */
     fun applyScaleOnTouch(root: ViewGroup?) {
         root?.let {
             for (i in 0 until it.childCount) {
@@ -46,9 +42,6 @@ object ViewUtils {
         }
     }
 
-    /**
-     * 为单个按钮设置按压缩放，消费事件并传递给原视图，保证点击正常。
-     */
     @SuppressLint("ClickableViewAccessibility")
     fun applyScaleToButton(
         view: View,
@@ -73,16 +66,11 @@ object ViewUtils {
                         .start()
                 }
             }
-            // 将事件传递给原视图，使按钮的点击仍能触发
             v.onTouchEvent(event)
             true
         }
     }
 
-    /**
-     * 为列表 item 的根布局设置按压缩放，并通过 performItemClick 触发列表点击。
-     * 适用于 ListView。
-     */
     fun applyScaleToItemView(
         view: View,
         positionProvider: () -> Int,
@@ -95,7 +83,6 @@ object ViewUtils {
         var downY = 0f
         var isSwiped = false
         var isLongPressed = false
-        // 自实现长按检测：touch listener 返回 true 会屏蔽系统长按，因此手动触发列表长按
         val longPressRunnable = Runnable {
             isLongPressed = true
             val position = positionProvider()
@@ -141,9 +128,7 @@ object ViewUtils {
                         .setDuration(duration)
                         .start()
                     if (!isSwiped && !isLongPressed) {
-                        // 无障碍服务通过 performClick() 触发点击，先回调一次以保持语义
                         v.performClick()
-                        // 触发 ListView 的点击事件；位置每次实时解析，避免 convertView 复用时索引过期
                         val position = positionProvider()
                         val parent = v.parent
                         if (position >= 0 && parent is ListView) {
@@ -164,9 +149,6 @@ object ViewUtils {
         }
     }
 
-    /**
-     * 通用的触摸缩放监听器（内部使用），会消费触摸事件。
-     */
     @SuppressLint("ClickableViewAccessibility")
     private class ScaleTouchListener(
         private val scaleDown: Float,

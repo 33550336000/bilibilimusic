@@ -1,5 +1,5 @@
 <resources>
     <color name="activity_bg">#F5F5F5</color>
-    <color name="dialog_translucent_bg">#CCFFFFFF</color> <!-- 半透明白，可改为 #CC000000 做深色毛玻璃 -->
+    <color name="dialog_translucent_bg">#CCFFFFFF</color> 
 <color name="white">#FFFFFFFF</color>
 </resources>

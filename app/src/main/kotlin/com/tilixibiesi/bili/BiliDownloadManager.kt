@@ -30,7 +30,6 @@ object BiliDownloadManager {
     private const val TAG = "BiliDownloadManager"
     private val handler = Handler(Looper.getMainLooper())
 
-    /** 创建带水平进度条的自定义对话框，返回对话框和进度条引用 */
     private fun createProgressDialog(context: Context, message: String): Pair<AlertDialog, ProgressBar> {
         val progressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100
@@ -103,7 +102,6 @@ fun downloadVideoWithQuality(
                 }
             }
 
-            // 合并、文件操作都在后台线程完成
             val success: Boolean
             val message: String
             if (aTemp != null && aTemp.exists()) {
@@ -124,7 +122,6 @@ fun downloadVideoWithQuality(
                 message = LanguageUtils.getString(context, R.string.download_complete_name, safeName)
             }
 
-            // 最后才通知主线程
             handler.post {
                 dialog.dismiss()
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -173,33 +170,18 @@ fun downloadVideoWithQuality(
         }
     }
 
-    /**
-     * 下载字幕并转成 SRT 落盘。
-     *
-     * 必须在后台线程调用（`BiliSubtitleHelper` 内部是同步 HTTP）。
-     *
-     * @param title 视频标题，用作文件名（与视频下载保持同一套清洗规则）
-     * @param track 字幕轨道，来自 `BiliSubtitleHelper.fetchTracks`
-     * @return 成功写出后的文件；任一环节失败返回 null
-     */
     fun downloadSubtitle(
         context: Context,
         title: String,
         track: BiliSubtitleTrack,
         cookie: String = "",
-        /** 同一视频里 lan 可能重复（如"中文"与"中文（繁体）"），用它区分 */
         trackIndex: Int = -1
     ): File? {
         return try {
-            // cookie 必须透传：B 站字幕 JSON 未登录时常返回空 body，
-            // 表现为"轨道列表里有字幕，下载却总是失败"
             val cues = BiliSubtitleHelper.fetchCues(track, cookie)
             if (cues.isEmpty()) return null
             val dir = AppPaths.subtitleDir()
             if (!dir.exists()) dir.mkdirs()
-            // 文件名：标题 + lan（AI 字幕加 _ai 后缀），避免多语言互相覆盖。
-            // 人传「中文」与 AI「中文」的 lan 不同（zh / ai-zh）本已能区分，
-            // 但 lan 相同的重复轨道（多个 AI 字幕都叫 ai-zh）仍需 trackIndex 兜底。
             val lanPart = buildString {
                 if (track.lan.isNotEmpty()) append('_').append(track.lan)
                 if (track.isAi) append("_ai")
@@ -216,11 +198,9 @@ fun downloadVideoWithQuality(
         }
     }
 
-    /** 文件名清洗：与视频下载保持一致，去掉 Windows/Android 都不允许的字符 */
     private fun sanitize(name: String): String =
         name.replace(Regex("[\\\\/:*?\"<>|]"), "_")
 
-    /** 修改：接收 ProgressBar 代替旧的 ProgressDialog；返回是否下载成功。 */
     private fun downloadFileWithProgress(
         context: Context,
         urlStr: String,
@@ -266,7 +246,6 @@ fun downloadVideoWithQuality(
                             fromPercent + ((toPercent - fromPercent) * (downloaded % 1048576L) / 1048576L).toInt()
                         }.coerceIn(0, 100)
 
-                        // 进度节流：百分比变化且距上次至少 200ms 才刷 UI，避免每 16KB 都 post 一次。
                         val now = System.currentTimeMillis()
                         if (pct != lastPercent && (now - lastPostAt >= 200 || pct >= toPercent)) {
                             lastPercent = pct
@@ -318,10 +297,6 @@ private fun muxVideoAndAudio(videoFile: File, audioFile: File, outputFile: File)
         val buffer = ByteArray(256 * 1024)
         val bufferInfo = MediaCodec.BufferInfo()
 
-        // 使用原始 PTS（sampleTime）按时间顺序归并写入。
-        // 不能各自从 0 按固定帧率/固定采样率推算——B 站视频帧率可能是 29.97/23.976 等非整数，
-        // 音频 AAC 每帧样本数也可能不是 1024，推算会导致音画逐渐错位、不对应。
-        // MediaMuxer 要求样本按 presentationTime 非递减写入，故用双指针边读边归并。
 
         fun readVideoSample(): Boolean {
             val size = videoExtractor.readSampleData(ByteBuffer.wrap(buffer), 0)
@@ -346,7 +321,6 @@ private fun muxVideoAndAudio(videoFile: File, audioFile: File, outputFile: File)
             return true
         }
 
-        // 双指针归并：每次取时间戳更小的一侧写入，保证 PTS 非递减
         var hasVideo = videoExtractor.sampleTime in 0..Long.MAX_VALUE
         var hasAudio = audioExtractor.sampleTime in 0..Long.MAX_VALUE
         while (hasVideo || hasAudio) {

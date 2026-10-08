@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <!-- 半透明黑色，可根据需要调整颜色和透明度 -->
     <solid android:color="#CC1E1E1E" />
     <corners android:radius="16dp" />
     <padding android:left="16dp" android:top="16dp" android:right="16dp" android:bottom="16dp" />

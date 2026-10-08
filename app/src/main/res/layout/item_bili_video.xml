@@ -20,7 +20,6 @@
             android:scaleType="centerCrop"
             android:contentDescription="@string/video_cover" />
 
-        <!-- 标题：覆盖在底部，半透明背景（建议改成半透明黑） -->
 <TextView
     android:id="@+id/tv_video_title"
     android:layout_width="match_parent"
@@ -35,7 +34,6 @@
     android:maxLines="2"
     android:ellipsize="end"/>
 
-        <!-- 作者：左下角 -->
         <TextView
             android:id="@+id/tv_video_author"
             android:layout_width="wrap_content"
@@ -52,7 +50,6 @@
             android:paddingHorizontal="4dp"
             android:paddingVertical="2dp"/>
 
-        <!-- 时长：右下角 -->
         <TextView
             android:id="@+id/tv_duration_badge"
             android:layout_width="wrap_content"
@@ -68,7 +65,5 @@
 
     </FrameLayout>
 
-    <!-- 如果你的原始布局中标题原本在外面，现在已移到封面内，所以这里不再重复 -->
-    <!-- 注意：原外层 LinearLayout 的 padding 依然保留，若觉得多余可删除 -->
 
 </LinearLayout>

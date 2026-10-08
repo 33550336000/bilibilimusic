@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 底层原色 -->
     <item>
         <shape android:shape="oval">
             <solid android:color="#FFFFFF" />
@@ -9,7 +8,6 @@
                 android:height="56dp" />
         </shape>
     </item>
-    <!-- 上层虚线边框（2dp宽，白色，虚线间距6dp） -->
     <item>
         <shape android:shape="oval">
             <stroke

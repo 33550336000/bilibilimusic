@@ -48,8 +48,6 @@ class MusicAdapter(
             view.tag = holder
             (view as ViewGroup).descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
 
-            // 只在创建时安装一次触摸监听；position 每次实时解析，避免复用后索引过期。
-            // 按钮的点击监听仍在 bind 阶段更新。
             ViewUtils.applyScaleToItemView(view, positionProvider = {
                 (view.parent as? android.widget.ListView)?.getPositionForView(view) ?: -1
             })
@@ -139,7 +137,6 @@ class MusicAdapter(
         val btnMove: TextView
     )
 
-    // 接口定义不变...
     interface OnMoveClickListener {
         fun onMoveClick(position: Int, musicBean: MusicBean)
     }

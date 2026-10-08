@@ -36,17 +36,6 @@ import kotlin.random.Random
 import java.util.Locale
 import android.graphics.Typeface
 
-/**
- * 设置页（原 SettingsActivity）。
- *
- * 与原先的差异：
- *  - 继承 [BasePage] 而非 Activity，作为 MainPagerActivity 内的一页存在；
- *  - 原本的 GestureDetector.onFling 右滑返回已交由 HorizontalPager 统一处理，
- *    页面自身不再持有手势检测器，也不再调用 overridePendingTransition；
- *  - 原来 Activity.dispatchTouchEvent 中「点击输入框外收起软键盘」的逻辑，
- *    改为挂在页面根 View 上的 OnTouchListener（无子 View 消费 DOWN 时回调，正好等价于点空白）；
- *  - 原来启动 MainActivity 进入「调整搜索按钮位置」的逻辑改为切到歌曲页并置位标志。
- */
 class SettingsPage(base: Context) : BasePage(base) {
     companion object {
         private const val REQUEST_PICK_DEFAULT_BG = 1005
@@ -65,13 +54,6 @@ class SettingsPage(base: Context) : BasePage(base) {
     private lateinit var btnRestoreDefault: Button
     private var tempBackgroundAlpha: Int = 100
     private lateinit var rootView: View
-    /**
-     * 背景宿主（最外层 FrameLayout）。
-     *
-     * 与 [rootView] 分开：rootView 是 ScrollView（负责滚动与「点空白收键盘」），
-     * 而 ScrollView 只能有一个直接子 View，无法承载视频背景层。
-     * 背景一律加到 [bgHost]，由它与内容层叠（详见 BackgroundHelper）。
-     */
     private lateinit var bgHost: View
     private lateinit var btnBlockedWords: Button
     private lateinit var sbFontColorHue: SeekBar
@@ -81,19 +63,12 @@ class SettingsPage(base: Context) : BasePage(base) {
     private lateinit var btnSaveAsDefault: Button
     private lateinit var btnAutoLoadDefault: Button
 
-    // 该 OnTouchListener 仅做「点空白收键盘」且 return false 不消费事件，不属于点击处理，抑制无障碍提示
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         setContentView(R.layout.activity_settings)
-        // 布局 XML 的 @string 走 ResourcesImpl（绕过 LocalizedResources），
-        // 页标题"设置"需按当前语言动态设置，切换语言后才会刷新为日语
         findViewById<TextView>(R.id.title_settings_page)?.text = LanguageUtils.getString(this@SettingsPage, R.string.settings_title)
         rootView = findViewById<View>(R.id.settings_root)!!
         bgHost = findViewById<View>(R.id.settings_bg_host)!!
-        // 原 Activity.dispatchTouchEvent 的等价实现：
-        // 点击字体大小/颜色输入框以外的地方时，清除焦点并收起软键盘，避免光标滞留。
-        // 挂在页面根 View 上——只有在没有子 View 消费该 ACTION_DOWN 时才回调，
-        // 语义正好等价于"点到空白处"（点按钮时不会误清焦点）。
         rootView.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
                 val x = event.rawX.toInt()
@@ -115,33 +90,22 @@ class SettingsPage(base: Context) : BasePage(base) {
         initView()
         loadCurrentSettings()
         applyBackground()
-        // 折叠状态初始化放在 loadCurrentSettings/applyBackground 之后，
-        // 避免 applySettingsToUI 重置了被收起的按钮可见性（如“调整搜索按钮位置”）
         setupCollapsibleSections()
     }
 
     override fun onResume() {
-        // 本页成为当前页：背景视频恢复播放并出声
         BackgroundHelper.setActive(bgHost, true)
     }
 
     override fun onPause() {
-        // 离开本页：暂停背景视频并静音
         BackgroundHelper.setActive(bgHost, false)
     }
 
     override fun onDestroy() {
-        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
         BackgroundHelper.release(bgHost)
         super.onDestroy()
     }
 
-    /**
-     * 让底部导航栏的增删立即生效。
-     *
-     * BaseActivity 把导航栏挂载在 onStart，开关变更后默认要等一次重建才可见；
-     * 这里直接重跑宿主的挂载/移除逻辑，点完开关立刻看到结果。
-     */
     private fun refreshBottomNav() {
         (activity as? MainPagerActivity)?.refreshBottomNav()
     }
@@ -236,7 +200,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                         else
                             LanguageUtils.getString(this@SettingsPage, R.string.btn_auto_load_default_off)
 
-                        // 从关闭变为开启时，立即应用默认配置
                         if (!current) {
                             SettingsStore.loadFromFile(this)
                             applySettingsToUI()
@@ -337,7 +300,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             LanguageUtils.getString(this@SettingsPage, R.string.btn_volume_key_switch_off)
         btnVolumeKeySwitch.setOnClickListener { toggleDialogs.showVolumeKeySwitchDialog(btnVolumeKeySwitch) }
 
-        // ⭐ 底部导航栏开关：开启后在主活动底部显示导航按钮
         val btnBottomNav = findViewById<Button>(R.id.btn_bottom_nav)!!
         updateBottomNavButtonText()
         btnBottomNav.setOnClickListener {
@@ -356,7 +318,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                     .setPositiveButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_ok)) { _, _ ->
                         SpUtils.setBottomNavEnabled(this, !current)
                         updateBottomNavButtonText()
-                        // 立即增删导航栏，无需等到重建界面
                         refreshBottomNav()
                         ToastUtils.show(this@SettingsPage, message)
                     }
@@ -402,8 +363,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         }
 
         btnAdjustSearchButton.setOnClickListener {
-            // 原实现会重新拉起 MainActivity 进入"调整搜索按钮位置"模式；
-            // 现在歌曲页就在同一个 Activity 内，直接切页并置位一次性标志即可。
             SongsPage.pendingAdjustMode = true
             gotoPage(MainPagerActivity.PAGE_SONGS, true)
         }
@@ -507,12 +466,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         initVideoNotifyProgressButton()
     }
 
-    /**
-     * 视频通知进度条开关（默认开启）。
-     *
-     * 关掉后：通知不再带进度条，也不再有每秒一次的定时刷新，
-     * 只剩标题与播放/暂停——即本功能上线前的行为。
-     */
     private fun initVideoNotifyProgressButton() {
         val btn = findViewById<Button>(R.id.btn_video_notify_progress) ?: return
         btn.text = if (SpUtils.isVideoNotifyProgressEnabled(this))
@@ -540,9 +493,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                             if (newMode) LanguageUtils.getString(this@SettingsPage, R.string.toast_video_notify_progress_on)
                             else LanguageUtils.getString(this@SettingsPage, R.string.toast_video_notify_progress_off)
                         )
-                        // 立即刷新正在挂出的通知：否则要等下一次状态变化
-                        // （进度推进器 tick / 暂停 / 切集）才生效，用户会以为开关没用。
-                        // 音乐与视频共用本开关，两个服务都要通知到。
                         VideoPlaybackService.refreshProgressSetting(this)
                         MusicPlayerService.refreshProgressSetting(this)
                     }
@@ -551,11 +501,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         }
     }
 
-    // ===== 卡片折叠/展开功能 =====
-    // 每张卡片的第一个子 View 是横向标题行（含标题 + 收起按钮）。
-    // 收起：隐藏该行以外的所有直接子 View，只保留标题行，按钮文字变“恢复”。
-    // 展开：恢复所有子 View，按钮文字变回“收起”。
-    // 收起状态持久化：再次进入设置页时保持卡片收起/展开状态。
     private fun setupCollapsibleSections() {
         val collapseConfigs = listOf(
             R.id.title_section_display to R.id.btn_collapse_display,
@@ -566,7 +511,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             R.id.title_section_other to R.id.btn_collapse_other
         )
 
-        // 读取已收起的卡片 id 集合（以字符串形式存储）
         val collapsedSet = SpUtils.getCollapsedSections(this).toMutableSet()
         val collapseButtons = mutableListOf<Button>()
 
@@ -575,12 +519,8 @@ class SettingsPage(base: Context) : BasePage(base) {
             val button = findViewById<Button>(buttonId) ?: continue
             val key = cardId.toString()
 
-            // 布局 XML 的 @string 走 ResourcesImpl（绕过 LocalizedResources），
-            // 收起按钮初始文字是内置中文；这里用代码按当前语言设为"收起"，
-            // 使下方 collapsed 判断与"收起/恢复"切换在切换语言后始终一致
             button.text = LanguageUtils.getString(this@SettingsPage, R.string.btn_collapse)
 
-            // 初始应用已保存的收起状态
             if (key in collapsedSet) {
                 for (i in 1 until card.childCount) {
                     card.getChildAt(i).visibility = View.GONE
@@ -591,18 +531,15 @@ class SettingsPage(base: Context) : BasePage(base) {
             button.setOnClickListener {
                 val collapsed = button.text.toString() == LanguageUtils.getString(this@SettingsPage, R.string.btn_collapse)
                 if (collapsed) {
-                    // 收起：隐藏标题行以外的所有直接子 View
                     for (i in 1 until card.childCount) {
                         card.getChildAt(i).visibility = View.GONE
                     }
                     button.text = LanguageUtils.getString(this@SettingsPage, R.string.btn_restore_section)
                     collapsedSet.add(key)
                 } else {
-                    // 展开：恢复所有直接子 View
                     for (i in 1 until card.childCount) {
                         val child = card.getChildAt(i)
                         if (child.id == R.id.btn_adjust_search_button) {
-                            // 该按钮的显隐由搜索模式决定，不能一律显示
                             child.visibility =
                                 if (SpUtils.getSearchMode(this)) View.GONE else View.VISIBLE
                         } else {
@@ -617,7 +554,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             collapseButtons.add(button)
         }
     }
-    /** 底部导航栏按钮：标题 + 当前开关状态，状态文字不再夹带其他按钮的标题 */
     private fun updateBottomNavButtonText() {
         findViewById<Button>(R.id.btn_bottom_nav)?.text =
             if (SpUtils.getBottomNavEnabled(this))
@@ -626,7 +562,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                 LanguageUtils.getString(this@SettingsPage, R.string.btn_bottom_nav_off)
     }
 
-    /** 点击特效按钮：标题 + 开/关 */
     private fun updateClickFxButtonText() {
         findViewById<Button>(R.id.btn_toggle_click_fx)?.text = LanguageUtils.getString(
             this@SettingsPage, R.string.btn_toggle_click_fx,
@@ -637,7 +572,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         )
     }
 
-    /** “保存为默认设置”先弹确认框，确定后才写入 */
     private fun updateAutoCacheButtonText() {
         if (::btnAutoCache.isInitialized) {
             btnAutoCache.text = if (SpUtils.isAutoCacheEnabled(this))
@@ -681,8 +615,6 @@ class SettingsPage(base: Context) : BasePage(base) {
 
     private fun applyBackground() {
         val alpha = tempBackgroundAlpha.coerceAtLeast(0)
-        // 必须加到 bgHost（FrameLayout）而非 rootView（ScrollView）：
-        // 后者只允许一个直接子 View，视频背景会直接抛异常崩溃。
         BackgroundHelper.applyBackground(this, bgHost, alpha)
     }
 
@@ -698,15 +630,12 @@ class SettingsPage(base: Context) : BasePage(base) {
             .setSingleChoiceItems(names, checkedIndex) { dialog, which ->
                 val selectedCode = languages[which].first
                 dialog.dismiss()
-                // 简体中文/跟随系统：内置，直接生效
                 if (selectedCode == LanguageUtils.FOLLOW_SYSTEM || selectedCode == LanguageUtils.BUILTIN_LANG) {
                     SettingsStore.saveLanguage(selectedCode)
                     LanguageUtils.setAppLanguage(activity, selectedCode)
                     return@setSingleChoiceItems
                 }
-                // 其他语言：需检查是否已下载安装/是否有更新
                 if (!LanguageUtils.isLanguageInstalled(this, selectedCode)) {
-                    // 未安装：提示下载
                     showMaterialDialog(
                         AlertDialog.Builder(this)
                             .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.language_not_installed_title))
@@ -717,7 +646,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                             .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
                     )
                 } else if (LanguageUtils.needsUpdate(this, selectedCode)) {
-                    // 已安装但有更新：提示更新（不强制）
                     showMaterialDialog(
                         AlertDialog.Builder(this)
                             .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.language_update_title))
@@ -736,7 +664,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             .also { showMaterialDialog(it) }
     }
 
-    /** 下载指定语言资源并应用；成功则切换语言并重建，失败则提示 */
     private fun downloadAndApplyLanguage(code: String) {
         ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.language_downloading))
         AppExecutors.io.execute {
@@ -863,17 +790,12 @@ class SettingsPage(base: Context) : BasePage(base) {
             LanguageUtils.getString(this@SettingsPage, R.string.btn_search_style_transparent)
     }
     private fun pickDefaultBackground() {
-        // 背景同时支持图片与视频。Intent 只有一个 type 字段，填 "image/*" 会把视频排除在外，
-        // 因此 type 用 "*/*"，再用 EXTRA_MIME_TYPES 声明真正要过滤的两大类。
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
             putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
             putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
         }
-        // 这里不能用 resolveActivity() 预检：targetSdk 30 起包可见性会过滤查询结果，
-        // 选择器明明存在也可能返回 null（OPPO/ColorOS 实测，vivo 则正常），
-        // 而 startActivity 本身不受可见性限制。故直接启动，仅在确实无法处理时捕获提示。
         try {
             startActivityForResult(intent, REQUEST_PICK_DEFAULT_BG)
         } catch (e: android.content.ActivityNotFoundException) {
@@ -915,7 +837,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                 findViewById<Button>(R.id.btn_switch_play_mode)!!.text =
                     LanguageUtils.getString(this@SettingsPage, R.string.btn_play_mode_format, LanguageUtils.getString(this@SettingsPage, R.string.play_mode_exclusive_strong))
                 updateSearchBtnStyleButtonText()
-                // 恢复默认：进度条默认开启，与 SpUtils 的默认值保持一致
                 findViewById<Button>(R.id.btn_video_notify_progress)?.text =
                     LanguageUtils.getString(this@SettingsPage, R.string.btn_video_notify_progress_on)
 
@@ -949,7 +870,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             return DialogHelper.createStyledDialog(activity, builder, boldItalicAllViews = true)
         }
 
-    /** 开关型确认弹窗：切换后按各自影响范围刷新 UI */
     private val toggleDialogs by lazy {
         SettingsToggleDialogs(
             this,
@@ -963,7 +883,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         )
     }
 
-    /** 「数据与工具」卡片的三类文件对话框（缓存 / 屏蔽字 / 足迹） */
     private val storageDialogs by lazy {
         StorageDialogs(this, layoutInflater, userFontColor) { showMaterialDialog(it) }
     }
@@ -1029,15 +948,12 @@ class SettingsPage(base: Context) : BasePage(base) {
                 .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
         )
     }
-/** 将整个 Activity 视图树中的 TextView 设为粗斜体 */
     private fun applyBoldItalicGlobally() {
         val typeface = Typeface.defaultFromStyle(Typeface.BOLD_ITALIC)
-        // 页面内没有 window，用 inflate 出来的页面根 View 代替 decorView
         DialogHelper.setTypefaceRecursive(pageView!!, typeface)
     }
     private fun sendCustomNotification(title: String, content: String) {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        // minSdk 30：先建通知渠道，再用 2 参构造器
         nm.createNotificationChannel(
             NotificationChannel(
                 "custom_user_channel",
@@ -1059,6 +975,5 @@ class SettingsPage(base: Context) : BasePage(base) {
         ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_notification_sent))
     }
 
-    /** 返回键：设置页自身不拦截，交回宿主（宿主会先回到歌曲页，再按才退出）。 */
     override fun onBackPressed(): Boolean = false
 }

@@ -11,19 +11,10 @@ import android.os.Build
 import android.os.Environment
 import android.provider.Settings
 
-/**
- * 应用权限申请的统一入口。
- *
- * 原职责取自 `AppManager`（权限申请部分），负责：
- * - 运行时权限申请（通知权限等）
- * - 全部文件访问（MANAGE_EXTERNAL_STORAGE）的特殊权限引导
- */
 object AppPermissions {
     private const val PERMISSION_REQUEST_CODE = 100
 
     fun requestPermissions(activity: Activity) {
-        // 已不支持 Android 11 以下：仅需申请通知权限（API 33+），
-        // 存储走“所有文件访问”（MANAGE_EXTERNAL_STORAGE）特殊权限（见 checkSpecialPermissions）。
         val runtimePermissions = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= 33) {
             runtimePermissions.add("android.permission.POST_NOTIFICATIONS")
@@ -55,7 +46,6 @@ object AppPermissions {
     }
 
     private fun checkSpecialPermissions(activity: Activity) {
-        // 已不支持 Android 11 以下，统一需要“所有文件访问”（MANAGE_EXTERNAL_STORAGE）特殊权限。
         if (!Environment.isExternalStorageManager()) {
             requestAllFilesPermission(activity)
         }

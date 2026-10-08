@@ -22,21 +22,6 @@ import android.widget.ListView
 import android.widget.TextView
 import java.io.File
 
-/**
- * 「数据与工具」卡片里的三类文件对话框：
- *  - 已缓存歌曲（[showCacheManager]）：试听 / 长按删除 / 清空
- *  - 屏蔽字管理（[showBlockedWordsManager]）：增删屏蔽词
- *  - 足迹查看（[showFootprintDialog]）：只读展示 + 清空
- *
- * 为什么独立成类：这些弹窗都在操作磁盘数据、与设置页的控件状态无关，
- * 原先让 `SettingsPage` 又长了 180 行。这里只依赖 Context / inflater 与
- * 页面传入的弹窗构建器，便于单独阅读。
- *
- * @param context 页面的 ContextWrapper 即可
- * @param inflater 用于加载对话框布局（与页面一致，已装本地化工厂）
- * @param fontColor 列表项文字颜色（跟随全局字体色设置）
- * @param showDialog 页面提供的统一弹窗构建器
- */
 class StorageDialogs(
     private val context: Context,
     private val inflater: LayoutInflater,
@@ -44,7 +29,6 @@ class StorageDialogs(
     private val showDialog: (AlertDialog.Builder) -> AlertDialog
 ) {
 
-    /** 已缓存歌曲列表：点击试听、长按删除、底部可一键清空 */
     fun showCacheManager() {
         val cacheDir = StoragePaths.resolveRead(CACHE_DIR_REL)
         val cacheManager = CacheManager(cacheDir.absolutePath)
@@ -111,9 +95,6 @@ class StorageDialogs(
                     .setPositiveButton(LanguageUtils.getString(context, R.string.btn_delete)) { _, _ ->
                         val md5 = map[name] ?: return@setPositiveButton
                         File(cacheDir, md5).delete()
-                        // 用 updateCacheMap 在锁内重读最新映射再删：
-                        // 弹窗打开期间后台可能刚好缓存完一首歌，若拿本地这份
-                        // 旧 map 整份写回，那条新记录会被抹掉。
                         cacheManager.updateCacheMap { it.remove(name) }
                         map.remove(name)
                         musicNames.remove(name)
@@ -148,7 +129,6 @@ class StorageDialogs(
         )
     }
 
-    /** 屏蔽字管理：输入新增、长按删除 */
     fun showBlockedWordsManager() {
         val dialogView = inflater.inflate(R.layout.dialog_blocked_words, null)
         val etInput = dialogView.findViewById<EditText>(R.id.et_block_word)
@@ -219,7 +199,6 @@ class StorageDialogs(
         )
     }
 
-    /** 足迹内容只读展示，可通过「清空」按钮触发 [onClear] */
     fun showFootprintDialog(title: String, content: String, onClear: () -> Unit) {
         val scrollView = android.widget.ScrollView(context).apply {
             setBackgroundColor(Color.TRANSPARENT)

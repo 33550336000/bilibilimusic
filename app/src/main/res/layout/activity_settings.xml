@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 外层 FrameLayout 只作「背景宿主」：视频背景必须与内容**叠放**（叠在内容之下），
-     而 ScrollView 只允许一个直接子 View——BackgroundHelper 往 ScrollView 里 addView
-     会抛 IllegalStateException("ScrollView can host only one direct child") 直接崩溃。
-     故这里套一层 FrameLayout 承载背景层；ScrollView 仍是唯一的滚动内容，
-     settings_root 的既有语义（滚动、点击空白收键盘）完全不变。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/settings_bg_host"
     android:layout_width="match_parent"
@@ -23,7 +18,6 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- 标题 -->
         <TextView
             android:id="@+id/title_settings_page"
             android:layout_width="wrap_content"
@@ -33,7 +27,6 @@
             android:textSize="24sp"
             android:layout_marginBottom="24dp"/>
 
-        <!-- ===== 卡片1：显示 ===== -->
         <LinearLayout
             android:id="@+id/title_section_display"
             android:layout_width="match_parent"
@@ -76,7 +69,6 @@
                     android:paddingBottom="4dp"/>
             </LinearLayout>
 
-            <!-- 字体颜色浮动标签 -->
             <FrameLayout
                 android:id="@+id/container_font_color"
                 android:layout_width="match_parent"
@@ -110,7 +102,6 @@
                     android:labelFor="@+id/et_font_color" />
             </FrameLayout>
 
-            <!-- 全局字体颜色滑块 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -141,7 +132,6 @@
                 android:textSize="14sp"
                 android:layout_marginBottom="12dp"/>
 
-            <!-- 字体大小滑块 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -172,7 +162,6 @@
                 android:textSize="14sp"
                 android:layout_marginBottom="12dp"/>
 
-            <!-- 字体大小直接输入 -->
             <FrameLayout
                 android:id="@+id/container_font_size"
                 android:layout_width="match_parent"
@@ -207,7 +196,6 @@
             </FrameLayout>
         </LinearLayout>
 
-        <!-- ===== 卡片2：背景 ===== -->
         <LinearLayout
             android:id="@+id/title_section_background"
             android:layout_width="match_parent"
@@ -297,7 +285,6 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginBottom="12dp"/>
 
-            <!-- 对话框背景色 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -339,7 +326,6 @@
                     android:background="#FFFFFF" />
             </LinearLayout>
 
-            <!-- 对话框字体颜色 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -392,7 +378,6 @@
                     android:padding="8dp" />
             </LinearLayout>
 
-            <!-- 对话框透明度 -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -423,7 +408,6 @@
                 android:layout_marginBottom="12dp" />
         </LinearLayout>
 
-        <!-- ===== 卡片3：音乐与播放 ===== -->
         <LinearLayout
             android:id="@+id/title_section_music" 
             android:layout_width="match_parent"
@@ -532,7 +516,6 @@
                 android:layout_marginBottom="12dp" />
         </LinearLayout>
 
-        <!-- ===== 卡片4：数据与工具 ===== -->
         <LinearLayout
             android:id="@+id/title_section_tools"
             android:layout_width="match_parent"
@@ -612,7 +595,6 @@
                 android:padding="12dp"
                 android:layout_marginBottom="12dp" />
         </LinearLayout>
-<!-- ===== 卡片5：其他设置 ===== -->
         <LinearLayout
             android:id="@+id/title_section_other"
             android:layout_width="match_parent"
@@ -663,9 +645,8 @@
                 android:background="@drawable/button_background"
                 android:textColor="#000000"
                 android:padding="12dp"
-                android:layout_marginBottom="12dp" />  <!-- 改为 marginBottom，去掉 marginTop -->
+                android:layout_marginBottom="12dp" /> 
 
-            <!-- 操作按钮 -->
             <Button
                 android:id="@+id/btn_save_default"
                 android:layout_width="match_parent"
@@ -707,7 +688,6 @@
                 android:layout_marginBottom="12dp" />
         </LinearLayout>
 
-        <!-- ===== 卡片6：界面与导航 ===== -->
         <LinearLayout
             android:id="@+id/title_section_ui_nav"
             android:layout_width="match_parent"

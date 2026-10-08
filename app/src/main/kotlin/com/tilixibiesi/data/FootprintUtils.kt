@@ -8,13 +8,10 @@ object FootprintUtils {
     private const val BASE_DIR_REL = "system/axeron/long/Android/Appdata"
     private const val PLAYLIST_FOOTPRINT_FILE_REL = "$BASE_DIR_REL/Playlist List Footprints.txt"
 
-    // 记录歌单操作足迹
     fun recordPlaylistEvent(event: String) = appendLine(PLAYLIST_FOOTPRINT_FILE_REL, event)
 
-    // 读取歌单足迹文件内容
     fun readPlaylistFootprints(context: Context): String = readFootprint(context, PLAYLIST_FOOTPRINT_FILE_REL)
 
-    // 清除歌单足迹
     fun clearPlaylistFootprints() = clearFootprint(PLAYLIST_FOOTPRINT_FILE_REL)
 
     private fun appendLine(relativePath: String, line: String) {

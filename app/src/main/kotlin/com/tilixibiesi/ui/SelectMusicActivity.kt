@@ -28,7 +28,6 @@ class SelectMusicActivity : BaseActivity() {
     private lateinit var btnCancel: Button
     private lateinit var btnConfirm: Button
     private val selectedPositions = HashSet<Int>()
-    /** 背景宿主（外层 FrameLayout），承载与内容层叠的背景层 */
     private lateinit var bgHost: View
     private var playlistId: String? = null
     private lateinit var etSearch: EditText
@@ -94,18 +93,15 @@ class SelectMusicActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 本 Activity 可见：背景视频播放并出声
         BackgroundHelper.setActive(bgHost, true)
     }
 
     override fun onPause() {
         super.onPause()
-        // 不可见：暂停解码并静音
         BackgroundHelper.setActive(bgHost, false)
     }
 
     override fun onDestroy() {
-        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
         BackgroundHelper.release(bgHost)
         super.onDestroy()
     }

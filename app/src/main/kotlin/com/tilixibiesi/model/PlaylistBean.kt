@@ -7,7 +7,7 @@ class PlaylistBean(
     var name: String
 ) : Serializable {
     val musicList: MutableList<MusicBean> = mutableListOf()
-    val subPlaylists: MutableList<PlaylistBean> = mutableListOf()   // 子歌单列表
+    val subPlaylists: MutableList<PlaylistBean> = mutableListOf()
 
     fun addMusic(bean: MusicBean) {
         if (musicList.none { it.musicName == bean.musicName }) {

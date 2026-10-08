@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 外层 FrameLayout 即「背景宿主」：背景层加到它的 index 0（位于所有内容之下）。
-     内层 layout_search_root 必须保持透明，背景才透得出来。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/search_bg_host"
@@ -10,7 +8,6 @@
     tools:ignore="MergeRootFrame"
     android:keepScreenOn="true">
 
-    <!-- 主界面搜索区域 -->
     <LinearLayout
         android:id="@+id/layout_search_root"
         android:layout_width="match_parent"
@@ -18,7 +15,6 @@
         android:orientation="vertical"
         android:background="#00000000">
 
-        <!-- 搜索栏 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -123,7 +119,6 @@
             android:visibility="gone" />
     </LinearLayout>
 
-    <!-- 全屏视频播放器容器 -->
     <FrameLayout
         android:id="@+id/layout_fullscreen_video"
         android:layout_width="match_parent"
@@ -131,12 +126,7 @@
         android:background="#FF000000"
         android:visibility="gone">
 
-        <!-- 上下滑动切换用的「目标视频预览层」。
-             刻意声明在 TextureView **之前**（z 序更低 = 位于视频之下）：
-             纵向拖动时只平移视频画面，这一层便从被让出的边缘逐渐露出，
-             呈现"下一条视频被拉进来"的效果，而不必真的再起一个播放器。
 
-             默认 gone，仅在纵向拖拽且该方向确实还有视频时显示。 -->
         <FrameLayout
             android:id="@+id/layout_switch_preview"
             android:layout_width="match_parent"
@@ -152,7 +142,6 @@
                 android:scaleType="fitCenter"
                 android:contentDescription="@null" />
 
-            <!-- 信息条：跟随方向吸附到"被让出"的那一侧（上滑→底部，下滑→顶部） -->
             <LinearLayout
                 android:id="@+id/layout_switch_info"
                 android:layout_width="match_parent"
@@ -191,9 +180,6 @@
             android:layout_height="match_parent"
             android:layout_gravity="center" />
 
-        <!-- 弹幕层：位于视频之上、控制栏之下。
-             默认 gone，由播放器按「弹幕开关」设置挂载。
-             必须 clickable=false，否则会吞掉全屏容器的手势（快进/长按倍速）。 -->
         <com.tilixibiesi.ui.widget.DanmakuView
             android:id="@+id/danmaku_view"
             android:layout_width="match_parent"
@@ -203,7 +189,6 @@
             android:focusable="false"
             android:visibility="gone" />
 
-        <!-- 顶部栏：关闭按钮 + 标题 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -233,7 +218,6 @@
                 android:layout_marginStart="8dp" />
         </LinearLayout>
 
-        <!-- 底部控制条（美化版） -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -242,7 +226,6 @@
             android:paddingHorizontal="16dp"
             android:paddingBottom="12dp">
 
-            <!-- 进度条，独占一行 -->
             <SeekBar
                 android:id="@+id/sb_video_progress"
                 android:layout_width="match_parent"
@@ -257,7 +240,6 @@
                 android:max="100"
                 android:progress="0" />
 
-            <!-- 播放按钮 + 时间，左右分散 -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -290,7 +272,6 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!-- 登录 WebView 容器 -->
     <FrameLayout
         android:id="@+id/layout_webview_login"
         android:layout_width="match_parent"

@@ -27,12 +27,10 @@ object SpUtils {
     private const val KEY_DIALOG_ALPHA = "dialog_alpha"
     private const val KEY_AUTO_LOAD_DEFAULT = "auto_load_default"
     private const val KEY_BOTTOM_NAV_ENABLED = "bottom_nav_enabled"
-    /** 点击特效（WebView 渲染 BA4D）开关，默认开启 */
 
     private const val KEY_CLICK_FX_ENABLED = "click_fx_enabled"
     private const val KEY_COLLAPSED_SECTIONS = "collapsed_sections"
     private const val KEY_STORAGE_ROOT = "storage_root"
-    /** 弹幕开关：进入 B 站视频后是否显示弹幕，默认开启 */
     private const val KEY_DANMAKU_ENABLED = "danmaku_enabled"
     private const val KEY_VIDEO_NOTIFY_PROGRESS = "video_notify_progress"
     const val AUDIO_FOCUS_CALL_LEVEL = 0
@@ -77,7 +75,6 @@ object SpUtils {
         return list
     }
 
-    // ========== 播放状态：改用歌曲名称 ==========
     fun savePlayState(context: Context, musicName: String?, isPlaying: Boolean) {
         getSp(context).edit()
             .putString(KEY_CURRENT_MUSIC_NAME, musicName)
@@ -89,8 +86,6 @@ object SpUtils {
         return getSp(context).getString(KEY_CURRENT_MUSIC_NAME, null)
     }
 
-    // 移除旧的 getCurrentPosition 方法
-    // fun getCurrentPosition(context: Context): Int = getSp(context).getInt(KEY_CURRENT_POSITION, -1)  // 已删除
 
     fun savePlayMode(context: Context, mode: Int) {
         getSp(context).edit().putInt(KEY_PLAY_MODE, mode).apply()
@@ -116,7 +111,6 @@ object SpUtils {
     fun getBackgroundAlpha(context: Context): Int =
         getSp(context).getInt(KEY_BACKGROUND_ALPHA, 100)
 
-    // ===== 底部导航栏开关 =====
     fun getBottomNavEnabled(context: Context): Boolean =
         getSp(context).getBoolean(KEY_BOTTOM_NAV_ENABLED, false)
     fun setBottomNavEnabled(context: Context, enabled: Boolean) {
@@ -129,14 +123,12 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_CLICK_FX_ENABLED, enabled).apply()
     }
 
-    // ===== 卡片折叠状态（设置页）=====
     fun getCollapsedSections(context: Context): Set<String> =
         getSp(context).getStringSet(KEY_COLLAPSED_SECTIONS, emptySet()) ?: emptySet()
     fun setCollapsedSections(context: Context, sections: Set<String>) {
         getSp(context).edit().putStringSet(KEY_COLLAPSED_SECTIONS, sections).apply()
     }
 
-    // ===== 存储路径模式（主存储 / 内部存储）=====
     fun saveStorageRoot(context: Context, root: String) {
         getSp(context).edit().putString(KEY_STORAGE_ROOT, root).apply()
     }
@@ -228,12 +220,6 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_DANMAKU_ENABLED, enabled).apply()
     }
 
-    /**
-     * 视频通知是否显示可拖动的进度条（默认开启）。
-     *
-     * 开启后服务会每秒刷新一次通知以推进进度条，属于持续的后台开销；
-     * 关掉后通知回到「只有标题 + 播放/暂停」，不再有定时刷新。
-     */
     fun isVideoNotifyProgressEnabled(context: Context): Boolean =
         getSp(context).getBoolean(KEY_VIDEO_NOTIFY_PROGRESS, true)
 
@@ -261,9 +247,6 @@ object SpUtils {
         getSp(context).getInt(KEY_DIALOG_ALPHA, 100)
     fun clearCacheFilesOnly(context: Context) {
         AppExecutors.io.execute {
-            // 前台只做定点清理：保留 databases / app_textures / code_cache，
-            // 否则会打断正在运行的自身。应用整体退到后台时，
-            // MyApplication 会另行触发激进的全量清理。
             WebViewMetricsCleaner.purgeWebViewArtifacts(context.applicationContext)
         }
   }
