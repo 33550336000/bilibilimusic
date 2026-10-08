@@ -101,15 +101,39 @@
                     android:maxLines="2"
                     android:ellipsize="end" />
 
-                <TextView
-                    android:id="@+id/tv_np_artist"
+                <!-- 艺术家行：左侧是 UP 主/艺术家名，右侧是分享按钮。
+                     分享放在这里（UP 主名右侧），与参考图里"爱心下方的分享入口"
+                     是同一处位置：标题行右侧、艺术家行右侧各一个圆形入口。
+                     包一层横向 LinearLayout 是为了让名字占满剩余宽度、
+                     按钮贴右，且长名字仍能 ellipsize 而不会把按钮挤出屏幕。 -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:textSize="15sp"
-                    android:textColor="#FFB0B0B0"
-                    android:maxLines="1"
-                    android:ellipsize="end" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/tv_np_artist"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textSize="15sp"
+                        android:textColor="#FFB0B0B0"
+                        android:maxLines="1"
+                        android:ellipsize="end" />
+
+                    <ImageButton
+                        android:id="@+id/btn_np_share"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:layout_marginStart="8dp"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
+                        android:padding="6dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_share"
+                        android:contentDescription="@string/now_playing_share" />
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/tv_np_album"

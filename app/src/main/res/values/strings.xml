@@ -468,6 +468,12 @@
     <string name="now_playing_no_lyrics">暂无歌词</string>
     <string name="now_playing_collapse">收起</string>
     <string name="now_playing_cover">封面</string>
+    <string name="now_playing_share">分享</string>
+    <string name="now_playing_share_chooser">分享到</string>
+    <string name="now_playing_share_no_link">该歌曲暂无可分享的链接</string>
+    <string name="now_playing_share_failed">分享失败，未找到可用的应用</string>
+    <!-- 分享正文：第一行歌名，第二行链接（普通音乐给主页链接，B 站给音频直链） -->
+    <string name="now_playing_share_format" translatable="false">%1$s\n%2$s</string>
 
     <!-- 开机启动 -->
 </resources>

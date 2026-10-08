@@ -11,11 +11,13 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.ToastUtils
 import com.tilixibiesi.util.ViewUtils
 import com.tilixibiesi.ui.widget.SquareLayout
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -118,6 +120,7 @@ class NowPlayingPage(
     private val btnPrev: ImageButton
     private val btnPlay: ImageButton
     private val btnNext: ImageButton
+    private val btnShare: ImageButton
     private val btnLyrics: android.widget.Button
 
     private val ivBlur: ImageView
@@ -230,6 +233,7 @@ class NowPlayingPage(
         btnPrev = root.findViewById(R.id.btn_np_prev)
         btnPlay = root.findViewById(R.id.btn_np_play)
         btnNext = root.findViewById(R.id.btn_np_next)
+        btnShare = root.findViewById(R.id.btn_np_share)
         btnLyrics = root.findViewById(R.id.btn_np_lyrics)
 
         ivBlur = root.findViewById(R.id.iv_np_blur)
@@ -521,6 +525,7 @@ class NowPlayingPage(
     private fun setupClickListeners() {
         ivCollapse.setOnClickListener { hide() }
         btnLyrics.setOnClickListener { showLyrics() }
+        btnShare.setOnClickListener { shareCurrentTrack() }
         btnPlay.setOnClickListener { commands.onPlayPause() }
         btnPrev.setOnClickListener { commands.onPrev() }
         btnNext.setOnClickListener { commands.onNext() }
@@ -546,6 +551,7 @@ class NowPlayingPage(
 
     private fun applyScaleFeedback() {
         ViewUtils.applyScaleToButton(btnLyrics)
+        ViewUtils.applyScaleToButton(btnShare)
         ViewUtils.applyScaleToButton(btnPlay)
         ViewUtils.applyScaleToButton(btnPrev)
         ViewUtils.applyScaleToButton(btnNext)
@@ -641,6 +647,82 @@ class NowPlayingPage(
         // 切歌后歌词作废：重新拉取（若正停在歌词页，用户应立即看到新歌的歌词）
         resetLyrics()
         if (isLyricsVisible) loadLyrics(bean)
+    }
+
+    /**
+     * 分享当前曲目：第一行歌名，第二行链接，交给系统分享面板（微信等）。
+     *
+     * 链接来源分两类：
+     *  - 普通音乐：用它的网络地址（`musicUrl`，即音源主页上的那个文件链接）。
+     *  - B 站音乐：用**音频直链**。B 站条目的 `musicUrl` 可能为空（历史记录里不存链接），
+     *    也可能已过期，因此这里按 bvid 现取一次；取链是网络请求，放 IO 线程。
+     *
+     * 直链是临时链接（带时效签名），过期后对方打开会失效——这是 B 站链路本身的限制，
+     * 没有稳定可分享的公开地址可用，故按需求"给出当前的临时直链"。
+     */
+    private fun shareCurrentTrack() {
+        val current = bean ?: return
+        val title = resolvedTitle.takeIf { it.isNotEmpty() }
+            ?: LanguageUtils.getString(context, R.string.now_playing_unknown_title)
+
+        // 普通音乐：直接用已有链接，无需联网
+        if (!current.isBilibili) {
+            val url = current.musicUrl.takeIf { it.isNotEmpty() }
+            if (url == null) {
+                ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_no_link))
+                return
+            }
+            sendShare(title, url)
+            return
+        }
+
+        // B 站：musicUrl 可用就直接用，否则按 bvid 现取直链
+        val cachedUrl = current.musicUrl.takeIf { it.isNotEmpty() }
+        if (cachedUrl != null) {
+            sendShare(title, cachedUrl)
+            return
+        }
+        val bvid = current.bvid?.takeIf { it.isNotEmpty() }
+        if (bvid == null) {
+            ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_no_link))
+            return
+        }
+        val shareBvid = bvid
+        AppExecutors.io.execute {
+            val url = runCatching { BiliSearchHelper.getPreferredAudioUrl(shareBvid) }.getOrNull()
+            handler.post {
+                // 取链期间可能已切歌：只有仍是同一首才弹分享面板，
+                // 否则用户看到的是"点了 A 却分享 B"。
+                if (bean?.bvid != shareBvid) return@post
+                if (url.isNullOrEmpty()) {
+                    ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_no_link))
+                } else {
+                    // 顺手写回条目：再次分享同一首时无需重新取链
+                    bean?.musicUrl = url
+                    sendShare(title, url)
+                }
+            }
+        }
+    }
+
+    /** 用「歌名 + 换行 + 链接」构造标准分享 Intent 并弹出系统面板。 */
+    private fun sendShare(title: String, url: String) {
+        val text = LanguageUtils.getString(context, R.string.now_playing_share_format, title, url)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, title)
+            putExtra(Intent.EXTRA_TEXT, text)
+        }
+        val chooser = Intent.createChooser(intent, LanguageUtils.getString(context, R.string.now_playing_share_chooser))
+        // 本页挂在 decorView 上、不在任何 Activity 的任务栈顶层，从非 Activity 上下文
+        // 启动必须带 NEW_TASK，否则会抛 AndroidRuntimeException。
+        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            context.startActivity(chooser)
+        } catch (e: Exception) {
+            // 没有任何可接收 text/plain 的应用（极简系统/裁剪 ROM）时不要崩
+            ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_failed))
+        }
     }
 
     /**
