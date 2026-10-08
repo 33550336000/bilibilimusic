@@ -10,10 +10,8 @@ import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
 import com.tilixibiesi.data.LanguageUtils
 
-/** 音乐 / 视频前台服务通知的公共构建逻辑。 */
 object NotificationHelper {
 
-    /** 创建媒体播放通知渠道（同一 id 重复创建是幂等的）。 */
     fun createMediaChannel(context: Context, channelId: String, nameRes: Int, descRes: Int) {
         val channel = NotificationChannel(
             channelId,
@@ -31,12 +29,10 @@ object NotificationHelper {
             .createNotificationChannel(channel)
     }
 
-    /** 以 mediaPlayback 类型启动前台服务。 */
     fun startForegroundWithMediaPlayback(service: Service, id: Int, notification: Notification) {
         service.startForeground(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
     }
 
-    /** 给 Notification.Builder 添加一个带图标的动作。 */
     fun addAction(
         context: Context,
         builder: Notification.Builder,

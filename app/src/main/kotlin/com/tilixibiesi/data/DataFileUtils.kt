@@ -14,12 +14,10 @@ import org.json.JSONObject
 import java.io.*
 
 object DataFileUtils {
-    /** 常见音频扩展名（含点、全小写）。用 HashSet 保证 O(1) 查找。 */
     private val AUDIO_SUFFIXES: Set<String> = hashSetOf(
         ".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".opus", ".wma"
     )
 
-    // 相对路径（基于当前存储根目录 StoragePaths.root()）
     private const val APPDATA_REL = "system/axeron/long/Android/Appdata"
     private const val MUSIC_FILE_REL = "music.txt"
     private const val PLAYLIST_FILE_REL = "$APPDATA_REL/Playlist.txt"
@@ -27,10 +25,8 @@ object DataFileUtils {
     private const val RENAME_FILE_REL = "$APPDATA_REL/change.txt"
     private const val BLOCKED_WORDS_FILE_REL = "$APPDATA_REL/blocked_words.txt"
 
-    /** 读取用：优先当前根，读不到回退另一根（保留用户自定义/迁移前文件） */
     private fun relRead(rel: String): File = StoragePaths.resolveRead(rel)
 
-    /** 写入用：总是当前根，并确保父目录存在 */
     private fun relWrite(rel: String): File =
         StoragePaths.resolveWrite(rel).apply { parentFile?.mkdirs() }
 
@@ -61,25 +57,13 @@ object DataFileUtils {
         }
     }
 
-    /**
-     * 获取显示名称：优先使用用户自定义的重命名，否则去除常见音频后缀
-     */
     fun getDisplayName(rawName: String?): String {
         if (rawName == null) return ""
-        // 1. 查找重命名
         renameMap[rawName]?.let { return it }
-        // 2. 去除音频扩展名
         return rawName.stripAudioExtension()
     }
 
-    /**
-     * 去掉常见的音频文件后缀（不区分大小写）
-     */
     private fun String.stripAudioExtension(): String {
-        // 扩展名只可能出现在最后一段：先取出再查常量集合。
-        // 原先对 8 个后缀逐个 endsWith（且每次调用都新建 List），
-        // 而本函数是列表渲染热路径——每次 getView、每次按播放名定位
-        // 列表项都会调用，200 首歌规模下一次切页要跑几百次。
         val dot = lastIndexOf('.')
         if (dot < 0) return this
         val ext = substring(dot).lowercase()
@@ -112,18 +96,11 @@ object DataFileUtils {
         return removed
     }
 
-    /**
-     * 把 [renameMap] 整份原子落盘。
-     *
-     * 原先两处调用各自 `FileOutputStream(...)` 直接写目标文件——先截断再写，
-     * 中途失败会把用户积累的全部重命名记录清空。改为临时文件 + rename。
-     */
     private fun writeRenameFile() {
         val sb = StringBuilder()
         renameMap.forEach { (k, v) -> sb.append(k).append('=').append(v).append('\n') }
         AtomicFileWriter.writeText(relWrite(RENAME_FILE_REL), sb.toString())
     }
-    // ========== 以下方法保持不变 ==========
 
     fun loadDeletedMusicNames(): HashSet<String> {
         val deleted = HashSet<String>()
@@ -165,7 +142,6 @@ object DataFileUtils {
                         .setNegativeButton(LanguageUtils.getString(context, R.string.confirm), null)
                         .create()
                         .apply {
-                            // 只允许点弹窗内按钮关闭，点弹窗外部空白处不关闭
                             setCanceledOnTouchOutside(false)
                             show()
                         }
@@ -177,7 +153,6 @@ object DataFileUtils {
         return true
     }
 
-    // ========== 音乐列表序列化（包含B站字段） ==========
     fun saveMusicList(list: List<MusicBean>) {
         try {
             val dir = relWrite(APPDATA_REL)
@@ -186,7 +161,6 @@ object DataFileUtils {
             for (bean in list) {
                 arr.put(musicBeanToJson(bean))
             }
-            // 原子落盘：music.txt 是列表的完整快照，半截 JSON 会让整个列表读不出来
             AtomicFileWriter.writeText(relWrite(MUSIC_FILE_REL), arr.toString())
         } catch (e: Exception) {
             e.printStackTrace()
@@ -209,7 +183,6 @@ object DataFileUtils {
         return list
     }
 
-    // ========== 歌单序列化（递归，包含B站字段） ==========
     fun savePlaylists(playlists: List<PlaylistBean>) {
         try {
             val dir = relWrite(APPDATA_REL)
@@ -218,7 +191,6 @@ object DataFileUtils {
             for (pl in playlists) {
                 arr.put(playlistToJson(pl))
             }
-            // 原子落盘：歌单是递归结构，半截 JSON 会让全部歌单丢失
             AtomicFileWriter.writeText(relWrite(PLAYLIST_FILE_REL), arr.toString())
         } catch (e: Exception) {
             e.printStackTrace()
@@ -275,13 +247,11 @@ object DataFileUtils {
         return pl
     }
 
-    // ========== MusicBean JSON 编解码（供音乐列表与歌单复用） ==========
     private fun musicBeanToJson(bean: MusicBean): JSONObject = JSONObject().apply {
         put("musicName", bean.musicName)
         put("musicUrl", bean.musicUrl)
         put("localPath", bean.localPath ?: "")
         put("isDownloaded", bean.isDownloaded)
-        // B站扩展字段
         put("isBilibili", bean.isBilibili)
         put("bvid", bean.bvid ?: "")
         put("author", bean.author ?: "")
@@ -293,7 +263,6 @@ object DataFileUtils {
         MusicBean(obj.getString("musicName"), obj.getString("musicUrl")).apply {
             localPath = obj.optString("localPath", "").ifEmpty { null }
             isDownloaded = obj.optBoolean("isDownloaded", false)
-            // 读取B站扩展字段（兼容旧数据）
             isBilibili = obj.optBoolean("isBilibili", false)
             bvid = obj.optString("bvid", "").ifEmpty { null }
             author = obj.optString("author", "").ifEmpty { null }
@@ -301,7 +270,6 @@ object DataFileUtils {
             coverUrl = obj.optString("coverUrl", "").ifEmpty { null }
         }
 
-    // ========== 屏蔽字管理 ==========
     fun loadBlockedWords(): HashSet<String> {
         val words = HashSet<String>()
         try {

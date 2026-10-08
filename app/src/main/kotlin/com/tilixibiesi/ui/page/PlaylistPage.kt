@@ -26,14 +26,6 @@ import com.tilixibiesi.ui.SelectMusicActivity
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.DialogHelper
 
-/**
- * 播放列表页（原 PlaylistActivity）。
- *
- * 与原先的差异：
- *  - 继承 [BasePage] 而非 Activity，作为 MainPagerActivity 内的一页存在；
- *  - 原本的 onFling 侧滑手势已交由 HorizontalPager 统一处理，页面本身不再拦截触摸；
- *  - 跳转其它 Activity 改为宿主转发 startActivityForResult，避免依赖 result 语义。
- */
 class PlaylistPage(base: Context) : BasePage(base) {
 
     private lateinit var lvPlaylists: ListView
@@ -41,7 +33,6 @@ class PlaylistPage(base: Context) : BasePage(base) {
     private lateinit var adapter: PlaylistAdapter
     private lateinit var btnAddPlaylist: ImageButton
     private lateinit var tvPlaylistHint: TextView
-    /** 背景宿主（外层 FrameLayout），承载与内容层叠的背景层 */
     private lateinit var bgHost: View
     private var pendingPlaylistId: String? = null
 
@@ -69,7 +60,6 @@ class PlaylistPage(base: Context) : BasePage(base) {
 
     override fun onResume() {
         applyBackground()
-        // 本页成为当前页：背景视频恢复播放并出声（其余页在宿主派发的 onPause 里静音）
         BackgroundHelper.setActive(bgHost, true)
         applyTitleStyle()
         loadPlaylists()
@@ -77,12 +67,10 @@ class PlaylistPage(base: Context) : BasePage(base) {
     }
 
     override fun onPause() {
-        // 离开本页：立即暂停解码并静音，避免多页背景音叠加
         BackgroundHelper.setActive(bgHost, false)
     }
 
     override fun onDestroy() {
-        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
         BackgroundHelper.release(bgHost)
         super.onDestroy()
     }
@@ -120,7 +108,6 @@ class PlaylistPage(base: Context) : BasePage(base) {
             }
         }
 
-        // 复用同一个 list 引用，原地清空再填充，使 adapter 感知变化
         if (!::playlistList.isInitialized) {
             playlistList = loaded
         } else {
@@ -323,7 +310,6 @@ class PlaylistPage(base: Context) : BasePage(base) {
                 pendingPlaylistId = pl.id
                 val intent = Intent(ctx, SelectMusicActivity::class.java)
                 intent.putExtra(SelectMusicActivity.EXTRA_PLAYLIST_ID, pl.id)
-                // 由宿主转发，结果会回到本页的 onActivityResult
                 startActivityForResult(intent, REQUEST_SELECT_MUSIC)
             }
 

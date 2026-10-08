@@ -8,11 +8,6 @@ import com.tilixibiesi.util.AtomicFileWriter
 import org.json.JSONArray
 import org.json.JSONObject
 
-/**
- * B 站历史文件（Appdata/bilibili/history.json）的统一读写助手。
- * 集中管理历史记录的 读取 / 追加 / 按 bvid 删除 / 按显示名查找，
- * 供 MainActivity / SearchActivity / MusicPlayerService 复用，避免三处重复文件 IO。
- */
 object BiliHistoryHelper {
     private const val HISTORY_FILE_REL = "system/axeron/long/Android/Appdata/bilibili/history.json"
 
@@ -24,7 +19,6 @@ object BiliHistoryHelper {
         return try { JSONArray(text) } catch (e: Exception) { JSONArray() }
     }
 
-    /** 读取全部历史（musicName 保留原始标题，duration 取整数值） */
     fun loadAll(): List<MusicBean> {
         val jsonArray = readJsonArray()
         val list = mutableListOf<MusicBean>()
@@ -34,7 +28,6 @@ object BiliHistoryHelper {
         return list
     }
 
-    /** 读取全部历史（musicName 归一化为显示名，duration 解析 MM:SS 为秒） */
     fun loadAllNormalized(): List<MusicBean> {
         val jsonArray = readJsonArray()
         val list = mutableListOf<MusicBean>()
@@ -44,7 +37,6 @@ object BiliHistoryHelper {
         return list
     }
 
-    /** 按显示名查找（musicName 归一化为显示名，duration 解析 MM:SS 为秒） */
     fun findByDisplayName(displayName: String): MusicBean? {
         val jsonArray = readJsonArray()
         for (i in 0 until jsonArray.length()) {
@@ -56,12 +48,6 @@ object BiliHistoryHelper {
         return null
     }
 
-    /**
-     * 把一条历史 JSON 转成 MusicBean。
-     *
-     * @param normalizeName true 时使用 DataFileUtils 的显示名（重命名/去扩展名），
-     *                      false 时保留原始标题
-     */
     private fun parseEntry(obj: JSONObject, normalizeName: Boolean, durationAsSeconds: Boolean): MusicBean {
         val title = obj.getString("title")
         val rawDuration = obj.optString("duration", "0")
@@ -70,8 +56,6 @@ object BiliHistoryHelper {
             bvid = obj.getString("bvid")
             author = obj.optString("author", "")
             duration = if (durationAsSeconds) parseDurationSeconds(rawDuration) else rawDuration.toIntOrNull() ?: 0
-            // 封面：addEntry 一直在写，但此前没人读回来，于是主页面播放时拿不到封面。
-            // 老记录可能没有这个字段，optString 给空串，交给上层决定是否按 bvid 现取。
             coverUrl = obj.optString("coverUrl", "").ifEmpty { null }
             musicUrl = ""
             if (normalizeName) {
@@ -80,7 +64,6 @@ object BiliHistoryHelper {
         }
     }
 
-    /** 把 MM:SS 或纯秒数字符串解析成秒；非法值按 0 处理。 */
     private fun parseDurationSeconds(raw: String): Int = raw.split(":").let { parts ->
         if (parts.size == 2) {
             (parts[0].toIntOrNull() ?: 0) * 60 + (parts[1].toIntOrNull() ?: 0)
@@ -89,7 +72,6 @@ object BiliHistoryHelper {
         }
     }
 
-    /** 追加一条记录（按 bvid 去重，不重复添加） */
     fun addEntry(video: BiliVideo) {
         val dir = StoragePaths.resolveWrite(HISTORY_FILE_REL).parentFile
         if (dir != null && !dir.exists()) dir.mkdirs()
@@ -105,12 +87,9 @@ object BiliHistoryHelper {
             put("coverUrl", video.coverUrl)
         }
         jsonArray.put(newObj)
-        // 原子落盘：历史是整份覆写，半截 JSON 会让 readJsonArray 返回空数组，
-        // 表现为「历史记录全部消失」
         AtomicFileWriter.writeText(StoragePaths.resolveWrite(HISTORY_FILE_REL), jsonArray.toString(2))
     }
 
-    /** 按 bvid 删除一条记录 */
     fun removeByBvid(bvid: String) {
         val jsonArray = readJsonArray()
         val newArray = JSONArray()

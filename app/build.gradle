@@ -2,12 +2,10 @@ plugins {
     id 'com.android.application'
 }
 
-// ========== 自定义 APK 输出配置（改这里即可）==========
 ext {
     targetApkDir = file("./")
     targetApkName = "缇宝.apk"
 }
-// ====================================================
 
 android {
     namespace = "com.tilixibiesi"
@@ -86,23 +84,18 @@ signingConfigs {
 dependencies {
 }
 
-// ========== APK 复制任务（支持自定义路径和文件名）==========
 project.afterEvaluate {
     def assembleTask = tasks.findByName('assembleRelease')
     if (assembleTask) {
         def apkSource = project.file("build/outputs/apk/release/app-release.apk")
-        // 目标目录（使用自定义变量）
         def destDir = project.ext.targetApkDir
-        // 确保目录存在（如果不存在则创建）
         if (!destDir.exists()) {
             destDir.mkdirs()
         }
-        // 目标文件名（使用自定义变量）
         def destFileName = project.ext.targetApkName
 
         assembleTask.doLast {
             if (apkSource.exists()) {
-                // 使用 NIO 复制，并重命名
                 java.nio.file.Files.copy(
                     apkSource.toPath(),
                     new File(destDir, destFileName).toPath(),

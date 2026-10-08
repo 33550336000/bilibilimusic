@@ -15,7 +15,6 @@ object HttpUtils {
     const val BASE_URL = "https://www.tibao.dpdns.org/"
     private val MP3_PATTERN = Regex("href=\"([^\"]+\\.mp3)\"")
 
-    // 原有方法：加载音乐列表
     fun getMusicListAsync(context: Context, listener: OnMusicListLoadListener?) {
         AppExecutors.io.execute {
             val musicList = mutableListOf<MusicBean>()
@@ -57,13 +56,6 @@ object HttpUtils {
         fun onFailed(errorMsg: String)
     }
 
-    /**
-     * 通用 GET 请求，用于 B站 API。
-     *
-     * 超时默认 30 秒，但**允许调用方覆写**：像「解析音频直链」这种处在
-     * 「用户点了播放正在等」的交互路径上，30 秒才失败会让人以为应用卡死了，
-     * 那里会显式传更短的超时。
-     */
     fun get(
         url: String,
         headers: Map<String, String> = emptyMap(),
@@ -91,17 +83,6 @@ object HttpUtils {
             conn?.disconnect()
         }
     }
-    /**
-     * 通用 GET 请求（字节形式），用于弹幕这类可能返回二进制压缩体的接口。
-     * 不做任何解压/解码，原样返回，交由调用方按 Content-Encoding 处理。
-     *
-     * 超时**允许调用方覆写**（与 [get] 一致）：弹幕请求处在「打开视频正在等」的
-     * 交互路径上，30 秒才失败会让用户以为播放器卡死，还会白占一个 IO 线程。
-     *
-     * @param onConnected 连接对象建好后的回调。供调用方持有连接以实现「取消」——
-     *        阻塞在 `inputStream` 上的线程只能靠 `disconnect()` 唤醒，
-     *        仅仅置一个标志位是无法让请求停下来的。
-     */
     fun getBytes(
         url: String,
         headers: Map<String, String> = emptyMap(),
@@ -125,9 +106,6 @@ object HttpUtils {
         }
     }
 
-    /**
-     * 带重试的 GET 请求，最多重试 5 次，每次间隔 1 秒
-     */
     fun getWithRetry(
         url: String,
         headers: Map<String, String> = emptyMap(),

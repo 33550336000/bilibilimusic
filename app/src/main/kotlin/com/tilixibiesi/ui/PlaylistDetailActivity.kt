@@ -37,7 +37,6 @@ class PlaylistDetailActivity : BaseActivity() {
     private lateinit var musicList: MutableList<MusicBean>
     private var playlistId: String? = null
     private lateinit var btnBack: ImageButton
-    /** 背景宿主（外层 FrameLayout），承载与内容层叠的背景层 */
     private lateinit var bgHost: View
     private var gestureDetector: GestureDetector? = null
     private var allMusicList: List<MusicBean> = emptyList()
@@ -46,7 +45,6 @@ class PlaylistDetailActivity : BaseActivity() {
 
     private var pendingSubPlaylistId: String? = null
 
-    // 拖拽相关变量
     private var isDragging = false
     private var dragImageView: ImageView? = null
     private var dragPosition = -1
@@ -60,8 +58,8 @@ class PlaylistDetailActivity : BaseActivity() {
 
 override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    setContentView(R.layout.activity_playlist_detail)   // 先设置布局
-    setFullScreen()                                    // 再全屏
+    setContentView(R.layout.activity_playlist_detail)
+    setFullScreen()
 
     bgHost = findViewById(R.id.detail_bg_host)
     lvMusic = findViewById(R.id.lv_music_detail)
@@ -106,8 +104,6 @@ lvMusic.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, 
     val intent = Intent(this@PlaylistDetailActivity, MusicPlayerService::class.java).apply {
         action = MusicPlayerService.ACTION_PLAY
         putExtra(MusicPlayerService.EXTRA_POSITION, realPos)
-        // 与主页面列表项同一语义：点的若是当前曲目，切换播放/暂停并保留进度，
-        // 而不是从头重播。
         putExtra(MusicPlayerService.EXTRA_TOGGLE_IF_CURRENT, true)
     }
     startService(intent)
@@ -130,7 +126,6 @@ lvMusic.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, 
     initSwipeGesture()
 }
 
-    // ---------- 拖拽排序 ----------
     private fun startDrag(itemView: View, position: Int) {
         if (etSearch.text.isNotEmpty()) {
             etSearch.text.clear()
@@ -143,7 +138,6 @@ lvMusic.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, 
             return
         }
 
-        // 使用 Canvas 绘制代替废弃的 drawingCache
         val bitmap = Bitmap.createBitmap(itemView.width, itemView.height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         itemView.draw(canvas)
@@ -472,35 +466,29 @@ override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) 
         super.onResume()
         refreshMusicList()
         applyBackground()
-        // 本 Activity 可见：背景视频播放并出声
         BackgroundHelper.setActive(bgHost, true)
     }
 
     override fun onPause() {
         super.onPause()
-        // 不可见（含被别的 Activity 覆盖）：暂停解码并静音
         BackgroundHelper.setActive(bgHost, false)
     }
 
     override fun onDestroy() {
-        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
         BackgroundHelper.release(bgHost)
         super.onDestroy()
     }
 
-    // ---------- 对话框样式 ----------
     private fun showMaterialDialog(builder: AlertDialog.Builder): AlertDialog {
         return DialogHelper.createStyledDialog(this, builder)
     }
 
-    // ---------- 子歌单适配器 ----------
 class ViewHolder(val tvName: TextView, val btnAdd: ImageButton)
 inner class SubPlaylistAdapter(
     private val context: android.content.Context,
     private val list: List<PlaylistBean>
 ) : BaseAdapter() {
 
-    // 1. 添加 ViewHolder 定义
 
     private val inflater = LayoutInflater.from(context)
 
@@ -555,7 +543,6 @@ inner class SubPlaylistAdapter(
     }
 
     private fun showSubPlaylistOptionsDialog(sub: PlaylistBean) {
-        // 2. 使用 context 构造对话框，调用外部类的 showMaterialDialog
         this@PlaylistDetailActivity.showMaterialDialog(
             AlertDialog.Builder(context)
                 .setTitle(sub.name)
@@ -580,10 +567,9 @@ private fun showSubPlaylistDeleteConfirm(sub: PlaylistBean) {
             .setPositiveButton(R.string.delete) { _, _ ->
                 val parentId = playlistId ?: return@setPositiveButton
                 val allPlaylists = PlaylistManager.getPlaylists(context)
-                val parent = findPlaylistById(allPlaylists, parentId)  // 外部类已有此方法
+                val parent = findPlaylistById(allPlaylists, parentId)
                 parent?.subPlaylists?.removeAll { it.id == sub.id }
 
-                // 保存的是刚刚修改过的同一个列表
                 PlaylistManager.savePlaylists(context, allPlaylists)
 
                 refreshSubPlaylists()

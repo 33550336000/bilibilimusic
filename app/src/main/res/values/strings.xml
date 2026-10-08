@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 页面标题 -->
     <string name="settings_title">设置</string>
 
-    <!-- 卡片标题 -->
     <string name="section_display">显示</string>
     <string name="section_background">背景</string>
     <string name="section_music_play">音乐与播放</string>
@@ -11,11 +9,9 @@
     <string name="section_other">其他设置</string>
     <string name="section_ui_nav">界面与导航</string>
 
-    <!-- 卡片收起 -->
     <string name="btn_collapse">收起</string>
     <string name="btn_restore_section">展开</string>
 
-    <!-- 显示相关 -->
     <string name="label_font_color">字体颜色</string>
     <string name="label_font_color_slider_desc">全局字体颜色（滑块）</string>
     <string name="label_font_size_slider_desc">字体大小（滑块）</string>
@@ -24,7 +20,6 @@
     <string name="current_color">当前颜色：%s</string>
     <string name="current_font_size">当前大小：%dsp</string>
 
-    <!-- 背景相关 -->
     <string name="btn_select_default_bg">选择默认背景</string>
     <string name="label_background_brightness">背景亮度</string>
     <string name="current_brightness">当前亮度：%d%%</string>
@@ -36,7 +31,6 @@
     <string name="current_alpha">当前透明度：%d%%</string>
     <string name="current_dialog_font_global_format">当前颜色：%s（跟随全局）</string>
 
-    <!-- 音乐与播放 -->
     <string name="btn_volume_key_switch_off">关闭音量键切换</string>
     <string name="btn_volume_key_switch_on">启用音量键切换</string>
     <string name="btn_blocked_words">屏蔽词管理</string>
@@ -53,7 +47,6 @@
     <string name="btn_show_today_duration_on">显示今日时长：开</string>
     <string name="btn_show_today_duration_off">显示今日时长：关</string>
 
-    <!-- 数据与工具 -->
     <string name="btn_auto_cache">自动下载</string>
     <string name="btn_auto_cache_on">自动下载：开</string>
     <string name="btn_auto_cache_off">自动下载：关</string>
@@ -61,17 +54,14 @@
     <string name="btn_manage_files">管理文件</string>
     <string name="btn_send_notification">发送通知</string>
 
-    <!-- 底部操作 -->
     <string name="btn_restore_default">恢复默认设置</string>
     <string name="btn_play_mode_format">播放模式：%s</string>
 
-    <!-- 播放模式名称 -->
     <string name="play_mode_exclusive_strong">独占模式:强</string>
     <string name="play_mode_full_medium">完全模式:中</string>
     <string name="play_mode_transient_weak">打断模式:弱</string>
     <string name="play_mode_default">独占模式</string>
 
-    <!-- 新增资源 -->
     <string name="play_mode_initial_text">播放模式：通话等级</string>
     <string name="error_font_size_positive">字体大小必须大于0</string>
     <string name="error_invalid_number">请输入有效数字</string>
@@ -82,7 +72,6 @@
         <item>打断模式</item>
     </string-array>
 
-    <!-- Toast 消息 -->
     <string name="toast_playlist_footprint_cleared">已清除歌单足迹</string>
     <string name="toast_auto_cache_enabled">自动下载已开启</string>
     <string name="toast_auto_cache_disabled">自动下载已关闭</string>
@@ -107,7 +96,6 @@
     <string name="toast_default_bg_set">默认背景已设置</string>
     <string name="toast_content_empty">内容不能为空</string>
 
-    <!-- 对话框标题 -->
     <string name="dialog_title_auto_cache">自动下载</string>
     <string name="dialog_title_confirm_clear">确认清除</string>
     <string name="dialog_title_switch_search_mode">切换搜索模式</string>
@@ -124,7 +112,6 @@
     <string name="dialog_title_restore_default">恢复默认设置</string>
     <string name="dialog_title_footprint_playlist">歌单歌曲足迹</string>
 
-    <!-- 对话框消息 -->
     <string name="dialog_msg_confirm_disable_auto_cache">确定要关闭自动下载吗</string>
     <string name="dialog_msg_confirm_enable_auto_cache">确定要开启自动下载吗</string>
     <string name="dialog_msg_confirm_clear_records">确定要清除所有记录吗？</string>
@@ -141,7 +128,6 @@
     <string name="dialog_msg_search_btn_restore">确定要将搜索按钮恢复为原样吗？</string>
     <string name="dialog_msg_restore_default">确定要恢复所有设置为默认值吗？</string>
 
-    <!-- 通用 -->
     <string name="state_on">开</string>
     <string name="state_off">关</string>
     <string name="btn_ok">确定</string>
@@ -154,7 +140,6 @@
     <string name="hint_notification_title">通知标题-可为空</string>
     <string name="hint_notification_content">输入文本</string>
 
-    <!-- 初始预览值（代码中使用格式字符串填充） -->
     <string name="preview_font_color_default">当前颜色：#FF0000</string>
     <string name="preview_font_size_default">当前大小：15sp</string>
     <string name="preview_brightness_default">当前亮度：100%</string>
@@ -162,7 +147,6 @@
     <string name="preview_dialog_font_color_default">当前颜色：#FFFFFF（跟随全局）</string>
     <string name="preview_dialog_alpha_default">当前透明度：100%</string>
 
-    <!-- 时长显示相关 -->
     <string name="format_today_duration">今日：%s</string>
     <string name="format_total_duration">总：%s</string>
     <string name="player_time_format">%1$s / %2$s</string>
@@ -214,7 +198,6 @@
     <string name="mode_random">随机播放</string>
     <string name="mode_single_loop">单曲循环</string>
 
-    <!-- 通用按钮 -->
     <string name="ok">确定</string>
     <string name="cancel">取消</string>
     <string name="yes">是</string>
@@ -222,23 +205,18 @@
     <string name="close">关闭</string>
     <string name="back">返回</string>
     <string name="btn_close">关闭</string>
-    <!-- 播放控制提示 -->
     <string name="select_song_first">请先选择歌曲</string>
     <string name="seek_not_available">无法获取音频时长，暂不支持拖动</string>
 
-    <!-- 歌曲列表 -->
-    <!-- 删除歌曲 -->
     <string name="delete_song_title">删除歌曲</string>
     <string name="delete_song_message">确定要移除《%1$s》吗？</string>
     <string name="delete_restricted_title">操作受限</string>
     <string name="delete_restricted_message">该歌曲《%1$s》不支持删除。</string>
     <string name="delete_success">已永久删除：%1$s</string>
 
-    <!-- 恢复原名 -->
     <string name="restore_original_success">已恢复原名</string>
     <string name="restore_original_not_needed">该歌曲未重命名，无需恢复</string>
 
-    <!-- 重命名 -->
     <string name="rename_song_title">重命名歌曲</string>
     <string name="rename_current_name">当前名称：《%1$s》</string>
     <string name="rename_button">重命名</string>
@@ -248,7 +226,6 @@
     <string name="rename_success">重命名成功</string>
     <string name="long_press_restore_original">恢复原名</string>
 
-    <!-- 加入歌单 -->
     <string name="add_to_playlist_title">加入歌单</string>
     <string name="add_to_playlist_message">是否将《%1$s》加入歌单？</string>
     <string name="select_playlist_title">选择歌单</string>
@@ -257,12 +234,10 @@
     <string name="confirm_add_message">将《%1$s》添加到歌单《%2$s》吗？</string>
     <string name="added">已添加</string>
 
-    <!-- 播放详情 -->
     <string name="detail_no_record">暂无播放记录</string>
     <string name="detail_title">播放详情（点击歌曲查看每日）</string>
     <string name="song_no_record">该歌曲暂无记录</string>
 
-    <!-- 定时器 -->
     <string name="timer_title">定时</string>
     <string name="timer_start">将在 %1$s 后停止播放</string>
     <string name="timer_end">定时结束，已停止播放</string>
@@ -270,9 +245,7 @@
     <string name="timer_cancel_btn">取消定时</string>
     <string name="timer_zero_error">时间不能为0</string>
 
-    <!-- B站视频获取 -->
 
-    <!-- 搜索按钮调整 -->
     <string name="adjust_mode_hint">长按拖动搜索按钮以调整位置，松手保存</string>
     <string name="position_saved">位置已保存</string>
 
@@ -298,7 +271,6 @@
     <string name="webpage_load_failed">网页加载失败，请检查网络</string>
     <string name="quality_select_title">选择画质（可单选，也可视频+音频合并）</string>
 
-<!-- Playlist 相关对话框 -->
 <string name="new_playlist_title">新建歌单</string>
 <string name="playlist_name_hint">歌单名称</string>
 <string name="playlist_options_title">歌单：「%1$s」</string>
@@ -309,11 +281,10 @@
 <string name="delete_playlist_message">确定要删除歌单「%1$s」吗？</string>
 <string name="playlist_deleted">歌单已删除</string>
 
-<!-- PlaylistDetail 额外 -->
 <string name="remove">移除</string>
 <string name="remove_from_playlist_message">确定从歌单中删除《%1$s》吗？</string>
 <string name="removed_from_playlist">已从歌单移除</string>
-<string name="rename_restricted_title">操作受限</string> <!-- 如果不想复用 delete_restricted_title -->
+<string name="rename_restricted_title">操作受限</string> 
 <string name="rename_restricted_message">该歌曲《%1$s》不支持重命名。</string>
 
 <string name="create_sub_playlist_title">创建子歌单</string>
@@ -342,20 +313,15 @@
 <string name="language_update_msg">语言资源「%1$s」有新版本，是否更新？</string>
 <string name="language_downloading">正在下载语言资源…</string>
 <string name="language_download_failed">语言资源下载失败</string>
-<!-- 自动加载默认设置按钮 -->
 <string name="btn_auto_load_default">自动加载默认设置</string>
-<!-- 按钮状态文本 -->
 <string name="btn_auto_load_default_on">自动加载默认设置-开</string>
 <string name="btn_auto_load_default_off">自动加载默认设置-关</string>
-<!-- 对话框 -->
 <string name="dialog_title_auto_load_default">自动加载默认设置</string>
 <string name="dialog_msg_auto_load_default_on">确定关闭自动加载默认设置吗？</string>
 <string name="dialog_msg_auto_load_default_off">确定开启自动加载默认设置吗？</string>
-<!-- Toast -->
 <string name="toast_auto_load_default_enabled">自动加载默认设置已开启</string>
 <string name="toast_auto_load_default_disabled">自动加载默认设置已关闭</string>
 
-<!-- 底部导航栏 -->
 <string name="btn_bottom_nav">底部导航栏</string>
 <string name="btn_bottom_nav_on">底部导航栏-开</string>
 <string name="btn_bottom_nav_off">底部导航栏-关</string>
@@ -367,7 +333,6 @@
 <string name="nav_search">搜索</string>
 <string name="nav_playlist">歌单</string>
 <string name="nav_settings">设置</string>
-    <!-- 通知栏文本 -->
     <string name="channel_music">音乐播放</string>
     <string name="channel_music_desc">音乐播放前台服务通知</string>
     <string name="channel_video">视频播放</string>
@@ -375,9 +340,6 @@
     <string name="btn_prev_video_short">上一集</string>
     <string name="btn_next_video_short">下一集</string>
 
-    <!-- 通知进度条开关（音乐与视频共用）
-         注意：资源名保持 video_ 前缀不变——本地化 JSON 是按资源名索引的
-         （见 LanguageUtils.lookupOverlay），改名会让已下载的翻译失效。 -->
     <string name="btn_video_notify_progress_on">通知进度条：开</string>
     <string name="btn_video_notify_progress_off">通知进度条：关</string>
     <string name="dialog_title_video_notify_progress">通知进度条</string>
@@ -388,7 +350,6 @@
     <string name="toast_video_notify_progress_on">已开启通知进度条</string>
     <string name="toast_video_notify_progress_off">已关闭通知进度条</string>
 
-    <!-- Toast 消息 -->
     <string name="song_expired">歌曲已失效</string>
     <string name="video_url_unavailable">无法获取视频播放地址</string>
     <string name="text_playing">正在播放</string>
@@ -401,37 +362,30 @@
     <string name="song_not_exists">歌曲已不存在</string>
     <string name="no_song_selected">未选择任何歌曲</string>
 
-    <!-- 时长格式化（原复数资源改为字符串+占位符） -->
     <string name="duration_hours_format">%d 小时</string>
     <string name="duration_minutes_format">%d 分</string>
     <string name="duration_seconds_format">%d 秒</string>
 
-    <!-- 网络错误 -->
     <string name="request_failed_code">请求失败，状态码：%d</string>
     <string name="request_error">请求异常：%s</string>
 
-    <!-- 足迹/读取 -->
     <string name="no_record">暂无记录</string>
     <string name="read_failed">读取失败</string>
 
-    <!-- 删除限制 -->
     <string name="op_restricted">操作受限</string>
     <string name="delete_restricted_song">该歌曲《%1$s》不支持删除。</string>
 
-    <!-- 权限提示 -->
     <string name="perm_partial">部分权限被拒绝</string>
     <string name="perm_need">需要存储权限</string>
     <string name="perm_msg">为正常访问音乐文件</string>
     <string name="perm_go_settings">去设置</string>
 
-    <!-- 下载相关 -->
     <string name="download_downloading">正在下载</string>
     <string name="download_failed_msg">下载失败：%1$s</string>
     <string name="download_complete">下载完成</string>
     <string name="download_channel">下载通知</string>
     <string name="download_channel_desc">音乐下载进度</string>
 
-    <!-- B站视频 -->
     <string name="loading_video">正在加载视频…</string>
     <string name="get_link_failed">获取播放链接失败</string>
     <string name="video_url_unavailable_bili">视频链接不可用</string>
@@ -442,17 +396,14 @@
     <string name="download_http_code">下载失败，HTTP状态码：%d</string>
     <string name="download_failed_class">下载失败：%1$s</string>
 
-    <!-- 歌单相关（原复数资源改为字符串+占位符） -->
     <string name="songs_added_format">已添加 %1$d 首歌到歌单</string>
     <string name="playlist_item_format">%1$s（%2$d 首）</string>
     <string name="sub_playlist_item_format">%1$s（%2$d 首）</string>
     <string name="music_list_updated">已更新 %1$d 首歌曲到歌单</string>
 
-    <!-- 弹幕（进入 B站视频后的弹幕机制） -->
     <string name="danmaku_toggle_on">弹幕 开</string>
     <string name="danmaku_toggle_off">弹幕 关</string>
 
-    <!-- 字幕下载 -->
     <string name="subtitle_separator">--- 字幕 ---</string>
     <string name="subtitle_option">字幕: %1$s</string>
     <string name="subtitle_none">字幕: 无（该视频暂无字幕）</string>
@@ -460,7 +411,6 @@
     <string name="subtitle_complete_multi">已保存 %1$d 份字幕（失败 %2$d）</string>
     <string name="subtitle_failed">字幕下载失败</string>
 
-    <!-- 正在播放页（点底部控制栏进入） -->
     <string name="now_playing_unknown_title">未知标题</string>
     <string name="now_playing_unknown_artist">未知艺术家</string>
     <string name="now_playing_unknown_album">未知专辑</string>
@@ -472,8 +422,6 @@
     <string name="now_playing_share_chooser">分享到</string>
     <string name="now_playing_share_no_link">该歌曲暂无可分享的链接</string>
     <string name="now_playing_share_failed">分享失败，未找到可用的应用</string>
-    <!-- 分享正文：第一行歌名，第二行链接（普通音乐给主页链接，B 站给音频直链） -->
     <string name="now_playing_share_format" translatable="false">%1$s\n%2$s</string>
 
-    <!-- 开机启动 -->
 </resources>

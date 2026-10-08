@@ -13,39 +13,18 @@ import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
-/**
- * 设置的持久化：`system/Settings.json` 的读写，以及「默认背景」文件的落盘。
- *
- * 与 [SpUtils] 的分工：
- *  - [SpUtils] 面向运行时读写（每次改动即时生效）；
- *  - 本类面向「导出/导入一份完整设置」——保存把当前 Sp 快照写成 JSON，
- *    加载把 JSON 逐项写回 Sp；两者字段必须一一对应，改动时记得同步。
- *
- * 原先这五个方法与 [com.tilixibiesi.ui.page.SettingsPage] 的 UI 状态无关，
- * 只是借用页面当 Context，因此独立出来，便于单独阅读与复用。
- */
 object SettingsStore {
 
-    /** 设置快照文件（基于当前存储根） */
     private const val SETTINGS_JSON_PATH_REL = "system/Settings.json"
 
-    /** 默认背景目录：卸载重装后仍存在，供 [com.tilixibiesi.util.BackgroundHelper] 优先读取 */
     private const val DEFAULT_BG_DIR_REL = "system/axeron/long/Android/default_bg/"
 
-    /** 设置快照文件（可能尚不存在） */
     fun settingsFile(): File = StoragePaths.resolveRead(SETTINGS_JSON_PATH_REL)
 
-    /** 删除设置快照（「恢复默认设置」用） */
     fun deleteSettingsFile() {
         runCatching { settingsFile().takeIf { it.exists() }?.delete() }
     }
 
-    /**
-     * 只更新快照里的语言字段。
-     *
-     * 语言切换是高频动作，若整份重写会把当前 UI 上尚未保存的其它改动一并带入，
-     * 因此这里做「就地更新单个字段」。
-     */
     fun saveLanguage(langCode: String) {
         try {
             val file = settingsFile()
@@ -58,7 +37,6 @@ object SettingsStore {
         }
     }
 
-    /** 把当前 Sp 里的设置整份导出为 JSON 快照。 */
     fun saveToFile(context: Context) {
         try {
             val json = JSONObject()
@@ -87,11 +65,6 @@ object SettingsStore {
         }
     }
 
-    /**
-     * 从 JSON 快照逐项写回 Sp。
-     *
-     * @return 快照存在且解析成功为 true；不存在或损坏为 false（调用方据此决定是否提示）。
-     */
     fun loadFromFile(context: Context): Boolean {
         val file = settingsFile()
         if (!file.exists()) return false
@@ -114,7 +87,6 @@ object SettingsStore {
             if (json.has("language")) {
                 val savedLang = json.getString("language")
                 if (savedLang != LanguageUtils.getLanguage(context)) {
-                    // setAppLanguage 需要真实 Activity 来 recreate；页面只是 ContextWrapper
                     ContextUtils.unwrapActivity(context)?.let { LanguageUtils.setAppLanguage(it, savedLang) }
                 }
             }
@@ -124,19 +96,6 @@ object SettingsStore {
         }
     }
 
-    /**
-     * 把用户选中的图片或视频复制为「默认背景」，并清掉旧的所有默认背景文件。
-     *
-     * 落盘文件名固定为 `default_background.<扩展名>`，
-     * 由 [com.tilixibiesi.util.BackgroundHelper] 按前缀匹配读取。
-     *
-     * 扩展名必须保留：BackgroundHelper 靠扩展名区分图片与视频
-     * （视频交给 VideoView 播放，图片走 BitmapFactory 解码），
-     * 若去掉后缀，视频会被当成图片解码失败而显示为黑屏。
-     * 扩展名取自来源 URI 的显示名，取不到时按 MIME 类型兜底。
-     *
-     * @return 新文件的绝对路径；失败返回 null
-     */
     fun copyDefaultBackground(context: Context, srcUri: Uri): String? {
         return try {
             val dir = StoragePaths.resolveWrite(DEFAULT_BG_DIR_REL)
@@ -146,14 +105,12 @@ object SettingsStore {
             }
             val inputStream = context.contentResolver.openInputStream(srcUri) ?: return null
 
-            // 删除旧的所有默认背景文件（无论什么后缀）
             dir.listFiles()?.forEach { file ->
                 if (file.name.startsWith("default_background.") || file.name == "default_background") {
                     file.delete()
                 }
             }
 
-            // 保存新文件，保留扩展名（视频/图片的判定依赖它）
             val destFile = File(dir, "default_background." + resolveExtension(context, srcUri))
             FileOutputStream(destFile).use { output ->
                 inputStream.copyTo(output)
@@ -165,13 +122,7 @@ object SettingsStore {
         }
     }
 
-    /**
-     * 推断来源 URI 的扩展名（不含点，已转小写）。
-     * 优先用文件显示名的后缀；显示名没有后缀时按 MIME 类型映射；
-     * 都拿不到时回退 "img"，保证图片仍能按「非视频」分支正常解码。
-     */
     private fun resolveExtension(context: Context, srcUri: Uri): String {
-        // 1. 显示名后缀
         try {
             context.contentResolver.query(srcUri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
                 ?.use { cursor ->
@@ -186,7 +137,6 @@ object SettingsStore {
         } catch (_: Exception) {
         }
 
-        // 2. MIME 类型映射
         try {
             val mime = context.contentResolver.getType(srcUri)
             if (!mime.isNullOrEmpty()) {

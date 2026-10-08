@@ -7,15 +7,8 @@ import org.json.JSONObject
 import java.net.URLEncoder
 
 object BiliSearchHelper {
-    /**
-     * 解析音频直链的超时（毫秒）。
-     *
-     * 这条链路处在「用户点了播放、正在等出声」的交互路径上，
-     * 沿用 HttpUtils 默认的 30 秒才失败会让人以为应用卡死，因此收紧到 8 秒。
-     */
     private const val AUDIO_RESOLVE_TIMEOUT_MS = 8_000
 
-    /** bvid -> cid 缓存：同一稿件的 cid 恒定，不必每次重取 */
     private val cidCache = java.util.concurrent.ConcurrentHashMap<String, Long>()
     data class VideoDetail(
         val bvid: String,
@@ -24,12 +17,6 @@ object BiliSearchHelper {
         val coverUrl: String,
         val author: String,
         val duration: Int,
-        /**
-         * 稿件所属「合集」的名称；不属于任何合集时为 null。
-         *
-         * 正在播放页用它当专辑名：合集稿件的"专辑"就是合集本身，
-         * 单个视频没有专辑概念，那里退回用视频标题（见 NowPlayingPage）。
-         */
         val collectionTitle: String? = null
     )
 
@@ -49,21 +36,12 @@ object BiliSearchHelper {
     data class SearchResult(
         val videos: List<BiliVideo>,
         val hasMore: Boolean,
-        val errorCode: Int  // 0 成功，-101 未登录，-1 网络/解析错误
+        val errorCode: Int
     )
 
     private fun cleanHtml(text: String): String =
         Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY).toString()
 
-    /**
-     * 取稿件 cid（播放/弹幕/字幕/歌词都需要的定位标识）。
-     *
-     * 结果缓存在内存中：同一 bvid 的 cid 恒定，重复请求纯属浪费，
-     * 而它处在「点播放」的等待路径上，省一次往返就是省一次可感知的延迟。
-     *
-     * 对 B 站来说，顶层 cid 就是 P1 的 cid —— 本项目播放的正是它，
-     * 因此它也正好对应曲库歌词所关联的那一支单曲（见 [BiliLyricHelper]）。
-     */
     fun resolveCid(bvid: String): Long? {
         cidCache[bvid]?.let { return it }
         return try {
@@ -81,32 +59,11 @@ object BiliSearchHelper {
         }
     }
 
-    /**
-     * 按「音质从低到高」返回该稿件可用的音频直链。
-     *
-     * 与旧实现的两个关键区别：
-     *
-     *  1. **不发送登录 Cookie**。B站官方 `playurl` 对公开稿件并不要求登录态，
-     *     只要请求带上 Referer 就能取到 `dash.audio` 并直接下载（已实测：
-     *     无 Cookie 时返回 206 且可正常拉流）。去掉 Cookie 之后，播放不再依赖
-     *     用户登录，也不会因为 Cookie 过期而整条链路失效。
-     *
-     *  2. **不再使用任何第三方解析站**。第三方站的可用性完全不受本项目控制，
-     *     把它当作「能不能播」的前置条件风险过高，因此整体移除；
-     *     现在只走官方接口，失败即失败，不做不可靠的兜底。
-     *
-     * 返回**升序**（最低音质在前）：主页面播放与自动缓存都直接取 `first()`，
-     * 即最低音质——按需求「无所谓音质」，优先省流量、起播更快；
-     * 万一该链接失效，调用方的重试游标会顺着这份列表逐档升到更高音质。
-     *
-     * @return 低→高排序的直链；无可用链接时返回空列表
-     */
     fun getAudioUrls(bvid: String): List<String> {
         val cid = resolveCid(bvid) ?: return emptyList()
         val url = "https://api.bilibili.com/x/player/playurl" +
             "?bvid=$bvid&cid=$cid&qn=16&fnval=16&fnver=0&fourk=0&otype=json"
         val dashUrls = try {
-            // 重试 2 次：偶发 403（无 buvid 时的限流）靠重试即可绕开
             val json = HttpUtils.getWithRetry(
                 url,
                 headers = emptyMap(),
@@ -124,8 +81,6 @@ object BiliSearchHelper {
                 else (0 until audios.length())
                     .map { audios.getJSONObject(it) }
                     .filter { it.optString("baseUrl").isNotEmpty() }
-                    // 显式按带宽升序：接口返回顺序并不稳定（实测有升序也有乱序），
-                    // 依赖下标取值会时高时低，必须自己排序才能保证「总是最低档」
                     .sortedBy { it.optInt("bandwidth", 0) }
                     .map { it.getString("baseUrl").replace("http://", "https://") }
                     .distinct()
@@ -135,8 +90,6 @@ object BiliSearchHelper {
         }
         if (dashUrls.isNotEmpty()) return dashUrls
 
-        // 兜底：极老稿件可能没有 DASH 音轨（只有 flv/durl 整段流）。
-        // 此时取该 mp4 直链——它自带音轨，能播但流量大，仅作最后手段。
         return try {
             val json = HttpUtils.get(
                 "https://api.bilibili.com/x/player/playurl" +
@@ -154,11 +107,6 @@ object BiliSearchHelper {
         }
     }
 
-    /**
-     * 主页面播放的首选链接：**最低音质**（升序列表的第一个）。
-     *
-     * @return 直链；解析失败返回 null（调用方据此提示并跳过该曲）
-     */
     fun getPreferredAudioUrl(bvid: String): String? = getAudioUrls(bvid).firstOrNull()
 
     fun searchVideosPage(
@@ -213,9 +161,6 @@ object BiliSearchHelper {
                 coverUrl = data.getString("pic"),
                 author = data.getJSONObject("owner").getString("name"),
                 duration = data.getInt("duration"),
-                // 合集名称：只有合集稿件才有 ugc_season（实测单个视频该字段整个缺失），
-                // 因此这里必须用 optJSONObject 而不是 getJSONObject，否则会抛异常把
-                // 整个详情请求判成失败——那会连带让"取画质/字幕"也跟着失效。
                 collectionTitle = data.optJSONObject("ugc_season")
                     ?.optString("title", "")
                     ?.takeIf { it.isNotEmpty() }

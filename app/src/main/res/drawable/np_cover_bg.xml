@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 正在播放页封面底板：既是圆角背景，也用于 clipToOutline 裁剪真实封面 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <solid android:color="#FF4D4D4D" />

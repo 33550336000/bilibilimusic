@@ -1,43 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  封面占位图。
 
-  两处共用，因此必须是「自带圆角」的独立图形，而不是依赖外层容器裁剪：
-   1. 正在播放页拿不到封面时（无封面、下载失败、URL 为空……不论何种原因）；
-   2. 搜索页视频列表加载封面过程中的占位。
 
-  构图：深灰圆角方块 + 浅灰八分音符，与设计稿一致。
-  尺寸取 108x108 正方形，保证在任意方形/近方形 ImageView 里 centerCrop 都不变形。
--->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- 圆角方形底板：四角半径 14 -->
     <path
         android:fillColor="#FF4D4D4D"
         android:pathData="M14,0 L94,0 A14,14 0 0 1 108,14 L108,94 A14,14 0 0 1 94,108 L14,108 A14,14 0 0 1 0,94 L0,14 A14,14 0 0 1 14,0 Z" />
 
-    <!-- 八分音符：在 24x24 坐标系里画好，再整体放大居中 -->
     <group
         android:scaleX="2.1"
         android:scaleY="2.1"
         android:translateX="28.8"
         android:translateY="28.8">
 
-        <!-- 符头 -->
         <path
             android:fillColor="#FF949494"
             android:pathData="M8.2,12.6 C5.6,12.6 3.4,14.3 3.4,16.5 C3.4,18.7 5.6,20.4 8.2,20.4 C10.8,20.4 13,18.7 13,16.5 C13,14.3 10.8,12.6 8.2,12.6 Z" />
 
-        <!-- 符干 -->
         <path
             android:fillColor="#FF949494"
             android:pathData="M11.7,3.4 L13.7,3.4 L13.7,17 L11.7,17 Z" />
 
-        <!-- 符尾：自符干顶端向右下弯出的月牙 -->
         <path
             android:fillColor="#FF949494"
             android:pathData="M13.7,3.4 C17.7,4.8 20.7,7.5 20.7,11.2 C20.7,12.6 20.2,13.8 19.4,14.8 C20.1,13.2 20.2,11.5 19.2,10 C18.2,8.5 16.3,7.1 13.7,6.1 Z" />

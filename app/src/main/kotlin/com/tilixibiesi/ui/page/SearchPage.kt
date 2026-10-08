@@ -71,18 +71,6 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
 import android.graphics.Bitmap
 
-/**
- * 搜索页（原 SearchActivity）。
- *
- * 迁移要点：
- *  - 继承 [BasePage]，作为 [MainPagerActivity] 内的一页（索引 2）存在，`this` 即 Context；
- *  - 原本的 GestureDetector.onFling 侧滑切页已交由 HorizontalPager 处理，页面不再拦截触摸；
- *    向左滑由容器自动到达设置页（2 -> 3），故 onSwipeLeft/onSwipeRight/initSwipeGesture 全部删除；
- *  - overridePendingTransition 在同一 Activity 内无意义，全部删除；
- *  - 选中歌曲原本是 setResult + finish()，改为向 SongsPage 投递播放请求并切到歌曲页（已完成）；
- *  - 全屏视频播放器自带触摸处理（BiliVideoPlayer.handleTouchEvent），
- *    原先 Activity.dispatchTouchEvent 的转发在 Page 形态下不再需要，交由播放器容器自身处理。
- */
 @SuppressLint("SetJavaScriptEnabled")
 class SearchPage(base: Context) : BasePage(base) {
 
@@ -105,32 +93,23 @@ class SearchPage(base: Context) : BasePage(base) {
     private val biliSearchRequestId = AtomicInteger(0)
     private var hasExtractedCookie = false
     private var currentKeyword = ""
-    /** 用户最后一次按「确定键」提交的关键词（输入框实时内容未必等于它） */
     private var submittedKeyword = ""
     private var currentPage = 1
     private var hasMorePage = false
     private var isLoadingMore = false
     private var isCheckingCookie = false
     private var cookieValidChecked = false
-    /** 上次构建搜索源时歌曲页列表的长度，用于判断是否需要重建 */
     private var lastSourceSize = -1
     private lateinit var progressBar: ProgressBar
     private lateinit var tvSearchingHint: TextView
 
     private lateinit var videoPlayer: BiliVideoPlayer
     private lateinit var danmakuView: DanmakuView
-    /** 全屏播放器上的「弹幕开关」按钮 */
     private var btnDanmaku: ImageButton? = null
     private val biliVideoList = mutableListOf<BiliVideo>()
     private var currentVideoIndex = -1
 
     private lateinit var webViewContainer: FrameLayout
-    /**
-     * 登录 WebView。**按需创建、用完即毁**：它已从布局里移除，改在这里 new 出来。
-     *
-     * 常驻一个 WebView 会白白占着几十 MB（渲染进程 + GPU 纹理 + 缓存），
-     * 而它一年也用不上几次——只有 Cookie 失效需要重新登录时才出现。
-     */
     private var loginWebView: WebView? = null
     private lateinit var btnCloseWebView: ImageButton
     private lateinit var progressWebView: ProgressBar
@@ -138,12 +117,6 @@ class SearchPage(base: Context) : BasePage(base) {
     override fun onCreate(savedInstanceState: Bundle?) {
         setContentView(R.layout.activity_search)
 
-        // 搜索源必须是「歌曲页当前实际展示的列表」：
-        // 1. 歌曲页已从远端列表 + 本地文件 + B 站历史合并出真实曲目集合（SongsPage.musicList）；
-        // 2. DataFileUtils.loadMusicList() 只是远端的 HTTP 快照：
-        //    - 本地导入/下载的歌不在里面 → 搜不到；
-        //    - 已删除/被屏蔽的歌仍在里面 → 搜出来却放不了（列表不正确）。
-        // 因此一律以 SongsPage.musicList 为准，它为空时说明歌曲页尚未加载完，此时再回退本地快照。
         allMusicList = buildSourceList().toMutableList()
 
         searchResultList = mutableListOf()
@@ -166,15 +139,6 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    /**
-     * 本地搜索的数据源：一律取「歌曲页当前真实展示的列表」。
-     *
-     * 不能再用 DataFileUtils.loadMusicList()：那只是远端目录的 HTTP 快照，
-     *   - 本地导入 / 已下载的歌不在快照里 → 明明有却搜不到；
-     *   - 已删除、被屏蔽的歌仍在快照里 → 搜得到却放不了；
-     *   - B 站历史里的歌也不是快照的一部分。
-     * 这正是「搜索结果不正确」的根因。
-     */
     private fun buildSourceList(): List<MusicBean> {
         val source = SongsPage.musicList.takeIf { it.isNotEmpty() }
             ?: DataFileUtils.loadMusicList()
@@ -220,31 +184,11 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    // ---------- 生命周期 ----------
-    /**
-     * 暂停：保存播放进度，并释放封面位图内存。
-     *
-     * 释放封面的理由：宿主进入后台后用户看不到封面，但缓存仍攥着几十上百 MB 不放
-     * （单 Activity 常驻 4 页 → 它不会被系统回收）。注意本方法只在「当前页」被调用
-     * （见 MainPagerActivity 的派发），所以它等价于"正停在搜索页时退到后台"。
-     * 释放必须放在早退判断**之前**，否则播放器未初始化时会漏掉。
-     */
     override fun onPause() {
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.releaseCovers()
-        // 离开本页：暂停背景视频并静音（避免多页背景音叠加）
         findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.setActive(it, false) }
-        // 应用不可见 / 离开本页时销毁登录 WebView。
-        //
-        // 两个目的：
-        //  1. 性能：WebView 常驻会一直占着渲染进程、GPU 纹理与缓存（几十 MB），
-        //     而后台清理又把 app_webview 删了，留着它只会不断把文件写回来；
-        //  2. 正确：它是「用完即毁」的临时登录页，用户已经看不到了。
-        // 回到前台时不需要恢复：登录态在 WebView 出现前就已提取进 SpUtils，
-        // 真要再登录会走 openBiliLoginWebView() 重新创建。
         closeLoginWebViewIfVisible()
         if (!::videoPlayer.isInitialized) return
-        // 弹幕帧回调必须随宿主一起停：视频通知是前台服务、进程不会被回收，
-        // 不停的话页面在后台仍以 60fps 全屏重绘（纯耗电）。
         videoPlayer.onHostPause()
         val layoutFullscreen = findViewById<FrameLayout>(R.id.layout_fullscreen_video) ?: return
         if (layoutFullscreen.visibility == View.VISIBLE) {
@@ -252,29 +196,14 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    /**
-     * 每次进入本页都要刷新搜索源。
-     *
-     * 本页首次 layout 时（onCreate）歌曲页往往还没把远端列表拉回来，
-     * 那时 SongsPage.musicList 是空的；若只在 onCreate 取一次，
-     * 用户看到的就永远是那一瞬间的旧快照——搜到不该有的、搜不到刚加载的。
-     */
     override fun onPageShow() {
         refreshSearchSource()
     }
 
-    /**
-     * 离开搜索页：释放全部封面位图。
-     *
-     * 此时用户已经看不到封面了，但缓存还按堆上限的 1/4 攥着几十上百 MB 不放
-     * （单 Activity 常驻 4 页 → 它不会被系统回收）。主动交还，
-     * 回到本页时列表重新拉取、图片重新解码即可。
-     */
     override fun onPageHide() {
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.releaseCovers()
     }
 
-    /** 歌曲页列表长度变化时重建搜索源，并让当前关键词重新出结果 */
     private fun refreshSearchSource() {
         val sourceSize = SongsPage.musicList.size
         if (sourceSize == lastSourceSize && ::allMusicList.isInitialized && sourceSize != 0) return
@@ -283,7 +212,6 @@ class SearchPage(base: Context) : BasePage(base) {
 
         val kw = submittedKeyword
         if (::etSearch.isInitialized && kw.isNotEmpty()) {
-            // 本地模式才需要按新数据源重算；B 站模式走网络分页，不受影响
             if (!isBiliMode) filterMusic(kw)
         }
     }
@@ -294,7 +222,6 @@ class SearchPage(base: Context) : BasePage(base) {
         updateBiliButtonState()
         updateListVisibility()
         applySettings()
-        // 本页成为当前页：背景视频恢复播放并出声
         findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.setActive(it, true) }
         if (!::videoPlayer.isInitialized) return
         videoPlayer.onHostResume()
@@ -310,7 +237,6 @@ class SearchPage(base: Context) : BasePage(base) {
         BiliVideoPlayer.stopCurrentVideo()
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.shutdown()
         destroyLoginWebView()
-        // 释放背景视频解码器（VideoView 脱离视图树不会自动 release）
         findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.release(it) }
     }
 
@@ -334,7 +260,6 @@ class SearchPage(base: Context) : BasePage(base) {
         videoPlayer.onConfigurationChanged(newConfig)
     }
 
-    /** 全屏播放器是否正在显示：供宿主把它加入拖拽黑名单，避免手势冲突 */
     val isVideoFullscreenActive: Boolean
         get() = ::videoPlayer.isInitialized && videoPlayer.isFullscreenActive
 
@@ -346,7 +271,6 @@ class SearchPage(base: Context) : BasePage(base) {
         WindowUtils.restoreSystemUI(activity)
     }
 
-    /** 选中歌曲：把播放请求投递给歌曲页并切过去 */
     private fun deliverPlayRequest(position: Int, list: List<MusicBean>) {
         SongsPage.pendingPlay = position to ArrayList(list)
         gotoPage(MainPagerActivity.PAGE_SONGS, true)
@@ -363,14 +287,11 @@ class SearchPage(base: Context) : BasePage(base) {
 
         val btnClearSearch = findViewById<ImageButton>(R.id.btn_clear_search)
         btnClearSearch?.apply {
-            // 只在输入框有内容时显示
             visibility = View.GONE
             setOnClickListener { etSearch.text.clear() }
         }
 
         musicAdapter = MusicAdapter(this, searchResultList).apply {
-            // MusicBean.equals 仅按歌名判等，B 站条目与本地同名歌曲会互相命中，
-            // 导致序号错乱。此处按引用定位（列表内元素唯一）。
             originalIndexProvider = { bean -> allMusicList.indexOfFirst { it === bean } }
         }
         lvSearchResult.adapter = musicAdapter
@@ -391,20 +312,15 @@ class SearchPage(base: Context) : BasePage(base) {
             } else false
         }
 
-        // 输入过程中不触发搜索：输入法的拼音串（未上屏文本）在 onTextChanged 里
-        // 也会被回调，逐字搜索既浪费网络请求、又会让列表结果乱跳。
-        // 这里仅在输入框被清空时清掉已有结果，真正的搜索由「确定键」触发。
         etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                // 清空按钮跟随输入框内容显隐；被清空时顺带清掉已有结果
                 btnClearSearch?.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
                 if (s.isNullOrEmpty()) clearSearchResults()
             }
             override fun afterTextChanged(s: Editable?) {}
         })
 
-        // 软键盘上的「确定/搜索」回车键（以及外接键盘 Enter）才执行搜索
         etSearch.setOnEditorActionListener { _, actionId, event ->
             val isImeConfirm = actionId == EditorInfo.IME_ACTION_SEARCH ||
                 actionId == EditorInfo.IME_ACTION_DONE
@@ -422,8 +338,6 @@ class SearchPage(base: Context) : BasePage(base) {
             val bean = searchResultList[position]
             if (bean.isBilibili) playBiliAudio(bean)
             else {
-                // 按引用定位：B 站历史条目可能与本地歌曲同名，
-                // 按歌名 indexOf 会错点到空的 B 站条目上（播放失败）。
                 val pos = allMusicList.indexOfFirst { it === bean }
                 if (pos == -1) return@OnItemClickListener
                 deliverPlayRequest(pos, allMusicList)
@@ -446,7 +360,6 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    /** 按需创建登录 WebView 并塞进容器（布局里已不再常驻它） */
     private fun createLoginWebView(): WebView {
         val wv = WebView(this)
         wv.layoutParams = FrameLayout.LayoutParams(
@@ -486,18 +399,11 @@ class SearchPage(base: Context) : BasePage(base) {
                 if (newProgress == 100) progressWebView.visibility = View.GONE
             }
         }
-        // 放在最底层（index 0），关闭按钮与进度条才在它之上
         webViewContainer.addView(wv, 0)
         loginWebView = wv
         return wv
     }
 
-    /**
-     * 彻底销毁登录 WebView 并从容器移除。
-     *
-     * 只 removeView 是不够的：WebView 内部持有渲染进程与 GPU 资源，
-     * 必须 destroy() 才会释放；而 destroy() 前必须先从视图树摘掉。
-     */
     private fun destroyLoginWebView() {
         val wv = loginWebView ?: return
         loginWebView = null
@@ -549,7 +455,6 @@ class SearchPage(base: Context) : BasePage(base) {
             setOnClickListener {
                 if (currentVideoIndex in biliVideoList.indices) {
                     val video = biliVideoList[currentVideoIndex]
-                    // 三个按钮：加入歌单 / 加入主页面 / 取消。第三个按钮是为了防止误触。
                     DialogHelper.createStyledDialog(activity,
                         AlertDialog.Builder(this@SearchPage)
                             .setTitle(R.string.add_to_target_title)
@@ -581,12 +486,8 @@ class SearchPage(base: Context) : BasePage(base) {
         val oriParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply { setMargins(16, 16, 16, 16) }
         layout.addView(orientationBtn, oriParams)
 
-        // 弹幕层：插在视频之上、控制栏之下（XML 里紧跟 TextureView）
         danmakuView = findViewById<DanmakuView>(R.id.danmaku_view)!!
 
-        // 弹幕开关按钮：与「添加到历史」同排（右上角：加号 → 弹幕 → 旋转）。
-        // 交给 BiliVideoPlayer 托管点击与状态，这样才能跟随控制栏一起显隐
-        // （showAllControls/hideAllControls 由播放器内部驱动）。
         val danmakuBtn = ImageButton(this).apply {
             setImageResource(android.R.drawable.stat_notify_chat)
             background = null
@@ -601,9 +502,6 @@ class SearchPage(base: Context) : BasePage(base) {
         layout.addView(danmakuBtn, danmakuParams)
         updateDanmakuButton()
 
-        // BiliVideoPlayer 的构造签名要求 BaseActivity（内部用 requestedOrientation / window）。
-        // 宿主若不是 BaseActivity（例如纯 Activity），这里退化为不初始化全屏播放器，
-        // 所有使用点都以 ::videoPlayer.isInitialized 守卫，避免崩溃。
         val hostActivity = activity as? BaseActivity ?: return
         videoPlayer = BiliVideoPlayer(hostActivity).apply {
             callback = object : BiliVideoPlayer.Callback {
@@ -624,10 +522,9 @@ class SearchPage(base: Context) : BasePage(base) {
                         videoPlayer.play(biliVideoList[currentVideoIndex])
                     }
                 }
-                override fun onRecordHistory(video: BiliVideo) { /* 不自动记录 */ }
+                override fun onRecordHistory(video: BiliVideo) {  }
                 override fun onDanmakuToggled(enabled: Boolean) = this@SearchPage.onDanmakuToggled(enabled)
                 override fun onRequestNeighbor(direction: Int): BiliVideo? {
-                    // -1 = 上一条（手指下滑），+1 = 下一条（手指上滑）
                     val target = currentVideoIndex + direction
                     return biliVideoList.getOrNull(target)
                 }
@@ -644,13 +541,6 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    /**
-     * 弹幕开关：与「添加到历史」按钮同排，点击切换是否显示弹幕。
-     *
-     * 状态存在 SpUtils（跨视频、跨会话保留），播放器内部也据此决定是否拉取弹幕，
-     * 因此关掉弹幕后再打开视频不会白白发一次网络请求。
-     */
-    /** 播放器内部点击后回调不到页面，这里只负责同步图标配色与提示 */
     fun onDanmakuToggled(enabled: Boolean) {
         updateDanmakuButton()
         Toast.makeText(
@@ -663,13 +553,6 @@ class SearchPage(base: Context) : BasePage(base) {
         ).show()
     }
 
-    /**
-     * 按当前开关状态刷新按钮配色（开=蓝色，关=白色）。
-     *
-     * 读的是 SpUtils 而非 player.isDanmakuEnabled()：本方法在播放器实例
-     * 创建之前就会被调用一次（按钮先 addView），而 player 内部的
-     * danmakuEnabled 初值同样取自 SpUtils，两者始终一致。
-     */
     private fun updateDanmakuButton() {
         val on = SpUtils.isDanmakuEnabled(this)
         btnDanmaku?.setColorFilter(
@@ -696,14 +579,12 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun updateBiliButtonState() {
-        // 文字只区分开/关；是否完整模式（是否带登录 Cookie 搜索）不在按钮上体现
         btnBiliToggle.text = LanguageUtils.getString(
             this@SearchPage,
             if (isBiliMode) R.string.bili_toggle_on else R.string.bili_toggle_off
         )
     }
 
-    /** 开：显示视频封面列表；关：显示本地歌曲列表 */
     private fun updateListVisibility() {
         lvSearchResult.visibility = if (isBiliMode) View.GONE else View.VISIBLE
         gvBiliResult.visibility = if (isBiliMode) View.VISIBLE else View.GONE
@@ -738,7 +619,6 @@ class SearchPage(base: Context) : BasePage(base) {
         cookieValidChecked = false
         hasExtractedCookie = false
         CookieManager.getInstance().removeAllCookies(null)
-        // 只有真正要登录时才创建：这是它存在的唯一理由
         val wv = loginWebView ?: createLoginWebView()
         wv.loadUrl("https://passport.bilibili.com/login")
         webViewContainer.visibility = View.VISIBLE
@@ -747,34 +627,20 @@ class SearchPage(base: Context) : BasePage(base) {
 
     private fun closeLoginWebView() {
         webViewContainer.visibility = View.GONE
-        // 用完立即销毁：WebView 常驻会一直占着几十 MB
         destroyLoginWebView()
         clearWebViewCacheAsync()
         setFullScreen()
     }
 
-    /**
-     * 仅当登录页正在显示时才销毁它（离开本页 / 退到后台时调用）。
-     *
-     * 与 [closeLoginWebView] 的区别：这里不动 fullscreen 与页面可见性——
-     * 退到后台时改这些会与窗口状态打架，而 Activity 本来就已经不可见了。
-     */
     private fun closeLoginWebViewIfVisible() {
         if (loginWebView == null) return
         destroyLoginWebView()
         clearWebViewCacheAsync()
     }
 
-    /** 清理 WebView 落盘的缓存文件（销毁之后异步跑，不影响界面） */
     private fun clearWebViewCacheAsync() {
         AppExecutors.io.execute {
-            // 前台只在页面销毁时清：这里用定点版而非激进版 purge()，
-            // 因为应用可能仍在前台运行（关闭登录页），激进版会连
-            // code_cache / app_textures / databases 一起清，打断正在运行的自身。
-            // 应用整体退到后台后，MyApplication 会另行触发激进清理。
             WebViewMetricsCleaner.purgeWebViewArtifacts(this)
-            // 登录页用完即毁，顺带清掉 WebView 的 Cookie（这里清的是 WebView 自己的
-            // Cookie 库；应用登录态保存在 MusicPlayerPrefs，不受影响）
             runCatching {
                 CookieManager.getInstance().removeAllCookies(null)
                 CookieManager.getInstance().flush()
@@ -794,7 +660,6 @@ class SearchPage(base: Context) : BasePage(base) {
         })
     }
 
-    /** 按下软键盘「确定/搜索」键后才真正执行搜索 */
     private fun performSearch() {
         val keyword = etSearch.text.toString().trim()
         submittedKeyword = keyword
@@ -803,7 +668,6 @@ class SearchPage(base: Context) : BasePage(base) {
         filterMusic(keyword)
     }
 
-    /** 输入框被清空时同步清掉结果列表（不触发搜索） */
     private fun clearSearchResults() {
         submittedKeyword = ""
         searchResultList.clear()
@@ -839,20 +703,17 @@ class SearchPage(base: Context) : BasePage(base) {
             }
             val keywordChars = normalizedKeyword.toSet()
 
-            // 临时存储 (MusicBean, 命中字符数)
             val scoredList = mutableListOf<Pair<MusicBean, Int>>()
 
             for (b in allMusicList) {
                 val normalizedName = normalizeForSearch(DataFileUtils.getDisplayName(b.musicName))
                 val nameChars = normalizedName.toSet()
-                // 计算交集字符数（关键词中有多少字符出现在歌名中）
                 val score = keywordChars.count { it in nameChars }
                 if (score > 0) {
                     scoredList.add(b to score)
                 }
             }
 
-            // 按得分降序，得分相同的保持原有相对顺序（稳定排序）
             scoredList.sortByDescending { it.second }
             searchResultList.addAll(scoredList.map { it.first })
 
@@ -877,7 +738,6 @@ class SearchPage(base: Context) : BasePage(base) {
 
         val id = biliSearchRequestId.incrementAndGet()
         AppExecutors.io.execute {
-            // 非完整模式不带登录 Cookie（公开搜索无需登录态）；完整模式才传递
             val cookie = if (isFullBiliSource) SpUtils.getBiliCookie(this) else ""
             val result = BiliSearchHelper.searchVideosPage(currentKeyword, page, cookie)
             if (id != biliSearchRequestId.get()) {
@@ -892,7 +752,6 @@ class SearchPage(base: Context) : BasePage(base) {
                 if (id != biliSearchRequestId.get()) return@post
                 hideSearchingHint()
 
-                // 精准判断 Cookie 失效（-101），其他错误静默处理
                 if (result.errorCode == -101) {
                     Toast.makeText(this@SearchPage, R.string.cookie_invalid_load, Toast.LENGTH_LONG).show()
                     openBiliLoginWebView()
@@ -903,7 +762,6 @@ class SearchPage(base: Context) : BasePage(base) {
                 val videos = result.videos
                 val hasMore = result.hasMore
 
-                // 搜索结果一律以视频封面列表呈现
                 if (page == 1) {
                     biliVideoList.clear()
                     biliVideoAdapter.clearData()
@@ -941,7 +799,6 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun playBiliAudio(bean: MusicBean) {
-        // 不再预先获取链接，直接传回主活动，由服务并发获取
         val existingIndex = allMusicList.indexOfFirst { it === bean }
         if (existingIndex != -1) allMusicList[existingIndex] = bean
         else allMusicList.add(bean)
@@ -958,13 +815,6 @@ class SearchPage(base: Context) : BasePage(base) {
                 handler.post { dialog.dismiss(); ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.video_info_fail)) }
                 return@execute
             }
-            // 画质列表与字幕轨道互不依赖，并行拉取：
-            // 字幕需要多次采样合并（详见 BiliSubtitleHelper），耗时明显，
-            // 串行会让弹窗多等好几秒。失败视为"无字幕"，不阻断下载。
-            //
-            // 注意：这里是「池线程提交子任务后阻塞等待」的 fan-out。
-            // AppExecutors 用 CallerRunsPolicy，池满时子任务由本线程直接执行，
-            // 因此 latch 一定能倒数到 0，不会因线程耗尽而永久等待。
             val latch = CountDownLatch(2)
             var urls: BiliSearchHelper.PlayUrlResult? = null
             var subtitleTracks: List<BiliSubtitleTrack> = emptyList()
@@ -975,13 +825,10 @@ class SearchPage(base: Context) : BasePage(base) {
             }
             AppExecutors.io.execute {
                 try {
-                    // 内部先取稳定的语种清单确定"有几种字幕"，再并发采样补每种的下载 URL。
-                    // 语种数量恒定不变，不会出现"时多时少 / 有时显示无字幕"。
                     subtitleTracks = BiliSubtitleHelper.fetchTracks(detail.bvid, detail.cid, cookie)
                 } finally { latch.countDown() }
             }
             try { latch.await() } catch (_: InterruptedException) { }
-            // 用局部 val 接住：闭包里写过的 var 无法 smart cast 成非空
             val playUrls = urls ?: run {
                 handler.post { dialog.dismiss(); ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.quality_fetch_fail)) }
                 return@execute
@@ -997,7 +844,6 @@ class SearchPage(base: Context) : BasePage(base) {
                     items.add(LanguageUtils.getString(this@SearchPage, R.string.separator_audio) to QualityTag(false, -1, ""))
                     audioQualities.forEachIndexed { i, q -> items.add(LanguageUtils.getString(this@SearchPage, R.string.audio_quality_format, q.description) to QualityTag(false, i, q.description)) }
                 }
-                // 字幕：仅在视频确实存在字幕轨道时可选，否则给一条禁用占位项说明情况
                 items.add(LanguageUtils.getString(this@SearchPage, R.string.subtitle_separator) to QualityTag(false, -1, ""))
                 if (subtitleTracks.isEmpty()) {
                     items.add(LanguageUtils.getString(this@SearchPage, R.string.subtitle_none) to QualityTag(false, -1, "", isSubtitle = true))
@@ -1011,8 +857,6 @@ class SearchPage(base: Context) : BasePage(base) {
                 }
                 var selectedVideoIndex = -1
                 var selectedAudioIndex = -1
-                // 字幕支持多选：一个视频往往同时有中文/英文/AI 等多种轨道，
-                // 单选意味着想下全部语言得反复开关弹窗。
                 val selectedSubtitleIndices = mutableSetOf<Int>()
                 val checkBoxes = mutableListOf<CheckBox>()
                 fun createListener(cb: CheckBox, tag: QualityTag): CompoundButton.OnCheckedChangeListener {
@@ -1025,8 +869,6 @@ class SearchPage(base: Context) : BasePage(base) {
                             }
                             return@OnCheckedChangeListener
                         }
-                        // 字幕与音频/视频互不冲突，且字幕之间也互不冲突：
-                        // 可以「视频 + 音频 + 若干种字幕」一次性全部下载。
                         if (tag.isSubtitle) {
                             selectedSubtitleIndices.add(tag.index)
                             return@OnCheckedChangeListener
@@ -1057,7 +899,6 @@ class SearchPage(base: Context) : BasePage(base) {
                     }
                 }
                 val dialogView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(16, 8, 16, 8) }
-                // 应用设置中的字体颜色（参考其他对话框的做法）
                 val fontColor = try {
                     val dialogFont = SpUtils.getDialogFontColor(this)
                     if (dialogFont.isEmpty()) Color.parseColor(SpUtils.getFontColor(this))
@@ -1078,12 +919,6 @@ class SearchPage(base: Context) : BasePage(base) {
                         .setTitle(R.string.quality_select_title)
                         .setView(scrollView)
                         .setPositiveButton(R.string.ok) { _, _ ->
-                            // 字幕独立于画质选择：可与视频/音频任意组合，也可单独下载。
-                            // 因此先处理字幕，再走原来的画质分支，两者互不影响。
-                            // 字幕可多选：勾选的每种语言各存一个 SRT（文件名带语言后缀）。
-                            // 走单个后台任务串行下载，而不是每种语言各起一条线程：
-                            //  - 避免同时写同一目录造成的竞争；
-                            //  - 避免连弹 N 个 Toast，最后只汇总一条结果。
                             if (selectedSubtitleIndices.isNotEmpty()) {
                                 downloadSubtitles(detail.title, subtitleTracks, selectedSubtitleIndices.sorted(), cookie)
                             }
@@ -1103,7 +938,6 @@ class SearchPage(base: Context) : BasePage(base) {
                                     if (aq.audioUrl.isNullOrEmpty()) { ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.audio_url_not_available)); return@setPositiveButton }
                                     BiliDownloadManager.downloadAudioOnly(this, detail.title, aq.audioUrl, aq.description)
                                 }
-                                // 只勾了字幕（没选画质）也是合法操作
                                 selectedSubtitleIndices.isEmpty() ->
                                     ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.select_at_least_one_quality))
                             }
@@ -1114,17 +948,6 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    /**
-     * 下载字幕（SRT）到 `subtitle/` 目录。
-     *
-     * 走后台线程：内部要拉字幕 JSON 再转 SRT，都不该阻塞 UI。
-     */
-    /**
-     * 串行下载勾选的每种字幕，完成后只弹一条汇总提示。
-     *
-     * 多线程并发下载在这里没有收益（字幕只有几十 KB，瓶颈是往返延迟），
-     * 反而会带来目录写竞争和 N 个连续 Toast 刷屏。
-     */
     private fun downloadSubtitles(
         title: String,
         tracks: List<BiliSubtitleTrack>,
@@ -1166,19 +989,15 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    /** 转成统一音乐条目，供「加入歌单」使用 */
     private fun BiliVideo.toMusicBean() = MusicBean(title, "").apply {
         isBilibili = true
         bvid = this@toMusicBean.bvid
         author = this@toMusicBean.author
         duration = this@toMusicBean.duration.toIntOrNull() ?: 0
-        // 顺带带上封面：加入歌单/加入主页面后，正在播放页就不必再为封面发一次请求
         coverUrl = this@toMusicBean.coverUrl.takeIf { it.isNotEmpty() }
     }
 
     private fun applySettings() {
-        // 背景宿主是外层 FrameLayout：内容根 layout_search_root 保持透明，
-        // 背景层（index 0）才透得出来，且与内容层叠而非挤占空间。
         val bgHost = findViewById<View>(R.id.search_bg_host) ?: return
         BackgroundHelper.applyBackground(this, bgHost, SpUtils.getBackgroundAlpha(this))
         try {

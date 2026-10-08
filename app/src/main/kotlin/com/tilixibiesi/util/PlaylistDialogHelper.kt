@@ -8,7 +8,6 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.PlaylistManager
 import com.tilixibiesi.model.MusicBean
 
-/** 「加入歌单」相关弹窗的统一实现，供歌曲页 / 搜索页复用。 */
 object PlaylistDialogHelper {
 
     fun showAddToPlaylistDialog(context: Context, bean: MusicBean) {

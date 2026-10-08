@@ -11,7 +11,6 @@ object PlaylistManager {
     fun savePlaylists(context: Context, list: List<PlaylistBean>) =
         DataFileUtils.savePlaylists(list)
 
-    // 创建顶级歌单
     fun createPlaylist(context: Context, name: String): PlaylistBean {
         val list = getPlaylists(context)
         val id = System.currentTimeMillis().toString()
@@ -22,9 +21,6 @@ object PlaylistManager {
         return newPl
     }
 
-    /**
-     * 递归查找指定 ID 的歌单（包括顶级和所有嵌套子歌单）
-     */
     fun getPlaylistById(context: Context, id: String): PlaylistBean? {
         return findPlaylistRecursive(getPlaylists(context), id)
     }
@@ -38,9 +34,6 @@ object PlaylistManager {
         return null
     }
 
-    /**
-     * 向指定歌单添加歌曲（支持子歌单）
-     */
     fun addMusicToPlaylist(context: Context, playlistId: String, music: MusicBean) {
         val list = getPlaylists(context)
         val pl = findPlaylistRecursive(list, playlistId) ?: return
@@ -49,9 +42,6 @@ object PlaylistManager {
         savePlaylists(context, list)
     }
 
-    /**
-     * 从指定歌单移除歌曲（支持子歌单）
-     */
     fun removeMusicFromPlaylist(context: Context, playlistId: String, music: MusicBean) {
         val list = getPlaylists(context)
         val pl = findPlaylistRecursive(list, playlistId) ?: return
@@ -60,9 +50,6 @@ object PlaylistManager {
         savePlaylists(context, list)
     }
 
-    /**
-     * 在父歌单中创建子歌单（父歌单可以是顶级或子歌单）
-     */
     fun addSubPlaylist(context: Context, parentPlaylistId: String, name: String): PlaylistBean? {
         val list = getPlaylists(context)
         val parent = findPlaylistRecursive(list, parentPlaylistId) ?: return null
@@ -74,9 +61,6 @@ object PlaylistManager {
         return newPl
     }
 
-    /**
-     * 获取歌单的直接子歌单列表（不递归）
-     */
     fun getSubPlaylists(context: Context, playlistId: String): List<PlaylistBean> {
         val playlist = getPlaylistById(context, playlistId)
         return playlist?.subPlaylists ?: emptyList()
@@ -84,9 +68,7 @@ object PlaylistManager {
 
     fun deletePlaylist(context: Context, playlistId: String) {
         val list = getPlaylists(context)
-        // 从顶级列表删除（如果它是顶级歌单）
         list.removeAll { it.id == playlistId }
-        // 同时从所有子歌单列表中递归删除
         removePlaylistRecursive(list, playlistId)
         savePlaylists(context, list)
     }

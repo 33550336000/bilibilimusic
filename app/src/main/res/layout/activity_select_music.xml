@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 外层 FrameLayout 只作「背景宿主」：视频/图片背景必须与内容**层叠**，
-     由它承载背景层；内层 select_root 仍是页面内容，id 与语义不变。
-     背景宿主必须是允许子 View 重叠的容器——FrameLayout 正是如此。 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/select_bg_host"
     android:layout_width="match_parent"
