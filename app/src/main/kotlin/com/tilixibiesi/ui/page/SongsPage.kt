@@ -350,7 +350,9 @@ class SongsPage(base: Context) : BasePage(base) {
         lvMusic.onItemClickListener =
             android.widget.AdapterView.OnItemClickListener { _, _, position, _ ->
                 if (position !in musicList.indices) return@OnItemClickListener
-                playAtPosition(position, musicList)
+                // 点击列表项：若点的就是当前曲目，服务侧会切换播放/暂停并保留进度；
+                // 点别的曲目则照常从头播放。
+                playAtPosition(position, musicList, toggleIfCurrent = true)
             }
 
         lvMusic.onItemLongClickListener =
@@ -575,23 +577,46 @@ class SongsPage(base: Context) : BasePage(base) {
         }
     }
 
-    private fun playAtPosition(position: Int, list: List<MusicBean>) {
+    /**
+     * 播放列表中的某一项。
+     *
+     * @param toggleIfCurrent 点击列表项时传 true：若点的是**当前曲目**，
+     *   则切换播放/暂停并保留进度，而不是从头重播。上一首/下一首传 false
+     *   ——它们是"换一首"的语义，即便单曲列表下位置恰好相同也不该变成暂停。
+     */
+    private fun playAtPosition(position: Int, list: List<MusicBean>, toggleIfCurrent: Boolean = false) {
         if (position !in list.indices) return
         val bean = list[position]
+        // 是否点的就是当前这首：用显示名比对，与 restorePlayingHighlight /
+        // syncPlayerControlState 的判据一致（暂停时 currentPlayingName 仍在，故也成立）
+        val isCurrentTrack = toggleIfCurrent &&
+            MusicPlayerService.currentPlayingName != null &&
+            DataFileUtils.getDisplayName(bean.musicName) == MusicPlayerService.currentPlayingName
         for (b in musicList) b.isPlaying = false
         bean.isPlaying = true
         // 交给服务的是「与展示列表同结构」的列表（B 站在前），
         // 使 position 在服务侧指向同一首歌；持久化仍只存本地歌曲。
         MusicPlayerService.musicList = list.toMutableList()
         SpUtils.saveMusicList(this, list.filter { !it.isBilibili })
-        sendServiceAction(MusicPlayerService.ACTION_PLAY, MusicPlayerService.EXTRA_POSITION to position)
-        updatePlayPauseButton(true)
+        sendServiceAction(
+            MusicPlayerService.ACTION_PLAY,
+            MusicPlayerService.EXTRA_POSITION to position,
+            MusicPlayerService.EXTRA_TOGGLE_IF_CURRENT to toggleIfCurrent
+        )
         currentPlayPosition = position
         musicAdapter.notifyDataSetChanged()
         tvCurrentMusic.text = DataFileUtils.getDisplayName(bean.musicName)
         setPlayerControlVisible(true)
         seekBar.visibility = View.VISIBLE
-        resetSeekBar()
+        if (isCurrentTrack) {
+            // 切换当前曲目：播放/暂停图标与进度都由服务回传的广播决定。
+            // 这里**不能**写死 updatePlayPauseButton(true)（刚点了暂停却显示"暂停中"），
+            // 更不能 resetSeekBar()（会把用户要保留的进度抹成 0 并禁用拖动）。
+            sendServiceAction(MusicPlayerService.ACTION_REQUEST_PROGRESS)
+        } else {
+            updatePlayPauseButton(true)
+            resetSeekBar()
+        }
     }
 
     // ==================== 播放控制 ====================
@@ -1202,7 +1227,16 @@ class SongsPage(base: Context) : BasePage(base) {
             if (intent.hasExtra(MusicPlayerService.EXTRA_IS_PLAYING)) {
                 val playing = intent.getBooleanExtra(MusicPlayerService.EXTRA_IS_PLAYING, false)
                 updatePlayPauseButton(playing)
-                if (playing) PlaybackStatsManager.startUpdater() else PlaybackStatsManager.stopUpdater()
+                if (playing) {
+                    PlaybackStatsManager.startUpdater()
+                } else {
+                    // 暂停时「今日时长」仍要显示（见 PlaybackStatsManager.updateDisplay），
+                    // 但 stopUpdater() 只移除每秒回调、不会自己再刷一次，
+                    // 于是最后那一秒的累加值可能没被读出来、数字停在上一秒。
+                    // 这里先补刷一次再停：暂停正是用户最可能盯着这个数字看的时刻。
+                    PlaybackStatsManager.refresh()
+                    PlaybackStatsManager.stopUpdater()
+                }
             }
 
             var listDataChanged = false

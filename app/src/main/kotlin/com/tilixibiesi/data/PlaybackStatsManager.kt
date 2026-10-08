@@ -69,7 +69,6 @@ object PlaybackStatsManager {
         // 因此这里必须按实际名称查表；显示名会随重命名变化，查不到任何记录。
         val name = MusicPlayerService.currentPlayingRawName
             ?: MusicPlayerService.currentPlayingName
-        val playing = MusicPlayerService.isPlaying
         val todayView = tvToday?.get()
         val totalView = tvTotal?.get()
         // 关闭开关时完全不读盘（与改动前一致，零 IO）。
@@ -90,7 +89,12 @@ object PlaybackStatsManager {
         } else {
             totalView?.visibility = View.GONE
         }
-        if (!enabled || name == null || !playing) {
+        // 「今日时长」只取决于"有没有当前曲目"，**不看播放状态**：
+        // 暂停时这一行仍要显示——用户想知道的正是"这首歌我今天听了多久"，
+        // 暂停恰恰是最想确认它的时刻。若这里判 `!isPlaying` 就隐藏，
+        // 暂停后数字会消失；而且服务重启恢复"上一首"时 isPlaying 本就是 false，
+        // 会让"运行中暂停"与"重启后暂停"表现不一致。
+        if (!enabled || name == null) {
             todayView?.visibility = View.GONE
         } else {
             val seconds = try {
