@@ -328,11 +328,17 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         val full = ArrayList<MusicBean>(bili.size + local.size)
         full.addAll(bili)
         full.addAll(local)
-        return full
+        // 本地曲目同样过滤（B 站已在 loadBiliHistoryList 中过滤）
+        val visible = DataFileUtils.filterBlocked(full, DataFileUtils.loadBlockedWords())
+        return visible.toMutableList()
     }
 
     private fun loadBiliHistoryList(): List<MusicBean> = try {
-        BiliHistoryHelper.loadAllNormalized()
+        // B 站曲目同样受屏蔽词过滤，保证列表与播放队列一致
+        DataFileUtils.filterBlocked(
+            BiliHistoryHelper.loadAllNormalized(),
+            DataFileUtils.loadBlockedWords()
+        )
     } catch (e: Exception) {
         emptyList()
     }

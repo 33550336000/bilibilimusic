@@ -310,4 +310,30 @@ object DataFileUtils {
         words.remove(word.trim())
         saveBlockedWords(words)
     }
+
+    /**
+     * 该曲目是否命中屏蔽词。
+     *
+     * 判定依据是曲目标题（[MusicBean.musicName]，即原始名），
+     * 对本地音乐与 B 站音乐一视同仁，因此 B 站曲目同样会被屏蔽。
+     */
+    fun isBlocked(bean: MusicBean, blockedWords: Set<String>): Boolean {
+        if (blockedWords.isEmpty()) return false
+        return blockedWords.any { word -> bean.musicName.contains(word, ignoreCase = true) }
+    }
+
+    /** 该曲目是否命中屏蔽词（内部读取屏蔽词文件）。 */
+    fun isBlocked(bean: MusicBean): Boolean = isBlocked(bean, loadBlockedWords())
+
+    /** 过滤掉命中屏蔽词的曲目。 */
+    fun filterBlocked(list: List<MusicBean>, blockedWords: Set<String>): List<MusicBean> {
+        if (blockedWords.isEmpty()) return list
+        return list.filterNot { isBlocked(it, blockedWords) }
+    }
+
+    /** 原地过滤掉命中屏蔽词的曲目。 */
+    fun removeBlocked(list: MutableList<MusicBean>, blockedWords: Set<String>) {
+        if (blockedWords.isEmpty()) return
+        list.removeAll { isBlocked(it, blockedWords) }
+    }
 }

@@ -6,6 +6,7 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.StoragePaths
 import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.util.CacheManager
+import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.ToastUtils
 
 import android.app.AlertDialog
@@ -133,6 +134,12 @@ class StorageDialogs(
         val dialogView = inflater.inflate(R.layout.dialog_blocked_words, null)
         val etInput = dialogView.findViewById<EditText>(R.id.et_block_word)
         val lvWords = dialogView.findViewById<ListView>(R.id.lv_blocked_words)
+
+        // 输入框与标题文字跟随全局字体颜色
+        etInput.setTextColor(fontColor)
+        etInput.setHintTextColor(FontUtils.dimmed(context))
+        dialogView.findViewById<TextView>(R.id.tv_blocked_words_title)?.setTextColor(fontColor)
+        dialogView.findViewById<TextView>(R.id.tv_blocked_words_current)?.setTextColor(fontColor)
 
         val blockedWords = DataFileUtils.loadBlockedWords().toMutableList()
         val adapter = object : BaseAdapter() {

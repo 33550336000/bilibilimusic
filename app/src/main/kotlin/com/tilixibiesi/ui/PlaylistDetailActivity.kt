@@ -9,6 +9,7 @@ import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.ProtectedWords
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.WindowUtils
 import com.tilixibiesi.ui.adapter.MusicAdapter
@@ -66,6 +67,9 @@ override fun onCreate(savedInstanceState: Bundle?) {
     lvMusic = findViewById(R.id.lv_music_detail)
     btnBack = findViewById(R.id.btn_back)
     etSearch = findViewById(R.id.et_search)
+    // 歌单内搜索栏文字跟随全局字体颜色
+    etSearch.setTextColor(FontUtils.color(this))
+    etSearch.setHintTextColor(FontUtils.dimmed(this))
     val lvSubPlaylist = findViewById<ListView>(R.id.lv_sub_playlist)
     val btnAddPlaylist = findViewById<ImageButton>(R.id.btn_add_playlist)
     btnAddPlaylist.setOnClickListener { showCreateSubPlaylistDialog() }
@@ -101,7 +105,9 @@ lvMusic.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, 
     if (realPos == -1) return@OnItemClickListener
     checkLocalFileForBean(musicBean)
     MusicPlayerService.musicList = musicList
-    SpUtils.saveMusicList(this@PlaylistDetailActivity, musicList)
+    // SpUtils 只能存本地曲目字段，B 站曲目由 BiliHistoryHelper 单独维护，
+    // 这里与主页面歌曲列表保持一致，避免把 B 站曲目写成空链接的本地曲目
+    SpUtils.saveMusicList(this@PlaylistDetailActivity, musicList.filter { !it.isBilibili })
     val intent = Intent(this@PlaylistDetailActivity, MusicPlayerService::class.java).apply {
         action = MusicPlayerService.ACTION_PLAY
         putExtra(MusicPlayerService.EXTRA_POSITION, realPos)
@@ -312,8 +318,43 @@ private fun showLongPressActionDialog(musicBean: MusicBean) {
             lvSubPlaylist.visibility = View.GONE
         } else {
             lvSubPlaylist.visibility = View.VISIBLE
-            val adapter = SubPlaylistAdapter(this, subPlaylists)
-            lvSubPlaylist.adapter = adapter
+            lvSubPlaylist.adapter = SubPlaylistAdapter(this, subPlaylists)
+            // 子歌单列表高度自适应内容，避免占据剩余空间把下方音乐列表挤远
+            lvSubPlaylist.post { fitSubPlaylistHeight(lvSubPlaylist) }
+        }
+    }
+
+    /** 让子歌单列表按内容撑开自身高度（最多不超过屏幕高度的一半）。 */
+    private fun fitSubPlaylistHeight(listView: ListView) {
+        val adapter = listView.adapter ?: return
+        if (adapter.count == 0) return
+
+        val maxHeight = (resources.displayMetrics.heightPixels * 0.5f).toInt()
+        var total = 0
+        var item = 0
+        val widthSpec = View.MeasureSpec.makeMeasureSpec(
+            listView.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels,
+            View.MeasureSpec.AT_MOST
+        )
+        while (item < adapter.count) {
+            val child = adapter.getView(item, null, listView)
+            child.measure(widthSpec, View.MeasureSpec.UNSPECIFIED)
+            total += child.measuredHeight
+            if (total >= maxHeight) {
+                total = maxHeight
+                break
+            }
+            item++
+        }
+        if (item >= adapter.count) {
+            total += listView.dividerHeight * (adapter.count - 1)
+            total += listView.paddingTop + listView.paddingBottom
+        }
+
+        val lp = listView.layoutParams
+        if (lp != null && lp.height != total) {
+            lp.height = total
+            listView.layoutParams = lp
         }
     }
 
@@ -347,8 +388,8 @@ private fun showRenameInputDialog(originalName: String) {
     val input = EditText(this).apply {
         setText(DataFileUtils.getDisplayName(originalName))
         setSelection(text.length)
-        setTextColor(Color.WHITE)
-        setHintTextColor(Color.GRAY)
+        setTextColor(FontUtils.color(this@PlaylistDetailActivity))
+        setHintTextColor(FontUtils.dimmed(this@PlaylistDetailActivity))
         background = resources.getDrawable(R.drawable.edittext_bg, null)
     }
     showMaterialDialog(
@@ -382,8 +423,8 @@ private fun showRenameInputDialog(originalName: String) {
 private fun showCreateSubPlaylistDialog() {
     val input = EditText(this).apply {
         hint = LanguageUtils.getString(this@PlaylistDetailActivity, R.string.sub_playlist_name_hint)
-        setTextColor(Color.WHITE)
-        setHintTextColor(Color.GRAY)
+        setTextColor(FontUtils.color(this@PlaylistDetailActivity))
+        setHintTextColor(FontUtils.dimmed(this@PlaylistDetailActivity))
         background = resources.getDrawable(R.drawable.edittext_bg, null)
     }
     showMaterialDialog(
@@ -589,8 +630,8 @@ private fun showSubPlaylistRenameDialog(sub: PlaylistBean) {
     val input = EditText(this@PlaylistDetailActivity).apply {
         setText(sub.name)
         setSelection(text.length)
-        setTextColor(Color.WHITE)
-        setHintTextColor(Color.GRAY)
+        setTextColor(FontUtils.color(this@PlaylistDetailActivity))
+        setHintTextColor(FontUtils.dimmed(this@PlaylistDetailActivity))
         background = resources.getDrawable(R.drawable.edittext_bg, null)
     }
     this@PlaylistDetailActivity.showMaterialDialog(

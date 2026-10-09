@@ -762,12 +762,15 @@ class SearchPage(base: Context) : BasePage(base) {
                 val videos = result.videos
                 val hasMore = result.hasMore
 
+                // B 站搜索结果同样受屏蔽词过滤（按标题匹配）
+                val visibleVideos = filterBlockedVideos(videos)
+
                 if (page == 1) {
                     biliVideoList.clear()
                     biliVideoAdapter.clearData()
                 }
-                biliVideoList.addAll(videos)
-                biliVideoAdapter.addData(videos)
+                biliVideoList.addAll(visibleVideos)
+                biliVideoAdapter.addData(visibleVideos)
                 biliVideoAdapter.hasMore = hasMore
                 biliVideoAdapter.notifyDataSetChanged()
 
@@ -775,6 +778,15 @@ class SearchPage(base: Context) : BasePage(base) {
                 hasMorePage = hasMore
                 isLoadingMore = false
             }
+        }
+    }
+
+    /** 过滤掉标题命中屏蔽词的 B 站搜索结果。 */
+    private fun filterBlockedVideos(videos: List<BiliVideo>): List<BiliVideo> {
+        val blockedWords = DataFileUtils.loadBlockedWords()
+        if (blockedWords.isEmpty()) return videos
+        return videos.filterNot { video ->
+            blockedWords.any { word -> video.title.contains(word, ignoreCase = true) }
         }
     }
 

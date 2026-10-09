@@ -1,9 +1,11 @@
 package com.tilixibiesi.ui
 import com.tilixibiesi.model.MusicBean
+import com.tilixibiesi.bili.BiliHistoryHelper
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.util.BackgroundHelper
+import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.WindowUtils
 import com.tilixibiesi.R
 
@@ -43,17 +45,16 @@ class SelectMusicActivity : BaseActivity() {
         btnConfirm = findViewById(R.id.btn_confirm)
         etSearch = findViewById(R.id.et_search)
 
+        // 左上角取消 / 右上角确定 / 搜索框文字跟随全局字体颜色
+        val fontColor = FontUtils.color(this)
+        btnCancel.setTextColor(fontColor)
+        btnConfirm.setTextColor(fontColor)
+        etSearch.setTextColor(fontColor)
+        etSearch.setHintTextColor(FontUtils.dimmed(this))
+
         playlistId = intent.getStringExtra(EXTRA_PLAYLIST_ID)
 
-        allMusicList = DataFileUtils.loadMusicList().toMutableList()
-        val deleted = DataFileUtils.loadDeletedMusicNames()
-        allMusicList.removeAll { deleted.contains(it.musicName) }
-        val blockedWords = DataFileUtils.loadBlockedWords()
-        if (blockedWords.isNotEmpty()) {
-            allMusicList.removeAll { bean ->
-                blockedWords.any { bean.musicName.contains(it, ignoreCase = true) }
-            }
-        }
+        allMusicList = loadSelectableMusic()
 
         filteredList = allMusicList.toMutableList()
 
@@ -104,6 +105,36 @@ class SelectMusicActivity : BaseActivity() {
     override fun onDestroy() {
         BackgroundHelper.release(bgHost)
         super.onDestroy()
+    }
+
+    /**
+     * 可勾选的曲目来源：本地音乐 + B 站历史（B 站曲目排在最前），
+     * 与主页面歌曲列表保持一致，并按删除记录 / 屏蔽词过滤。
+     */
+    private fun loadSelectableMusic(): MutableList<MusicBean> {
+        val local = DataFileUtils.loadMusicList().toMutableList()
+
+        val bili = try {
+            BiliHistoryHelper.loadAllNormalized()
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        val result = ArrayList<MusicBean>(local.size + bili.size)
+        result.addAll(bili)
+        result.addAll(local)
+
+        val deleted = DataFileUtils.loadDeletedMusicNames()
+        if (deleted.isNotEmpty()) {
+            result.removeAll { deleted.contains(it.musicName) }
+        }
+        val blockedWords = DataFileUtils.loadBlockedWords()
+        if (blockedWords.isNotEmpty()) {
+            result.removeAll { bean ->
+                blockedWords.any { bean.musicName.contains(it, ignoreCase = true) }
+            }
+        }
+        return result
     }
 
     private fun filterMusic(keyword: String) {
