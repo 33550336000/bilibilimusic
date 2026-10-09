@@ -297,6 +297,7 @@
 <string name="sub_playlist_delete_title">删除子歌单</string>
 <string name="sub_playlist_delete_message">确定删除子歌单「%1$s」吗？</string>
 <string name="sub_playlist_deleted">子歌单已删除</string>
+<string name="playlist_share_empty">该歌单暂无可分享的内容</string>
     <string name="toast_storage_switched">存储路径已切换：%1$s</string>
     <string name="toast_file_copied">文件已复制到目标路径</string>
     <string name="toast_file_copy_failed">文件复制失败，目标路径不存在或源文件不可读</string>

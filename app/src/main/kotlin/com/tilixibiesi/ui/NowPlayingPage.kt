@@ -11,13 +11,12 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.util.AppExecutors
-import com.tilixibiesi.util.ToastUtils
+import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.ViewUtils
 import com.tilixibiesi.ui.widget.SquareLayout
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -457,60 +456,12 @@ class NowPlayingPage(
         if (isLyricsVisible) loadLyrics(bean)
     }
 
+    /**
+     * 分享当前曲目：第一行歌名，第二行链接，交给系统分享面板（微信等）。
+     * 具体实现见 [com.tilixibiesi.util.ShareHelper]，与主页面列表长按菜单共用同一套逻辑。
+     */
     private fun shareCurrentTrack() {
-        val current = bean ?: return
-        val title = resolvedTitle.takeIf { it.isNotEmpty() }
-            ?: LanguageUtils.getString(context, R.string.now_playing_unknown_title)
-
-        if (!current.isBilibili) {
-            val url = current.musicUrl.takeIf { it.isNotEmpty() }
-            if (url == null) {
-                ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_no_link))
-                return
-            }
-            sendShare(title, url)
-            return
-        }
-
-        val cachedUrl = current.musicUrl.takeIf { it.isNotEmpty() }
-        if (cachedUrl != null) {
-            sendShare(title, cachedUrl)
-            return
-        }
-        val bvid = current.bvid?.takeIf { it.isNotEmpty() }
-        if (bvid == null) {
-            ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_no_link))
-            return
-        }
-        val shareBvid = bvid
-        AppExecutors.io.execute {
-            val url = runCatching { BiliSearchHelper.getPreferredAudioUrl(shareBvid) }.getOrNull()
-            handler.post {
-                if (bean?.bvid != shareBvid) return@post
-                if (url.isNullOrEmpty()) {
-                    ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_no_link))
-                } else {
-                    bean?.musicUrl = url
-                    sendShare(title, url)
-                }
-            }
-        }
-    }
-
-    private fun sendShare(title: String, url: String) {
-        val text = LanguageUtils.getString(context, R.string.now_playing_share_format, title, url)
-        val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, title)
-            putExtra(Intent.EXTRA_TEXT, text)
-        }
-        val chooser = Intent.createChooser(intent, LanguageUtils.getString(context, R.string.now_playing_share_chooser))
-        chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(chooser)
-        } catch (e: Exception) {
-            ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_failed))
-        }
+        ShareHelper.shareMusic(context, bean, resolvedTitle)
     }
 
     private fun loadCover(bean: MusicBean?) {

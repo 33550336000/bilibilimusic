@@ -47,6 +47,7 @@ import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.ShareHelper
 import java.io.File
 import java.lang.ref.WeakReference
 
@@ -927,6 +928,10 @@ class SongsPage(base: Context) : BasePage(base) {
         showMaterialDialog(
             AlertDialog.Builder(this, R.style.TransparentDialog)
                 .setTitle(DataFileUtils.getDisplayName(bean.musicName))
+                // 第三个按钮：与播放页的分享行为一致
+                .setNeutralButton(LanguageUtils.getString(this@SongsPage, R.string.now_playing_share)) { _, _ ->
+                    ShareHelper.shareMusic(this@SongsPage, bean)
+                }
                 .setNegativeButton(
                     LanguageUtils.getString(this@SongsPage, R.string.long_press_restore_original)
                 ) { _, _ -> restoreOriginalName(bean) }

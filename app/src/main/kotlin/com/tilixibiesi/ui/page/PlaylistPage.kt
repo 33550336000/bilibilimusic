@@ -25,6 +25,7 @@ import com.tilixibiesi.ui.PlaylistDetailActivity
 import com.tilixibiesi.ui.SelectMusicActivity
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.ShareHelper
 
 class PlaylistPage(base: Context) : BasePage(base) {
 
@@ -158,12 +159,16 @@ class PlaylistPage(base: Context) : BasePage(base) {
                 )
                 .setItems(
                     arrayOf(
+                        LanguageUtils.getString(this@PlaylistPage, R.string.now_playing_share),
                         LanguageUtils.getString(this@PlaylistPage, R.string.rename_button),
                         LanguageUtils.getString(this@PlaylistPage, R.string.delete)
                     )
                 ) { _, which ->
-                    if (which == 0) showRenameDialog(playlist)
-                    else showDeletePlaylistConfirm(playlist)
+                    when (which) {
+                        0 -> ShareHelper.sharePlaylist(this@PlaylistPage, playlist)
+                        1 -> showRenameDialog(playlist)
+                        else -> showDeletePlaylistConfirm(playlist)
+                    }
                 }
         )
     }
