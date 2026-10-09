@@ -7,6 +7,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * 播放时长写入器。按天分片，分片文件名即日期（`yyyy-MM-dd.json`），
+ * 文件内部只保存「歌曲原始名 -> 秒数」，不再写入日期。
+ */
 class PlaybackStatsWriter(private val detailDirPath: String) {
 
     private companion object {
@@ -16,7 +20,7 @@ class PlaybackStatsWriter(private val detailDirPath: String) {
     @Volatile
     private var cachedDate: String? = null
     @Volatile
-    private var cachedMap: MutableMap<String, MutableMap<String, Long>>? = null
+    private var cachedMap: MutableMap<String, Long>? = null
 
     private var writesSinceSync = 0
 
@@ -28,10 +32,10 @@ class PlaybackStatsWriter(private val detailDirPath: String) {
 
     private fun fileOf(date: String): File = File(detailDirPath, "$date.json")
 
-    private fun load(date: String): MutableMap<String, MutableMap<String, Long>> {
+    private fun load(date: String): MutableMap<String, Long> {
         cachedMap?.let { if (cachedDate == date) return it }
         val file = fileOf(date)
-        val result: MutableMap<String, MutableMap<String, Long>> = try {
+        val result: MutableMap<String, Long> = try {
             if (file.exists()) PlaybackDetails.parse(file.readText()) else mutableMapOf()
         } catch (e: Exception) {
             mutableMapOf()
@@ -46,13 +50,12 @@ class PlaybackStatsWriter(private val detailDirPath: String) {
         if (!dir.exists() && !dir.mkdirs()) return
 
         val rootMap = load(date)
-        val dateMap = rootMap.getOrPut(musicName) { mutableMapOf() }
-        dateMap[date] = (dateMap[date] ?: 0L) + seconds
+        rootMap[musicName] = (rootMap[musicName] ?: 0L) + seconds
 
         writeAtomically(fileOf(date), rootMap)
     }
 
-    private fun writeAtomically(target: File, rootMap: Map<String, Map<String, Long>>) {
+    private fun writeAtomically(target: File, rootMap: Map<String, Long>) {
         val jsonText = PlaybackDetails.toJson(rootMap)
         val tmp = File(target.parentFile, "${target.name}.tmp")
         try {

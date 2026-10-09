@@ -19,6 +19,7 @@ object PlaybackStatsManager {
     private val handler = Handler(Looper.getMainLooper())
     private var updaterRunnable: Runnable? = null
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT)
+    private val DATE_PATTERN = Regex("""\d{4}-\d{2}-\d{2}""")
     private var tvToday: WeakReference<TextView>? = null
     private var tvTotal: WeakReference<TextView>? = null
 
@@ -114,7 +115,7 @@ object PlaybackStatsManager {
 
     private class CachedShard(
         val lastModified: Long,
-        val parsed: Map<String, Map<String, Long>>
+        val parsed: Map<String, Long>
     )
 
     private val shardCache = HashMap<String, CachedShard>()
@@ -122,12 +123,10 @@ object PlaybackStatsManager {
 
     fun loadPlaybackDetails(): Map<String, Map<String, Long>> {
         val result = mutableMapOf<String, MutableMap<String, Long>>()
-        forEachShard { parsed ->
-            parsed.forEach { (name, dateMap) ->
+        forEachShard { date, parsed ->
+            parsed.forEach { (name, seconds) ->
                 val m = result.getOrPut(name) { mutableMapOf() }
-                dateMap.forEach { (date, seconds) ->
-                    m[date] = (m[date] ?: 0L) + seconds
-                }
+                m[date] = (m[date] ?: 0L) + seconds
             }
         }
         return result
@@ -135,15 +134,13 @@ object PlaybackStatsManager {
 
     fun loadSongDetails(rawName: String): Map<String, Long> {
         val result = mutableMapOf<String, Long>()
-        forEachShard { parsed ->
-            parsed[rawName]?.forEach { (date, seconds) ->
-                result[date] = (result[date] ?: 0L) + seconds
-            }
+        forEachShard { date, parsed ->
+            parsed[rawName]?.let { result[date] = (result[date] ?: 0L) + it }
         }
         return result
     }
 
-    private fun forEachShard(action: (Map<String, Map<String, Long>>) -> Unit) {
+    private fun forEachShard(action: (date: String, parsed: Map<String, Long>) -> Unit) {
         synchronized(shardCacheLock) {
             val dir = StoragePaths.resolveRead(PlaybackDetails.DIR_REL)
             val todayName = "${dateFormat.format(Date())}.json"
@@ -152,13 +149,20 @@ object PlaybackStatsManager {
             val seen = HashSet<String>(files.size)
             for (file in files) {
                 seen.add(file.name)
-                readShard(file, todayName)?.let(action)
+                val date = dateOf(file.name) ?: continue
+                readShard(file, todayName)?.let { action(date, it) }
             }
             shardCache.keys.retainAll(seen)
         }
     }
 
-    private fun readShard(file: File, todayName: String): Map<String, Map<String, Long>>? {
+    /** 分片文件名即日期（`yyyy-MM-dd.json`），日期不存在文件内部。 */
+    private fun dateOf(fileName: String): String? {
+        val date = fileName.removeSuffix(".json")
+        return date.takeIf { DATE_PATTERN.matches(it) }
+    }
+
+    private fun readShard(file: File, todayName: String): Map<String, Long>? {
         if (file.name == todayName) {
             return runCatching { PlaybackDetails.parse(file.readText()) }.getOrNull()
         }
@@ -176,9 +180,7 @@ object PlaybackStatsManager {
         runCatching {
             val shard = File(StoragePaths.resolveRead(PlaybackDetails.DIR_REL), "$today.json")
             if (shard.exists()) {
-                PlaybackDetails.parse(shard.readText()).forEach { (name, dateMap) ->
-                    dateMap[today]?.let { result[name] = it }
-                }
+                result.putAll(PlaybackDetails.parse(shard.readText()))
             }
         }
 

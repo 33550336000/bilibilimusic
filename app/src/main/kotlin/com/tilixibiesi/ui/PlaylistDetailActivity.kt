@@ -9,6 +9,7 @@ import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.ProtectedWords
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.WindowUtils
 import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.service.MusicPlayerService
@@ -271,6 +272,10 @@ private fun showLongPressActionDialog(musicBean: MusicBean) {
     showMaterialDialog(
         AlertDialog.Builder(this)
             .setTitle(DataFileUtils.getDisplayName(musicBean.musicName))
+            // 第三个按钮：与播放页的分享行为一致
+            .setNeutralButton(R.string.now_playing_share) { _, _ ->
+                ShareHelper.shareMusic(this@PlaylistDetailActivity, musicBean)
+            }
             .setNegativeButton(R.string.rename_button) { _, _ -> showRenameDialog(musicBean) }
             .setPositiveButton(R.string.remove) { _, _ -> confirmRemoveFromPlaylist(musicBean) }
     )
@@ -547,13 +552,14 @@ inner class SubPlaylistAdapter(
             AlertDialog.Builder(context)
                 .setTitle(sub.name)
                 .setItems(arrayOf(
+                    LanguageUtils.getString(this@PlaylistDetailActivity, R.string.now_playing_share),
                     LanguageUtils.getString(this@PlaylistDetailActivity, R.string.sub_playlist_delete),
                     LanguageUtils.getString(this@PlaylistDetailActivity, R.string.rename_button)
                 )) { _, which ->
-                    if (which == 0) {
-                        showSubPlaylistDeleteConfirm(sub)
-                    } else {
-                        showSubPlaylistRenameDialog(sub)
+                    when (which) {
+                        0 -> ShareHelper.sharePlaylist(this@PlaylistDetailActivity, sub)
+                        1 -> showSubPlaylistDeleteConfirm(sub)
+                        else -> showSubPlaylistRenameDialog(sub)
                     }
                 }
         )

@@ -87,7 +87,14 @@ object SettingsStore {
             if (json.has("language")) {
                 val savedLang = json.getString("language")
                 if (savedLang != LanguageUtils.getLanguage(context)) {
-                    ContextUtils.unwrapActivity(context)?.let { LanguageUtils.setAppLanguage(it, savedLang) }
+                    val activity = ContextUtils.unwrapActivity(context)
+                    if (activity != null) {
+                        LanguageUtils.setAppLanguage(activity, savedLang)
+                    } else {
+                        // 启动时还没有 Activity，先只保存语言：
+                        // 首个 Activity 的 attachBaseContext 会据此套用，无需重建
+                        LanguageUtils.saveLanguage(context, savedLang)
+                    }
                 }
             }
             true

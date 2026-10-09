@@ -118,7 +118,7 @@ object SpUtils {
     }
 
     fun getClickFxEnabled(context: Context): Boolean =
-        getSp(context).getBoolean(KEY_CLICK_FX_ENABLED, true)
+        getSp(context).getBoolean(KEY_CLICK_FX_ENABLED, false)
     fun setClickFxEnabled(context: Context, enabled: Boolean) {
         getSp(context).edit().putBoolean(KEY_CLICK_FX_ENABLED, enabled).apply()
     }
