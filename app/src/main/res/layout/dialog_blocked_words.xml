@@ -7,6 +7,7 @@
     android:padding="16dp">
 
     <TextView
+        android:id="@+id/tv_blocked_words_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/block_songs_title"
@@ -37,13 +38,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/add"
-            android:textColor="#FFFFFF"
+            android:textColor="#000000"
             android:background="@drawable/button_background"
             android:textAllCaps="false"
             android:paddingHorizontal="16dp" />
     </LinearLayout>
 
     <TextView
+        android:id="@+id/tv_blocked_words_current"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"

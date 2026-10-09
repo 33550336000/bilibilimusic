@@ -47,6 +47,7 @@ import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.ShareHelper
 import java.io.File
 import java.lang.ref.WeakReference
@@ -493,8 +494,10 @@ class SongsPage(base: Context) : BasePage(base) {
         val anchorName = currentPlayPosition.takeIf { it in musicList.indices }
             ?.let { musicList[it].musicName }
             ?: MusicPlayerService.currentPlayingName
+        // B 站曲目同样受屏蔽词过滤（与本地音乐一致）
+        val visibleBili = DataFileUtils.filterBlocked(biliBeans, DataFileUtils.loadBlockedWords())
         musicList.removeAll { it.isBilibili }
-        musicList.addAll(0, biliBeans)
+        musicList.addAll(0, visibleBili)
         MusicPlayerService.musicList = musicList
         if (anchorName != null) {
             val newPos = musicList.indexOfFirst { it.musicName == anchorName }
@@ -905,6 +908,13 @@ class SongsPage(base: Context) : BasePage(base) {
         val etHour = dialogView.findViewById<EditText>(R.id.et_hour)
         val etMinute = dialogView.findViewById<EditText>(R.id.et_minute)
         val etSecond = dialogView.findViewById<EditText>(R.id.et_second)
+        // 输入框文字与提示语跟随全局字体颜色（提示语半透明，便于与实际输入区分）
+        val fontColor = FontUtils.color(this)
+        val hintColor = FontUtils.dimmed(this)
+        listOf(etHour, etMinute, etSecond).forEach { input ->
+            input.setTextColor(fontColor)
+            input.setHintTextColor(hintColor)
+        }
         showMaterialDialog(
             AlertDialog.Builder(this, R.style.TransparentDialog)
                 .setTitle(LanguageUtils.getString(this@SongsPage, R.string.timer_title))
