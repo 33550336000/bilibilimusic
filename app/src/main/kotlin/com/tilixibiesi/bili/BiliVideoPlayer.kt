@@ -1,14 +1,13 @@
 package com.tilixibiesi.bili
 import com.tilixibiesi.model.BiliVideo
 import com.tilixibiesi.data.LanguageUtils
-import com.tilixibiesi.data.AppPaths
 import com.tilixibiesi.data.SpUtils
+import com.tilixibiesi.data.VideoProgressStore
 import com.tilixibiesi.ui.BaseActivity
 import com.tilixibiesi.ui.widget.DanmakuView
 import com.tilixibiesi.R
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.AppExecutors
-import com.tilixibiesi.util.AtomicFileWriter
 import com.tilixibiesi.util.VideoPlaybackController
 import com.tilixibiesi.service.VideoPlaybackService
 
@@ -28,7 +27,6 @@ import android.os.VibrationEffect
 import android.view.*
 import android.widget.*
 import org.json.JSONObject
-import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.atomic.AtomicInteger
@@ -102,7 +100,9 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
     private var currentBvid: String? = null
     private var isExpectedPrepare = false
     private var progressSaveRunnable: Runnable? = null
-    private val progressSaveInterval = 500L
+    // 周期落盘间隔。暂停、退出、切集、拖动进度条等关键时刻另有强制落盘，
+    // 因此这里可以放宽，减少写盘次数（10 分钟视频约 300 次，而非 1200 次）。
+    private val progressSaveInterval = 2000L
     private val playRequestId = AtomicInteger(0)
     private var longPressTriggered = false
     private var isForcedLandscape = false
@@ -252,6 +252,9 @@ companion object {
                 seekBar?.let {
                     val pos = it.progress
                     mediaPlayer?.seekTo(pos)
+                    // 拖动结束后立刻记住新位置，避免期间退出丢失
+                    currentBvid?.let { bvid -> saveProgress(bvid, pos) }
+                    flushProgress(sync = true)
                 }
             }
         })
@@ -327,6 +330,7 @@ private fun updateLayoutForOrientation() {
 fun close() {
     isExpectedPrepare = false
     saveCurrentProgress()
+    flushProgress(sync = true)
     stopProgressUpdater()
     stopProgressSaver()
     resetDanmakuState()
@@ -478,6 +482,9 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
                     }
                     updateSeekPreview(finalPos, duration)
                     danmakuView?.seek(finalPos.toLong())
+                    // 手势快进结束后立刻记住新位置
+                    currentBvid?.let { bvid -> saveProgress(bvid, finalPos) }
+                    flushProgress(sync = true)
                 }
                 lastSeekTarget = Int.MIN_VALUE
                 seekGestureMode = GESTURE_NONE
@@ -802,6 +809,9 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
             btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
             stopProgressUpdater()
             danmakuView?.setPaused(true)
+            // 暂停时进度必须落盘，否则退到后台被回收会丢失
+            saveCurrentProgress()
+            flushProgress(sync = true)
         } else {
             mp.start()
             btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
@@ -927,13 +937,13 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
     }
 
     private fun saveProgress(bvid: String, position: Int) {
+        VideoProgressStore.put(activity, bvid, position)
+    }
+
+    /** 立即把内存中的进度落盘；[sync] 为 true 时额外 fsync，用于不可丢失的时机。 */
+    private fun flushProgress(sync: Boolean) {
         AppExecutors.io.execute {
-            try {
-                val dir = AppPaths.getProgressDir(activity)
-                val file = File(dir, "$bvid.progress")
-                AtomicFileWriter.writeText(file, position.toString())
-            } catch (e: Exception) {
-            }
+            runCatching { VideoProgressStore.flush(activity, sync) }
         }
     }
 
@@ -943,6 +953,7 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
             override fun run() {
                 if (mediaPlayer?.isPlaying == true) {
                     saveCurrentProgress()
+                    flushProgress(sync = false)
                 }
                 handler.postDelayed(this, progressSaveInterval)
             }
@@ -951,25 +962,21 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
     }
 
     private fun loadProgress(bvid: String): Int {
-        try {
-            val dir = AppPaths.getProgressDir(activity)
-            val file = File(dir, "$bvid.progress")
-            if (file.exists()) {
-                val text = file.readText().trim()
-                val pos = text.toIntOrNull() ?: 0
-                return pos
-            }
-        } catch (e: Exception) {
-        }
-        return 0
+        return runCatching { VideoProgressStore.get(activity, bvid) }.getOrDefault(0)
     }
 
     fun saveCurrentProgress() {
-        if (mediaPlayer?.isPlaying != true) return
+        val mp = mediaPlayer ?: return
         currentBvid?.let { bvid ->
-            val pos = mediaPlayer?.currentPosition ?: 0
+            val pos = runCatching { mp.currentPosition }.getOrDefault(0)
             if (pos > 0) saveProgress(bvid, pos)
         }
+    }
+
+    /** 记录当前进度并立刻落盘，用于退到后台等可能被系统回收的时机。 */
+    fun saveCurrentProgressNow() {
+        saveCurrentProgress()
+        flushProgress(sync = true)
     }
 
     private fun toggleControlsVisibility() {
@@ -1078,6 +1085,7 @@ private fun toggleLandscape() {
     private fun stopPlaybackAndClear() {
         isExpectedPrepare = false
         saveCurrentProgress()
+        flushProgress(sync = true)
         stopProgressUpdater()
         stopProgressSaver()
         resetDanmakuState()
@@ -1192,6 +1200,11 @@ private fun toggleLandscape() {
                 mediaPlayer?.start()
                 attachVideoNotification()
                 danmakuView?.seek(0L)
+                // 播完后从头循环，清掉进度记录，避免下次打开又跳回结尾
+                currentBvid?.let { bvid ->
+                    VideoProgressStore.remove(activity, bvid)
+                    flushProgress(sync = false)
+                }
                 btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
                 seekBar.progress = 0
                 tvTime.text = context.getString(

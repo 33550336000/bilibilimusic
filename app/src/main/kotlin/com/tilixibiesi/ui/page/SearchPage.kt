@@ -192,7 +192,7 @@ class SearchPage(base: Context) : BasePage(base) {
         videoPlayer.onHostPause()
         val layoutFullscreen = findViewById<FrameLayout>(R.id.layout_fullscreen_video) ?: return
         if (layoutFullscreen.visibility == View.VISIBLE) {
-            videoPlayer.saveCurrentProgress()
+            videoPlayer.saveCurrentProgressNow()
         }
     }
 
