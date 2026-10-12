@@ -1,5 +1,4 @@
 package com.tilixibiesi.util
-import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.data.StoragePaths
 
 import android.content.Context
@@ -22,7 +21,7 @@ object BackgroundHelper {
     fun release(rootView: View) {
         val video = (rootView as? ViewGroup)?.findViewWithTag<View>(TAG_BG_VIDEO) ?: return
         (video as? BackgroundVideoView)?.release()
-        (rootView as ViewGroup).removeView(video)
+        rootView.removeView(video)
     }
 
     fun applyBackground(context: Context, rootView: View, alphaPercent: Int) {
@@ -42,7 +41,7 @@ object BackgroundHelper {
         if (finalBgPath.isEmpty() || !File(finalBgPath).exists() || !isVideoFile(finalBgPath)) {
             if (existing != null) {
                 existing.release()
-                (rootView as ViewGroup).removeView(existing)
+                rootView.removeView(existing)
             }
             applyStillBackground(context, rootView, finalBgPath, alphaPercent)
             return
@@ -52,7 +51,7 @@ object BackgroundHelper {
         if (host == null) {
             if (existing != null) {
                 existing.release()
-                (rootView as ViewGroup).removeView(existing)
+                rootView.removeView(existing)
             }
             rootView.background = ColorDrawable(0xFF000000.toInt())
             return

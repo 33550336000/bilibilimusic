@@ -3,6 +3,7 @@ import com.tilixibiesi.data.AppPaths
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.AtomicFileWriter
+import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.R
 
 import android.app.AlertDialog
@@ -60,8 +61,8 @@ object BiliDownloadManager {
             .create()
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.show()
-        val minWidth = (context.resources.displayMetrics.widthPixels * 0.85).toInt()
-        dialog.window?.setLayout(minWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+        // 下载弹窗可能长时间停留，旋转后必须跟着新宽度走，否则会溢出或过窄
+        DialogHelper.applyAdaptiveWidth(dialog, context, 0.85f)
         return Pair(dialog, progressBar)
     }
 

@@ -129,8 +129,9 @@ class NowPlayingPage(
     private var lastKnownPositionMs = 0
 
     init {
+        val decorHost = activity.window.decorView as ViewGroup
         root = LayoutInflater.from(activity)
-            .inflate(R.layout.page_now_playing, null) as FrameLayout
+            .inflate(R.layout.page_now_playing, decorHost, false) as FrameLayout
         playerPane = root.findViewById(R.id.np_player)
         lyricsPane = root.findViewById(R.id.np_lyrics)
 
@@ -186,7 +187,7 @@ class NowPlayingPage(
 
         root.visibility = View.GONE
         root.translationY = 1f
-        (activity.window.decorView as? ViewGroup)?.addView(
+        decorHost.addView(
             root,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
