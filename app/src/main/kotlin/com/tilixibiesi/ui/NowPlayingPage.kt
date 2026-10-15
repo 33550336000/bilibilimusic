@@ -381,6 +381,11 @@ class NowPlayingPage(
     }
 
     private fun applyScaleFeedback() {
+        // 本页是直接挂在 decorView 上的，不在 android.R.id.content 子树里，
+        // 所以 BaseActivity.onStart 那次统一挂载覆盖不到它，必须自己挂一遍。
+        // 这一步负责进度条（sbProgress）与其它 Button 类控件；
+        // 下面几个是 ImageButton，不属于 Button 分支，单独挂。
+        ViewUtils.applyScaleOnTouch(root)
         ViewUtils.applyScaleToButton(btnLyrics)
         ViewUtils.applyScaleToButton(btnShare)
         ViewUtils.applyScaleToButton(btnPlay)
@@ -592,12 +597,13 @@ class NowPlayingPage(
         val requestId = ++lyricRequestId
         val durationSec = (sbProgress.max / 1000).takeIf { it > 0 } ?: (bean.duration)
         AppExecutors.io.execute {
-            val cid = BiliSearchHelper.resolveCid(bvid) ?: 0L
+            val cookie = SpUtils.getBiliCookie(context)
+            val cid = BiliSearchHelper.resolveCid(bvid, cookie) ?: 0L
             val result = if (cid <= 0L) null else BiliLyricHelper.fetch(
                 bvid = bvid,
                 cid = cid,
                 durationSec = durationSec,
-                cookie = SpUtils.getBiliCookie(context)
+                cookie = cookie
             )
             handler.post {
                 if (requestId != lyricRequestId) return@post

@@ -194,6 +194,16 @@ class HorizontalPager @JvmOverloads constructor(
     private var pageWidthPx = 0
     private var isDragging = false
     private var dragRejected = false
+
+    /**
+     * 按下时是否落在「不该被翻页抢走」的控件上（SeekBar / 可横向滚动区域）。
+     *
+     * 必须在 ACTION_DOWN 就定下来并一直沿用，不能在 MOVE 时用手指当前位置重新判定：
+     * 进度条只有 18dp 左右高，横向拖动时手指几乎不可能绝对水平，
+     * 稍微上下漂移就会让 MOVE 时的命中检测落空，于是翻页把进度条的拖动抢走，
+     * 用户就会觉得「进度条拖不动 / 缩放动画像是失灵了」。
+     */
+    private var downOnBlockedTarget = false
     private var lastMotionX = 0f
     private var lastMotionY = 0f
     private var downX = 0f
@@ -441,7 +451,7 @@ class HorizontalPager @JvmOverloads constructor(
                 val dy = ev.y - lastMotionY
                 when {
                     abs(dx) > touchSlop && abs(dx) * AXIS_DOMINANCE > abs(dy) -> {
-                        if (isDragBlocked(ev.rawX, ev.rawY, ev.x, ev.y, dx)) {
+                        if (downOnBlockedTarget || isDragBlocked(ev.rawX, ev.rawY, ev.x, ev.y, dx)) {
                             dragRejected = true
                             return false
                         }
@@ -481,7 +491,7 @@ class HorizontalPager @JvmOverloads constructor(
                     val dy = ev.y - lastMotionY
                     when {
                         abs(dx) > touchSlop && abs(dx) * AXIS_DOMINANCE > abs(dy) -> {
-                            if (isDragBlocked(ev.rawX, ev.rawY, ev.x, ev.y, dx)) {
+                            if (downOnBlockedTarget || isDragBlocked(ev.rawX, ev.rawY, ev.x, ev.y, dx)) {
                                 dragRejected = true
                                 return false
                             }
@@ -542,9 +552,33 @@ class HorizontalPager @JvmOverloads constructor(
         downY = ev.y
         lastMotionX = ev.x
         lastMotionY = ev.y
+        // 按下这一刻就决定本次手势归谁：落在进度条等控件上就不再翻页
+        downOnBlockedTarget = isDragBlockedAtDown(ev.rawX, ev.rawY, ev.x, ev.y)
         activePointerId = ev.getPointerId(0)
         velocityTracker?.recycle()
         velocityTracker = VelocityTracker.obtain().also { it.addMovement(ev) }
+    }
+
+    /**
+     * 按下时的归属判定。
+     *
+     * 此刻还不知道拖动方向，所以对「可横向滚动」的子控件两个方向都要试一次，
+     * 否则 `dx == 0` 会让任何可横向滚动的子控件都被误判为不可滚动，
+     * 从而被翻页抢走手势。
+     */
+    private fun isDragBlockedAtDown(rawX: Float, rawY: Float, localX: Float, localY: Float): Boolean {
+        if (dragGuard?.invoke(rawX, rawY) == true) return true
+        for (i in childCount - 1 downTo 0) {
+            val child = getChildAt(i)
+            if (child.visibility != VISIBLE) continue
+            val x = (localX - child.left).toInt()
+            val y = (localY - child.top).toInt()
+            if (x < 0 || y < 0 || x > child.width || y > child.height) continue
+            if (hitSeekBar(child, rawX.toInt(), rawY.toInt())) return true
+            if (canScrollHorizontally(child, -1f, x, y)) return true
+            if (canScrollHorizontally(child, 1f, x, y)) return true
+        }
+        return false
     }
 
     private fun currentVelocityX(): Float {
@@ -574,6 +608,7 @@ class HorizontalPager @JvmOverloads constructor(
     private fun endDrag() {
         isDragging = false
         dragRejected = false
+        downOnBlockedTarget = false
         activePointerId = MotionEvent.INVALID_POINTER_ID
         velocityTracker?.recycle()
         velocityTracker = null
@@ -643,7 +678,12 @@ class HorizontalPager @JvmOverloads constructor(
 
     private fun hitSeekBar(view: View, x: Int, y: Int): Boolean {
         if (view is SeekBar) {
-            return view.getGlobalVisibleRect(hitRect) && hitRect.contains(x, y)
+            if (!view.getGlobalVisibleRect(hitRect)) return false
+            // 这些进度条大多只有 18dp 高，远低于 48dp 的推荐触摸尺寸。
+            // 只纵向放宽一个 touchSlop，让「按得稍偏一点」仍算按在进度条上；
+            // 不横向放宽，避免占掉进度条两端外侧本来属于翻页的区域。
+            hitRect.inset(0, -touchSlop)
+            return hitRect.contains(x, y)
         }
         if (view is ViewGroup) {
             for (i in view.childCount - 1 downTo 0) {

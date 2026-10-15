@@ -16,8 +16,10 @@ import android.os.Looper
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import com.tilixibiesi.data.LocalizedResources
 import com.tilixibiesi.ui.LocalizedViewFactory
+import com.tilixibiesi.util.ViewUtils
 
 abstract class BasePage(base: Context) : ContextWrapper(base) {
 
@@ -134,6 +136,11 @@ abstract class BasePage(base: Context) : ContextWrapper(base) {
         LocalizedViewFactory.install(LayoutInflater.from(this))
         onCreate(savedInstanceState)
         val v = pageView ?: error("${javaClass.simpleName} 未在 onCreate 中调用 setContentView")
+        // 缩放反馈在这里挂载，而不是只靠 BaseActivity.onStart 里那次统一挂载：
+        // 翻页页面的视图是首次布局时才创建的（onLayout -> ensurePages -> performCreate），
+        // 一定晚于 onStart。若只在 onStart 挂，冷启动时页面还不存在，
+        // 按钮/进度条的缩放反馈就会「有时有、有时没有」。
+        if (v is ViewGroup) ViewUtils.applyScaleOnTouch(v)
         created = true
         return v
     }

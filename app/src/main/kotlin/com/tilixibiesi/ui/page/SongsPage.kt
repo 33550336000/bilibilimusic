@@ -828,7 +828,7 @@ class SongsPage(base: Context) : BasePage(base) {
             try {
                 Color.parseColor(SpUtils.getFontColor(this))
             } catch (_: Exception) {
-                Color.WHITE
+                Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
             }
         )
         if (SpUtils.isSearchBtnTransparentStyle(this)) {
@@ -849,7 +849,7 @@ class SongsPage(base: Context) : BasePage(base) {
         val fontColor = try {
             Color.parseColor(SpUtils.getFontColor(this))
         } catch (_: Exception) {
-            Color.WHITE
+            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
         }
         titleTv.text = LanguageUtils.getString(this@SongsPage, R.string.all_songs)
         btnDetail.text = LanguageUtils.getString(this@SongsPage, R.string.detail)
@@ -988,7 +988,7 @@ class SongsPage(base: Context) : BasePage(base) {
         val fontColor = try {
             Color.parseColor(SpUtils.getFontColor(this))
         } catch (_: Exception) {
-            Color.WHITE
+            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
         }
         val input = EditText(this).apply {
             setText(DataFileUtils.getDisplayName(originalName))

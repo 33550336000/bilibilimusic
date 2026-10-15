@@ -52,6 +52,7 @@ object SettingsStore {
             json.put("dialog_font_color", SpUtils.getDialogFontColor(context))
             json.put("dialog_alpha", SpUtils.getDialogAlpha(context))
             json.put("audio_focus_mode", SpUtils.getAudioFocusMode(context))
+            json.put("bili_audio_quality", SpUtils.getBiliAudioQuality(context))
             json.put("show_today_duration", SpUtils.isShowTodayDurationEnabled(context))
             json.put("video_notify_progress", SpUtils.isVideoNotifyProgressEnabled(context))
             json.put("language", LanguageUtils.getLanguage(context))
@@ -82,6 +83,7 @@ object SettingsStore {
             if (json.has("dialog_font_color")) SpUtils.saveDialogFontColor(context, json.getString("dialog_font_color"))
             if (json.has("dialog_alpha")) SpUtils.saveDialogAlpha(context, json.getInt("dialog_alpha"))
             if (json.has("audio_focus_mode")) SpUtils.saveAudioFocusMode(context, json.getInt("audio_focus_mode"))
+            if (json.has("bili_audio_quality")) SpUtils.saveBiliAudioQuality(context, json.getInt("bili_audio_quality"))
             if (json.has("show_today_duration")) SpUtils.setShowTodayDurationEnabled(context, json.getBoolean("show_today_duration"))
             if (json.has("video_notify_progress")) SpUtils.setVideoNotifyProgressEnabled(context, json.getBoolean("video_notify_progress"))
             if (json.has("language")) {

@@ -8,6 +8,7 @@ import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.PlaybackDetails
 import com.tilixibiesi.data.StoragePaths
 import com.tilixibiesi.bili.BiliApiHelper
+import com.tilixibiesi.bili.BiliAudioQuality
 import com.tilixibiesi.bili.BiliLyric
 import com.tilixibiesi.bili.BiliLyricHelper
 import com.tilixibiesi.bili.BiliSearchHelper
@@ -69,6 +70,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         const val ACTION_UPDATE_FOCUS_MODE = "com.tilixibiesi.ACTION_UPDATE_FOCUS_MODE"
         const val ACTION_PAUSE_FOR_VIDEO = "com.tilixibiesi.ACTION_PAUSE_FOR_VIDEO"
         const val ACTION_REFRESH_PROGRESS_SETTING = "com.tilixibiesi.ACTION_REFRESH_PROGRESS_SETTING"
+        const val ACTION_UPDATE_AUDIO_QUALITY = "com.tilixibiesi.ACTION_UPDATE_AUDIO_QUALITY"
         var isPlaying = false
         var currentPlayingName: String? = null
         var currentPlayingRawName: String? = null
@@ -100,6 +102,17 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 context.startService(intent)
             }
         }
+
+        /** 音质设置变更后，让正在播放的 B 站曲目按新音质重载。 */
+        fun refreshAudioQuality(context: Context) {
+            if (!isServiceRunning) return
+            runCatching {
+                val intent = Intent(context, MusicPlayerService::class.java).apply {
+                    action = ACTION_UPDATE_AUDIO_QUALITY
+                }
+                context.startService(intent)
+            }
+        }
     }
 
     private var mediaPlayer: MediaPlayer? = null
@@ -109,6 +122,10 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     private val audioFocus by lazy { AudioFocusController(this, this, mainHandler) }
     private var currentPosition = -1
+
+    /** 切换音质重载时待恢复的进度与播放状态（-1 表示无需恢复）。 */
+    private var pendingResumePosition = -1
+    private var pendingResumePlaying = false
     private var playGeneration = 0
     private var isPrepared = false
     private var isPaused = false
@@ -286,6 +303,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             ACTION_STOP -> stopPlay()
             ACTION_PAUSE_FOR_VIDEO -> pausePlay()
             ACTION_REFRESH_PROGRESS_SETTING -> refreshProgressDisplay()
+            ACTION_UPDATE_AUDIO_QUALITY -> reloadCurrentWithNewQuality()
             ACTION_SWITCH_MODE -> {
                 val mode = intent.getIntExtra(EXTRA_MODE, SpUtils.PlayMode.SINGLE_LOOP.ordinal)
                 switchPlayMode(SpUtils.PlayMode.values()[mode])
@@ -382,6 +400,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         currentPlayingName = DataFileUtils.getDisplayName(bean.musicName)
         isPlaying = true
         errorCount = 0
+        // 新曲目开始播放：清掉上一首可能残留的「切音质待恢复进度」
+        pendingResumePosition = -1
+        pendingResumePlaying = false
         stopProgressUpdates()
         resetPlayState()
         clearLyricState()
@@ -417,7 +438,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
             fun fillBackupUrls(firstUrl: String?) {
                 AppExecutors.io.execute {
-                    val urls = BiliSearchHelper.getAudioUrls(bvid)
+                    val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), audioQuality().id)
                     biliAudioUrlCache[bvid] =
                         if (firstUrl != null && !urls.contains(firstUrl)) listOf(firstUrl) + urls
                         else urls
@@ -434,13 +455,15 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             }
 
             AppExecutors.io.execute {
-                val firstUrl = BiliSearchHelper.getPreferredAudioUrl(bvid)
+                val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), audioQuality().id)
+                val firstUrl = urls.firstOrNull()
                 mainHandler.post {
                     if (gen != playGeneration) return@post
                     if (firstUrl != null) {
                         bean.musicUrl = firstUrl
+                        biliAudioUrlCache[bvid] = urls
+                        biliRetryIndex[bvid] = 0
                         doPlay(firstUrl)
-                        fillBackupUrls(firstUrl)
                     } else {
                         Toast.makeText(
                             this@MusicPlayerService,
@@ -461,6 +484,47 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
+
+    /** 统一取用本地文件中的登录 Cookie；未开启完整源时返回空串（走匿名接口）。 */
+    private fun biliCookie(): String =
+        if (SpUtils.isFullBiliSource(this)) SpUtils.getBiliCookie(this) else ""
+
+    /** 当前设置的 B 站音乐音质，默认最低音质。 */
+    private fun audioQuality(): BiliAudioQuality =
+        BiliAudioQuality.fromSetting(SpUtils.getBiliAudioQuality(this))
+
+    /**
+     * 音质设置变更后重载当前 B 站曲目。
+     *
+     * 已下载/已缓存的本地文件不受音质影响，直接忽略；
+     * 在线播放时按新音质重新解析地址，并保留当前播放进度与播放/暂停状态。
+     */
+    private fun reloadCurrentWithNewQuality() {
+        val bean = currentMusicBean ?: return
+        val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return
+        if (bean.isDownloaded && bean.localPath != null && File(bean.localPath!!).exists()) return
+        if (cacheManager.getCachedFilePath(bean) != null) return
+
+        val resumePosition = if (isPrepared) {
+            try { mediaPlayer?.currentPosition ?: 0 } catch (_: IllegalStateException) { 0 }
+        } else 0
+        val wasPlaying = mediaPlayer?.isPlaying == true
+        val gen = playGeneration
+
+        AppExecutors.io.execute {
+            val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), audioQuality().id)
+            mainHandler.post {
+                if (gen != playGeneration) return@post
+                val firstUrl = urls.firstOrNull() ?: return@post
+                biliAudioUrlCache[bvid] = urls
+                biliRetryIndex[bvid] = 0
+                bean.musicUrl = firstUrl
+                pendingResumePosition = resumePosition
+                pendingResumePlaying = wasPlaying
+                setupDataSourceAndPlay(firstUrl, bean)
+            }
+        }
+    }
 
     private fun resolveCurrentIndex(): Int {
         val name = currentPlayingName ?: return -1
@@ -739,16 +803,45 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     override fun onPrepared(mp: MediaPlayer) {
         isPrepared = true
+
+        // 切换音质后的重载：回到原进度，并按之前的播放/暂停状态决定是否继续
+        var resumeTarget = -1
+        var startPlaying = true
+        if (pendingResumePosition >= 0) {
+            resumeTarget = pendingResumePosition
+            startPlaying = pendingResumePlaying
+            pendingResumePosition = -1
+            pendingResumePlaying = false
+        }
+
+        // 先 start 再 seek/pause：部分机型在 prepared 但未 start 时 seek 不生效
         mp.start()
-        isPlaying = true
-        startProgressUpdates()
+        if (resumeTarget > 0 && resumeTarget < mp.duration) {
+            runCatching { mp.seekTo(resumeTarget) }
+        }
+        if (!startPlaying) runCatching { mp.pause() }
+
+        isPlaying = startPlaying
+        isPaused = !startPlaying
+        isUserPaused = !startPlaying
+
         val name = currentPlayingName ?: ""
-        mediaSessionManager.setTrackMetadata(name, resolveDurationMs())
-        mediaSessionManager.updatePlaybackState(PlaybackState.STATE_PLAYING, 0, 1.0f)
-        sendPlayStateBroadcast(true, name)
-        startForegroundWithType(NOTIFICATION_ID, buildNotification(name, true))
-        if (!wakeLock.isHeld) wakeLock.acquire()
-        if (!wifiLock.isHeld) wifiLock.acquire()
+        if (startPlaying) {
+            startProgressUpdates()
+            mediaSessionManager.setTrackMetadata(name, resolveDurationMs())
+            mediaSessionManager.updatePlaybackState(PlaybackState.STATE_PLAYING, 0, 1.0f)
+            sendPlayStateBroadcast(true, name)
+            startForegroundWithType(NOTIFICATION_ID, buildNotification(name, true))
+            if (!wakeLock.isHeld) wakeLock.acquire()
+            if (!wifiLock.isHeld) wifiLock.acquire()
+        } else {
+            // 重载前处于暂停：保持暂停，不启动前台进度更新
+            val pos = if (resumeTarget > 0) resumeTarget.toLong() else 0L
+            mediaSessionManager.setTrackMetadata(name, resolveDurationMs())
+            mediaSessionManager.updatePlaybackState(PlaybackState.STATE_PAUSED, pos, 0f)
+            sendPlayStateBroadcast(false, name)
+            startForegroundWithType(NOTIFICATION_ID, buildNotification(name, false))
+        }
         savePlayState()
         currentMusicBean?.bvid?.takeIf { it.isNotEmpty() }?.let { bvid ->
             startLyricLoad(bvid, (resolveDurationMs() / 1000L).toInt())
@@ -778,7 +871,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 return true
             } else {
                 AppExecutors.io.execute {
-                    val freshUrl = BiliSearchHelper.getPreferredAudioUrl(bvid)
+                    val freshUrl = BiliSearchHelper.getPreferredAudioUrl(
+                        bvid, biliCookie(), audioQuality().id
+                    )
                     mainHandler.post {
                         if (freshUrl != null) {
                             val urls = (biliAudioUrlCache[bvid] ?: mutableListOf<String>()).toMutableList()
@@ -957,7 +1052,8 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         lastContentText = null
 
         AppExecutors.io.execute {
-            val cid = BiliSearchHelper.resolveCid(bvid) ?: 0L
+            val cookie = biliCookie()
+            val cid = BiliSearchHelper.resolveCid(bvid, cookie) ?: 0L
             if (cid <= 0L) {
                 mainHandler.post { if (lyricLoadingBvid == bvid) lyricFinishedBvid = bvid }
                 return@execute
@@ -966,7 +1062,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 bvid = bvid,
                 cid = cid,
                 durationSec = durationSec,
-                cookie = SpUtils.getBiliCookie(this@MusicPlayerService)
+                cookie = cookie
             )
             mainHandler.post {
                 if (lyricLoadingBvid != bvid) return@post

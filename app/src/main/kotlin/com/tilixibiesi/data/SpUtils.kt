@@ -20,6 +20,7 @@ object SpUtils {
     private const val KEY_SEARCH_BTN_STYLE = "search_btn_style"
     private const val KEY_AUTO_CACHE = "auto_cache"
     private const val KEY_FULL_BILI_SOURCE = "full_bili_source"
+    private const val KEY_BILI_AUDIO_QUALITY = "bili_audio_quality"
     private const val KEY_SHOW_TODAY_DURATION = "show_today_duration"
     private const val KEY_BILI_COOKIE = "bili_cookie"
     private const val KEY_DIALOG_BG_COLOR = "dialog_bg_color"
@@ -36,6 +37,15 @@ object SpUtils {
     const val AUDIO_FOCUS_CALL_LEVEL = 0
     const val AUDIO_FOCUS_FULL_EXCLUSIVE = 1
     const val AUDIO_FOCUS_TRANSIENT = 2
+
+    /**
+     * 全局字体颜色的唯一默认值。
+     *
+     * 三处默认值（本处读取兜底、恢复默认设置、strings 里的 default_font_color）
+     * 以前各不相同，容易出现「没设置过」和「恢复默认」得到不同颜色的情况，
+     * 现在统一以本常量为准。
+     */
+    const val DEFAULT_FONT_COLOR = "#1A1B21"
 
     private fun getSp(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -97,7 +107,7 @@ object SpUtils {
         getSp(context).edit().putString(KEY_FONT_COLOR, color).apply()
     }
     fun getFontColor(context: Context): String =
-        getSp(context).getString(KEY_FONT_COLOR, "#1A1B21") ?: "#FFFFFF"
+        getSp(context).getString(KEY_FONT_COLOR, DEFAULT_FONT_COLOR) ?: DEFAULT_FONT_COLOR
 
     fun saveFontSize(context: Context, size: Int) {
         getSp(context).edit().putInt(KEY_FONT_SIZE, size).apply()
@@ -193,10 +203,36 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_FULL_BILI_SOURCE, enabled).apply()
     }
 
-    fun getBiliCookie(context: Context): String =
+    /**
+     * B 站音乐播放音质（存 [com.tilixibiesi.bili.BiliAudioQuality.id]）。
+     * 未设置时返回 0，由 BiliAudioQuality 回退为默认的最低音质。
+     */
+    fun getBiliAudioQuality(context: Context): Int =
+        getSp(context).getInt(KEY_BILI_AUDIO_QUALITY, 0)
+    fun saveBiliAudioQuality(context: Context, qualityId: Int) {
+        getSp(context).edit().putInt(KEY_BILI_AUDIO_QUALITY, qualityId).apply()
+    }
+
+    /**
+     * 读取 B 站登录 Cookie。
+     *
+     * Cookie 现在保存在文件里（见 [BiliCookieStore]），每次使用都从本地文件加载；
+     * 这里保留原方法名只是为了不打扰调用方。
+     */
+    fun getBiliCookie(context: Context): String = BiliCookieStore.get(context)
+
+    fun saveBiliCookie(context: Context, cookie: String) = BiliCookieStore.save(context, cookie)
+
+    /** 旧版本把 Cookie 存在 SharedPreferences 里，仅用于一次性迁移。 */
+    internal fun readLegacyBiliCookie(context: Context): String =
         getSp(context).getString(KEY_BILI_COOKIE, "") ?: ""
-    fun saveBiliCookie(context: Context, cookie: String) {
+
+    internal fun saveLegacyBiliCookie(context: Context, cookie: String) {
         getSp(context).edit().putString(KEY_BILI_COOKIE, cookie).apply()
+    }
+
+    internal fun clearLegacyBiliCookie(context: Context) {
+        getSp(context).edit().remove(KEY_BILI_COOKIE).apply()
     }
 
     enum class PlayMode { SEQUENCE, SINGLE_LOOP, RANDOM }

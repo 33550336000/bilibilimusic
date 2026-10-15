@@ -8,6 +8,7 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.ui.widget.HsvColorPicker
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.ui.SettingsToggleDialogs
 import com.tilixibiesi.ui.StorageDialogs
@@ -58,6 +59,10 @@ class SettingsPage(base: Context) : BasePage(base) {
     private lateinit var btnBlockedWords: Button
     private lateinit var sbFontColorHue: SeekBar
     private lateinit var tvFontColorPreview: TextView
+    private lateinit var fontColorPicker: HsvColorPicker
+    private lateinit var dialogBgColorPicker: HsvColorPicker
+    private lateinit var dialogFontColorPicker: HsvColorPicker
+    private var etFontColorSyncing = false
     private lateinit var btnAdjustSearchButton: Button
     private lateinit var btnSearchBtnStyle: Button
     private lateinit var btnSaveAsDefault: Button
@@ -128,37 +133,32 @@ class SettingsPage(base: Context) : BasePage(base) {
 
         sbFontColorHue = findViewById<SeekBar>(R.id.sb_font_color_hue)!!
         tvFontColorPreview = findViewById<TextView>(R.id.tv_font_color_preview)!!
-        sbFontColorHue.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                if (!fromUser) return
-                val color = Color.HSVToColor(floatArrayOf(progress.toFloat(), 1f, 1f))
-                val hex = String.format("#%06X", 0xFFFFFF and color)
-                tvFontColorPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, hex)
-                etFontColor.setText(hex)
-                etFontColor.setTextColor(color)
-                SpUtils.saveFontColor(this@SettingsPage, hex)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar) {}
-        })
+        fontColorPicker = HsvColorPicker(
+            sbFontColorHue,
+            findViewById(R.id.sb_font_color_saturation)!!,
+            findViewById(R.id.sb_font_color_value)!!,
+            resources.displayMetrics.density * 18f
+        )
+        fontColorPicker.onColorChanged = { color ->
+            applyPickedFontColor(color)
+        }
 
         etFontColor.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
+                if (etFontColorSyncing) return
                 val text = s.toString().trim()
-                if (text.isNotEmpty()) {
-                    try {
-                        val color = Color.parseColor(text)
-                        val hsv = FloatArray(3)
-                        Color.colorToHSV(color, hsv)
-                        val hue = hsv[0].toInt()
-                        if (sbFontColorHue.progress != hue) sbFontColorHue.progress = hue
-                        tvFontColorPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, text)
-                        SpUtils.saveFontColor(this@SettingsPage, text)
-                    } catch (_: Exception) {
-                    }
+                if (text.isEmpty()) return
+                try {
+                    val color = Color.parseColor(text)
+                    // 输入框可以填任意颜色（含纯黑/纯白/灰色）：同步回三个滑块
+                    etFontColorSyncing = true
+                    fontColorPicker.setColor(color)
+                    etFontColorSyncing = false
+                    applyPickedFontColor(color, syncInput = false)
+                } catch (_: Exception) {
+                    etFontColorSyncing = false
                 }
             }
         })
@@ -227,44 +227,40 @@ class SettingsPage(base: Context) : BasePage(base) {
         val sbDialogAlpha = findViewById<SeekBar>(R.id.sb_dialog_alpha)!!
         val tvDialogAlphaPreview = findViewById<TextView>(R.id.tv_dialog_alpha_preview)!!
 
-        sbDialogBgHue.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                if (!fromUser) return
-                val color = Color.HSVToColor(floatArrayOf(progress.toFloat(), 1f, 1f))
-                val hex = String.format("#%06X", 0xFFFFFF and color)
-                tvDialogBgPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, hex)
-                viewDialogBgSample.setBackgroundColor(color)
-                SpUtils.saveDialogBgColor(this@SettingsPage, hex)
-            }
+        dialogBgColorPicker = HsvColorPicker(
+            sbDialogBgHue,
+            findViewById(R.id.sb_dialog_bg_saturation)!!,
+            findViewById(R.id.sb_dialog_bg_value)!!,
+            resources.displayMetrics.density * 18f
+        )
+        dialogBgColorPicker.onColorChanged = { color ->
+            val hex = String.format("#%06X", 0xFFFFFF and color)
+            tvDialogBgPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, hex)
+            viewDialogBgSample.setBackgroundColor(color)
+            SpUtils.saveDialogBgColor(this@SettingsPage, hex)
+        }
 
-            override fun onStartTrackingTouch(seekBar: SeekBar) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar) {}
-        })
-
-        sbDialogFontHue.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                if (!fromUser) return
-                val color = Color.HSVToColor(floatArrayOf(progress.toFloat(), 1f, 1f))
-                val hex = String.format("#%06X", 0xFFFFFF and color)
-                tvDialogFontPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, hex)
-                viewDialogFontSample.setBackgroundColor(color)
-                SpUtils.saveDialogFontColor(this@SettingsPage, hex)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar) {}
-        })
+        dialogFontColorPicker = HsvColorPicker(
+            sbDialogFontHue,
+            findViewById(R.id.sb_dialog_font_saturation)!!,
+            findViewById(R.id.sb_dialog_font_value)!!,
+            resources.displayMetrics.density * 18f
+        )
+        dialogFontColorPicker.onColorChanged = { color ->
+            val hex = String.format("#%06X", 0xFFFFFF and color)
+            tvDialogFontPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, hex)
+            viewDialogFontSample.setBackgroundColor(color)
+            SpUtils.saveDialogFontColor(this@SettingsPage, hex)
+        }
 
         btnDialogFontFollowGlobal.setOnClickListener {
             SpUtils.saveDialogFontColor(this@SettingsPage, "")
             val globalColor = try {
                 Color.parseColor(SpUtils.getFontColor(this@SettingsPage))
             } catch (_: Exception) {
-                Color.WHITE
+                Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
             }
-            val hsv = FloatArray(3)
-            Color.colorToHSV(globalColor, hsv)
-            sbDialogFontHue.progress = hsv[0].toInt()
+            dialogFontColorPicker.setColor(globalColor)
             tvDialogFontPreview.text = getString(
                 R.string.current_dialog_font_global_format,
                 SpUtils.getFontColor(this@SettingsPage)
@@ -291,6 +287,13 @@ class SettingsPage(base: Context) : BasePage(base) {
                 FootprintUtils.clearPlaylistFootprints()
                 ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_playlist_footprint_cleared))
             }
+        }
+
+        // 「音乐与播放」卡片里的第一项：B站音乐播放音质
+        val btnBiliAudioQuality = findViewById<Button>(R.id.btn_bili_audio_quality)!!
+        toggleDialogs.updateBiliAudioQualityButtonText(btnBiliAudioQuality)
+        btnBiliAudioQuality.setOnClickListener {
+            toggleDialogs.showBiliAudioQualityDialog(btnBiliAudioQuality)
         }
 
         val btnVolumeKeySwitch = findViewById<Button>(R.id.btn_volume_key_switch)!!
@@ -337,6 +340,13 @@ class SettingsPage(base: Context) : BasePage(base) {
         else
             LanguageUtils.getString(this@SettingsPage, R.string.btn_toggle_search_button)
         btnToggleSearchMode.setOnClickListener { toggleDialogs.showSearchModeDialog(btnToggleSearchMode) }
+
+        // 「数据与功能」卡片里的第一项：完整B站源开关
+        val btnFullBiliSource = findViewById<Button>(R.id.btn_full_bili_source)!!
+        toggleDialogs.updateFullBiliSourceButtonText(btnFullBiliSource)
+        btnFullBiliSource.setOnClickListener {
+            toggleDialogs.showFullBiliSourceDialog(btnFullBiliSource)
+        }
 
         btnAutoCache = findViewById<Button>(R.id.btn_auto_cache)!!
         updateAutoCacheButtonText()
@@ -677,21 +687,44 @@ class SettingsPage(base: Context) : BasePage(base) {
                 }
             }
         }    }
+    /**
+     * 应用一个已确定的字体颜色：刷新预览/输入框、保存设置。
+     *
+     * @param syncInput 是否需要把颜色回写到输入框（来自滑块时为 true；
+     *   来自输入框本身时为 false，否则会把用户正在编辑的文本改掉）
+     */
+    private fun applyPickedFontColor(color: Int, syncInput: Boolean = true) {
+        val hex = String.format("#%06X", 0xFFFFFF and color)
+        tvFontColorPreview.text =
+            LanguageUtils.getString(this@SettingsPage, R.string.current_color, hex)
+        if (syncInput) {
+            etFontColorSyncing = true
+            etFontColor.setText(hex)
+            etFontColor.setTextColor(color)
+            etFontColorSyncing = false
+        }
+        SpUtils.saveFontColor(this@SettingsPage, hex)
+    }
+
     private fun applySettingsToUI() {
         val fontColor = SpUtils.getFontColor(this)
+        etFontColorSyncing = true
         etFontColor.setText(fontColor)
         try {
             val colorInt = Color.parseColor(fontColor)
             etFontColor.setTextColor(colorInt)
-            val hsv = FloatArray(3)
-            Color.colorToHSV(colorInt, hsv)
-            sbFontColorHue.progress = hsv[0].toInt()
+            // 三个滑块一起回填，黑/白/灰也能正确落到对应位置
+            fontColorPicker.setColor(colorInt)
             tvFontColorPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, fontColor)
         } catch (e: Exception) {
-            etFontColor.setTextColor(0xFFFFFFFF.toInt())
-            sbFontColorHue.progress = 0
-            tvFontColorPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, "#FFFFFF")
+            val fallback = Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
+            etFontColor.setTextColor(fallback)
+            fontColorPicker.setColor(fallback)
+            tvFontColorPreview.text = LanguageUtils.getString(
+                this@SettingsPage, R.string.current_color, SpUtils.DEFAULT_FONT_COLOR
+            )
         }
+        etFontColorSyncing = false
 
         val fontSize = SpUtils.getFontSize(this)
         sbFontSize.progress = fontSize
@@ -731,9 +764,7 @@ class SettingsPage(base: Context) : BasePage(base) {
         val dialogBgColor = SpUtils.getDialogBgColor(this)
         try {
             val color = Color.parseColor(dialogBgColor)
-            val hsv = FloatArray(3)
-            Color.colorToHSV(color, hsv)
-            findViewById<SeekBar>(R.id.sb_dialog_bg_hue)!!.progress = hsv[0].toInt()
+            dialogBgColorPicker.setColor(color)
             findViewById<TextView>(R.id.tv_dialog_bg_preview)!!.text =
                 LanguageUtils.getString(this@SettingsPage, R.string.current_color, dialogBgColor)
             findViewById<View>(R.id.view_dialog_bg_sample)!!.setBackgroundColor(color)
@@ -745,20 +776,16 @@ class SettingsPage(base: Context) : BasePage(base) {
             val globalColor = try {
                 Color.parseColor(SpUtils.getFontColor(this))
             } catch (_: Exception) {
-                Color.WHITE
+                Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
             }
-            val hsv = FloatArray(3)
-            Color.colorToHSV(globalColor, hsv)
-            findViewById<SeekBar>(R.id.sb_dialog_font_hue)!!.progress = hsv[0].toInt()
+            dialogFontColorPicker.setColor(globalColor)
             findViewById<TextView>(R.id.tv_dialog_font_preview)!!.text =
                 LanguageUtils.getString(this@SettingsPage, R.string.current_dialog_font_global_format, SpUtils.getFontColor(this))
             findViewById<View>(R.id.view_dialog_font_sample)!!.setBackgroundColor(globalColor)
         } else {
             try {
                 val color = Color.parseColor(dialogFontColor)
-                val hsv = FloatArray(3)
-                Color.colorToHSV(color, hsv)
-                findViewById<SeekBar>(R.id.sb_dialog_font_hue)!!.progress = hsv[0].toInt()
+                dialogFontColorPicker.setColor(color)
                 findViewById<TextView>(R.id.tv_dialog_font_preview)!!.text =
                     LanguageUtils.getString(this@SettingsPage, R.string.current_color, dialogFontColor)
                 findViewById<View>(R.id.view_dialog_font_sample)!!.setBackgroundColor(color)
@@ -774,6 +801,12 @@ class SettingsPage(base: Context) : BasePage(base) {
         updateAutoCacheButtonText()
         updateBottomNavButtonText()
         updateClickFxButtonText()
+        findViewById<Button>(R.id.btn_full_bili_source)?.let {
+            toggleDialogs.updateFullBiliSourceButtonText(it)
+        }
+        findViewById<Button>(R.id.btn_bili_audio_quality)?.let {
+            toggleDialogs.updateBiliAudioQualityButtonText(it)
+        }
     }
 
     private fun loadCurrentSettings() {
@@ -812,6 +845,9 @@ class SettingsPage(base: Context) : BasePage(base) {
                 SpUtils.clearAll(this)
                 if (defaultBg.isNotEmpty()) SpUtils.saveDefaultBackgroundPath(this, defaultBg)
 
+                // B 站登录 Cookie 存在文件里（Appdata/cookie/），恢复默认设置不会清除，
+                // 否则用户会被强制退出登录，需要重新扫码/登录一次
+
                 SettingsStore.deleteSettingsFile()
 
                 tempBackgroundAlpha = 100
@@ -819,10 +855,19 @@ class SettingsPage(base: Context) : BasePage(base) {
                 sbBackgroundAlpha.progress = 100
                 tvAlphaValue.text = LanguageUtils.getString(this@SettingsPage, R.string.current_brightness, 100)
 
-                etFontColor.setText(R.string.default_font_color)
-                SpUtils.saveFontColor(this, "#FFFFFF")
-                sbFontColorHue.progress = 0
-                tvFontColorPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, "#FFFFFF")
+                etFontColorSyncing = true
+                etFontColor.setText(SpUtils.DEFAULT_FONT_COLOR)
+                etFontColorSyncing = false
+                SpUtils.saveFontColor(this, SpUtils.DEFAULT_FONT_COLOR)
+                try {
+                    val defaultColor = Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
+                    etFontColor.setTextColor(defaultColor)
+                    fontColorPicker.setColor(defaultColor)
+                } catch (_: Exception) {
+                }
+                tvFontColorPreview.text = LanguageUtils.getString(
+                    this@SettingsPage, R.string.current_color, SpUtils.DEFAULT_FONT_COLOR
+                )
 
                 sbFontSize.progress = 15
                 SpUtils.saveFontSize(this, 15)
@@ -839,21 +884,40 @@ class SettingsPage(base: Context) : BasePage(base) {
                 updateSearchBtnStyleButtonText()
                 findViewById<Button>(R.id.btn_video_notify_progress)?.text =
                     LanguageUtils.getString(this@SettingsPage, R.string.btn_video_notify_progress_on)
+                // 恢复默认会把「完整B站源」开关重置为关（登录凭证仍保留在本地文件里）
+                findViewById<Button>(R.id.btn_full_bili_source)?.let {
+                    toggleDialogs.updateFullBiliSourceButtonText(it)
+                }
+                // 播放音质同样回到默认的最低音质，并让当前曲目按新音质重载
+                findViewById<Button>(R.id.btn_bili_audio_quality)?.let {
+                    toggleDialogs.updateBiliAudioQualityButtonText(it)
+                }
+                MusicPlayerService.refreshAudioQuality(this)
 
                 SpUtils.saveDialogBgColor(this, "#FFFFFF")
                 SpUtils.saveDialogFontColor(this, "")
                 SpUtils.saveDialogAlpha(this, 100)
 
                 val white = Color.WHITE
-                findViewById<SeekBar>(R.id.sb_dialog_bg_hue)!!.progress = 0
+                dialogBgColorPicker.setColor(white)
                 findViewById<TextView>(R.id.tv_dialog_bg_preview)!!.text =
                     LanguageUtils.getString(this@SettingsPage, R.string.current_color, "#FFFFFF")
                 findViewById<View>(R.id.view_dialog_bg_sample)!!.setBackgroundColor(white)
 
-                findViewById<SeekBar>(R.id.sb_dialog_font_hue)!!.progress = 0
+                // 弹窗字体默认「跟随全局」，因此滑块回填到全局字体色
+                val globalFontColor = try {
+                    Color.parseColor(SpUtils.getFontColor(this))
+                } catch (_: Exception) {
+                    Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
+                }
+                dialogFontColorPicker.setColor(globalFontColor)
                 findViewById<TextView>(R.id.tv_dialog_font_preview)!!.text =
-                    LanguageUtils.getString(this@SettingsPage, R.string.current_dialog_font_global_format, "#FFFFFF")
-                findViewById<View>(R.id.view_dialog_font_sample)!!.setBackgroundColor(white)
+                    LanguageUtils.getString(
+                        this@SettingsPage,
+                        R.string.current_dialog_font_global_format,
+                        SpUtils.getFontColor(this)
+                    )
+                findViewById<View>(R.id.view_dialog_font_sample)!!.setBackgroundColor(globalFontColor)
 
                 findViewById<SeekBar>(R.id.sb_dialog_alpha)!!.progress = 100
                 findViewById<TextView>(R.id.tv_dialog_alpha_preview)!!.text =
@@ -891,7 +955,7 @@ class SettingsPage(base: Context) : BasePage(base) {
             get() = try {
                 Color.parseColor(SpUtils.getFontColor(this))
             } catch (e: Exception) {
-                Color.WHITE
+                Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
             }
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode != Activity.RESULT_OK || data == null) return

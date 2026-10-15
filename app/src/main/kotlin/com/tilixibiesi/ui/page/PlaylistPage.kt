@@ -88,7 +88,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
         val fontColor = try {
             Color.parseColor(SpUtils.getFontColor(this))
         } catch (_: Exception) {
-            Color.WHITE
+            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
         }
         val fontSize = SpUtils.getFontSize(this).toFloat()
         tvPlaylistHint.setTextColor(fontColor)
@@ -123,7 +123,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
             if (dialogFont.isEmpty()) Color.parseColor(SpUtils.getFontColor(this))
             else Color.parseColor(dialogFont)
         } catch (_: Exception) {
-            Color.WHITE
+            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
         }
 
         val input = EditText(this).apply {
@@ -179,7 +179,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
             if (dialogFont.isEmpty()) Color.parseColor(SpUtils.getFontColor(this))
             else Color.parseColor(dialogFont)
         } catch (_: Exception) {
-            Color.WHITE
+            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
         }
 
         val input = EditText(this).apply {
@@ -296,7 +296,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
             try {
                 holder.tvName.setTextColor(Color.parseColor(fontColor))
             } catch (_: Exception) {
-                holder.tvName.setTextColor(Color.WHITE)
+                holder.tvName.setTextColor(Color.parseColor(SpUtils.DEFAULT_FONT_COLOR))
             }
             holder.tvName.textSize = (fontSize + 2).toFloat()
 
