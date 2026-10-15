@@ -139,7 +139,7 @@ object DialogHelper {
             Color.parseColor(dialogFont)
         }
     } catch (e: Exception) {
-        Color.WHITE
+        Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
     }
 
     /**

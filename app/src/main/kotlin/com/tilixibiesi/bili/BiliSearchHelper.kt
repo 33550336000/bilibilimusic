@@ -42,16 +42,19 @@ object BiliSearchHelper {
     private fun cleanHtml(text: String): String =
         Html.fromHtml(text, Html.FROM_HTML_MODE_LEGACY).toString()
 
-    fun resolveCid(bvid: String): Long? {
+    fun resolveCid(bvid: String, cookie: String = ""): Long? {
         cidCache[bvid]?.let { return it }
         return try {
             val json = HttpUtils.get(
                 "https://api.bilibili.com/x/web-interface/view?bvid=$bvid",
+                if (cookie.isNotEmpty()) mapOf("Cookie" to cookie) else emptyMap(),
                 connectTimeout = AUDIO_RESOLVE_TIMEOUT_MS,
                 readTimeout = AUDIO_RESOLVE_TIMEOUT_MS
             )
             val obj = JSONObject(json)
-            if (obj.optInt("code") != 0) return null
+            val code = obj.optInt("code")
+            BiliLoginHelper.handleApiCode(code, cookie)
+            if (code != 0) return null
             val cid = obj.optJSONObject("data")?.optLong("cid", 0L) ?: 0L
             if (cid <= 0L) null else cid.also { cidCache[bvid] = it }
         } catch (e: Exception) {
@@ -59,55 +62,92 @@ object BiliSearchHelper {
         }
     }
 
-    fun getAudioUrls(bvid: String): List<String> {
-        val cid = resolveCid(bvid) ?: return emptyList()
-        val url = "https://api.bilibili.com/x/player/playurl" +
-            "?bvid=$bvid&cid=$cid&qn=16&fnval=16&fnver=0&fourk=0&otype=json"
+    /**
+     * 按可用音质解析音频地址。
+     *
+     * 返回结果已按「所选音质优先、不可用则用更高品质兜底」的顺序排好，
+     * 调用方取第一个即可，剩下的可作为失败重试的备用地址。
+     */
+    fun getAudioUrlsByQuality(
+        bvid: String,
+        cookie: String = "",
+        preferredId: Int = BiliAudioQuality.DEFAULT.id
+    ): List<String> {
+        val cid = resolveCid(bvid, cookie) ?: return emptyList()
+        val headers = if (cookie.isNotEmpty()) mapOf("Cookie" to cookie) else emptyMap()
         val dashUrls = try {
             val json = HttpUtils.getWithRetry(
-                url,
-                headers = emptyMap(),
+                "https://api.bilibili.com/x/player/playurl" +
+                    "?bvid=$bvid&cid=$cid&qn=16&fnval=16&fnver=0&fourk=0&otype=json",
+                headers = headers,
                 maxRetries = 2,
                 connectTimeout = AUDIO_RESOLVE_TIMEOUT_MS,
                 readTimeout = AUDIO_RESOLVE_TIMEOUT_MS
             )
             val obj = JSONObject(json)
-            if (obj.optInt("code") != 0) emptyList()
+            val code = obj.optInt("code")
+            BiliLoginHelper.handleApiCode(code, cookie)
+            if (code != 0) emptyList()
             else {
                 val audios = obj.optJSONObject("data")
                     ?.optJSONObject("dash")
                     ?.optJSONArray("audio")
                 if (audios == null) emptyList()
-                else (0 until audios.length())
-                    .map { audios.getJSONObject(it) }
-                    .filter { it.optString("baseUrl").isNotEmpty() }
-                    .sortedBy { it.optInt("bandwidth", 0) }
-                    .map { it.getString("baseUrl").replace("http://", "https://") }
-                    .distinct()
+                else {
+                    // id -> 地址（同一音质可能有多条备用地址，取第一条可用即可）
+                    val byId = LinkedHashMap<Int, String>()
+                    for (i in 0 until audios.length()) {
+                        val a = audios.getJSONObject(i)
+                        val id = a.optInt("id", 0)
+                        val base = a.optString("baseUrl", "")
+                        if (id == 0 || base.isEmpty() || byId.containsKey(id)) continue
+                        byId[id] = normalizeUrl(base)
+                    }
+                    BiliAudioQuality.fallbackOrder(byId.keys.toList(), preferredId)
+                        .mapNotNull { byId[it] }
+                }
             }
         } catch (e: Exception) {
             emptyList()
         }
-        if (dashUrls.isNotEmpty()) return dashUrls
+        if (dashUrls.isNotEmpty()) return dashUrls.distinct()
 
+        // 没有 DASH 音频时退回 durl（老视频/番剧），此时不存在音质选择
         return try {
             val json = HttpUtils.get(
                 "https://api.bilibili.com/x/player/playurl" +
                     "?bvid=$bvid&cid=$cid&qn=16&fnval=1&fnver=0&fourk=0&otype=json",
+                headers,
                 connectTimeout = AUDIO_RESOLVE_TIMEOUT_MS,
                 readTimeout = AUDIO_RESOLVE_TIMEOUT_MS
             )
             val obj = JSONObject(json)
+            val code = obj.optInt("code")
+            BiliLoginHelper.handleApiCode(code, cookie)
             val durl = obj.optJSONObject("data")?.optJSONArray("durl")
-            if (obj.optInt("code") == 0 && durl != null && durl.length() > 0) {
-                listOf(durl.getJSONObject(0).getString("url").replace("http://", "https://"))
+            if (code == 0 && durl != null && durl.length() > 0) {
+                listOf(normalizeUrl(durl.getJSONObject(0).getString("url")))
             } else emptyList()
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    fun getPreferredAudioUrl(bvid: String): String? = getAudioUrls(bvid).firstOrNull()
+    private fun normalizeUrl(u: String): String = when {
+        u.startsWith("//") -> "https:$u"
+        u.startsWith("http://") -> "https://" + u.removePrefix("http://")
+        else -> u
+    }
+
+    fun getAudioUrls(bvid: String, cookie: String = ""): List<String> =
+        getAudioUrlsByQuality(bvid, cookie)
+
+    fun getPreferredAudioUrl(bvid: String, cookie: String = ""): String? =
+        getAudioUrls(bvid, cookie).firstOrNull()
+
+    /** 按设置中的音质取首选地址。 */
+    fun getPreferredAudioUrl(bvid: String, cookie: String, preferredId: Int): String? =
+        getAudioUrlsByQuality(bvid, cookie, preferredId).firstOrNull()
 
     fun searchVideosPage(
         keyword: String,
@@ -121,6 +161,8 @@ object BiliSearchHelper {
             val json = HttpUtils.getWithRetry(url, headers)
             val obj = JSONObject(json)
             val code = obj.optInt("code", -1)
+            // 登录凭证失效：统一交给 BiliLoginHelper 弹登录页
+            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) {
                 return SearchResult(emptyList(), false, code)
             }
@@ -152,7 +194,9 @@ object BiliSearchHelper {
             val headers = if (cookie.isNotEmpty()) mapOf("Cookie" to cookie) else emptyMap()
             val json = HttpUtils.getWithRetry(url, headers)
             val obj = JSONObject(json)
-            if (obj.optInt("code") != 0) return null
+            val code = obj.optInt("code", -1)
+            BiliLoginHelper.handleApiCode(code, cookie)
+            if (code != 0) return null
             val data = obj.getJSONObject("data")
             VideoDetail(
                 bvid = data.getString("bvid"),
@@ -178,7 +222,9 @@ object BiliSearchHelper {
             if (cookie.isNotEmpty()) headers["Cookie"] = cookie
             val json = HttpUtils.getWithRetry(url, headers)
             val obj = JSONObject(json)
-            if (obj.optInt("code") != 0) return null
+            val code = obj.optInt("code", -1)
+            BiliLoginHelper.handleApiCode(code, cookie)
+            if (code != 0) return null
             val data = obj.getJSONObject("data")
 
             val durl = data.optJSONArray("durl")

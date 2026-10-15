@@ -124,6 +124,46 @@
                 android:layout_marginBottom="4dp"/>
 
             <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_font_color_saturation"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_font_color_saturation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="255"
+                android:progress="255"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_font_color_value"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_font_color_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="255"
+                android:progress="255"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
                 android:id="@+id/tv_font_color_preview"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -305,6 +345,46 @@
                 android:thumb="@drawable/seekbar_thumb"
                 android:layout_marginBottom="4dp"/>
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_font_color_saturation"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_dialog_bg_saturation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="255"
+                android:progress="255"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_font_color_value"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_dialog_bg_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="255"
+                android:progress="255"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -340,6 +420,46 @@
                 android:layout_height="wrap_content"
                 android:max="359"
                 android:progress="0"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_font_color_saturation"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_dialog_font_saturation"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="255"
+                android:progress="255"
+                android:minHeight="18dp"
+                android:maxHeight="18dp"
+                android:progressDrawable="@drawable/seekbar_track"
+                android:thumb="@drawable/seekbar_thumb"
+                android:layout_marginBottom="4dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/label_font_color_value"
+                android:textColor="#000000"
+                android:textSize="14sp"
+                android:layout_marginBottom="4dp"/>
+
+            <SeekBar
+                android:id="@+id/sb_dialog_font_value"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="255"
+                android:progress="255"
                 android:minHeight="18dp"
                 android:maxHeight="18dp"
                 android:progressDrawable="@drawable/seekbar_track"
@@ -451,6 +571,16 @@
             </LinearLayout>
 
             <Button
+                android:id="@+id/btn_bili_audio_quality"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/dialog_title_bili_audio_quality"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp" />
+
+            <Button
                 android:id="@+id/btn_volume_key_switch"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -557,6 +687,16 @@
                     android:paddingTop="4dp"
                     android:paddingBottom="4dp"/>
             </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_full_bili_source"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_full_bili_source_off"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp"
+                android:layout_marginBottom="12dp"/>
 
             <Button
                 android:id="@+id/btn_auto_cache"

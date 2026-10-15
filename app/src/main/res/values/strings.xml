@@ -13,7 +13,9 @@
     <string name="btn_restore_section">展开</string>
 
     <string name="label_font_color">字体颜色</string>
-    <string name="label_font_color_slider_desc">全局字体颜色（滑块）</string>
+    <string name="label_font_color_slider_desc">全局字体颜色（色相）</string>
+    <string name="label_font_color_saturation">饱和度</string>
+    <string name="label_font_color_value">明度</string>
     <string name="label_font_size_slider_desc">字体大小（滑块）</string>
     <string name="label_font_size">字体大小</string>
     <string name="hint_input_font_size">输入字号</string>
@@ -63,6 +65,17 @@
     <string name="play_mode_default">独占模式</string>
 
     <string name="play_mode_initial_text">播放模式：通话等级</string>
+
+    <string name="btn_bili_audio_quality">播放音质：%1$s</string>
+    <string name="dialog_title_bili_audio_quality">B站音乐音质</string>
+    <string name="dialog_msg_bili_audio_quality">选择在线播放 B 站音乐时优先使用的音质。\n若所选音质不可用，将自动使用更高品质。</string>
+    <string name="toast_bili_audio_quality_changed">播放音质已切换为：%1$s</string>
+    <string name="audio_quality_64k">64K</string>
+    <string name="audio_quality_132k">132K</string>
+    <string name="audio_quality_192k">192K</string>
+    <string name="audio_quality_dolby">杜比全景声</string>
+    <string name="audio_quality_hires">Hi-Res</string>
+
     <string name="error_font_size_positive">字体大小必须大于0</string>
     <string name="error_invalid_number">请输入有效数字</string>
 
@@ -140,18 +153,17 @@
     <string name="hint_notification_title">通知标题-可为空</string>
     <string name="hint_notification_content">输入文本</string>
 
-    <string name="preview_font_color_default">当前颜色：#FF0000</string>
+    <string name="preview_font_color_default">当前颜色：#1A1B21</string>
     <string name="preview_font_size_default">当前大小：15sp</string>
     <string name="preview_brightness_default">当前亮度：100%</string>
     <string name="preview_dialog_bg_color_default">当前颜色：#FFFFFF</string>
-    <string name="preview_dialog_font_color_default">当前颜色：#FFFFFF（跟随全局）</string>
+    <string name="preview_dialog_font_color_default">当前颜色：#1A1B21（跟随全局）</string>
     <string name="preview_dialog_alpha_default">当前透明度：100%</string>
 
     <string name="format_today_duration">今日：%s</string>
     <string name="format_total_duration">总：%s</string>
     <string name="player_time_format">%1$s / %2$s</string>
     <string name="player_time_placeholder">00:00 / %1$s</string>
-    <string name="default_font_color">#FFFFFF</string>
     <string name="all_songs">全部歌曲</string>
     <string name="detail">详情</string>
     <string name="timer">定时</string>
@@ -251,12 +263,14 @@
 
     <string name="music_list_empty">歌曲列表为空，请返回主页</string>
     <string name="login_expired">登录凭证已失效，请重新登录</string>
-    <string name="login_success_full">登录成功，完整B站源已启用</string>
+    <string name="login_success">登录成功</string>
     <string name="full_bili_source_title">完整B站源</string>
+    <string name="btn_full_bili_source_on">完整B站源：开</string>
+    <string name="btn_full_bili_source_off">完整B站源：关</string>
     <string name="full_bili_source_enabled_msg">当前已启用完整B站源。\n是否关闭？</string>
     <string name="full_bili_source_disabled_toast">已关闭完整B站源</string>
     <string name="full_bili_source_enabled_toast">已启用完整B站源（使用已保存的登录凭证）</string>
-    <string name="cookie_invalid_load">Cookie可能已失效，请重新登录</string>
+    <string name="full_bili_source_need_login">请先登录 B 站账号</string>
     <string name="history_added">已添加到历史</string>
     <string name="quality_fetch_fail">获取画质列表失败</string>
     <string name="video_info_fail">获取视频信息失败</string>
@@ -268,7 +282,6 @@
     <string name="video_quality_format">视频: %1$s</string>
     <string name="audio_quality_format">音频: %1$s</string>
     <string name="separator_audio">--- 音频 ---</string>
-    <string name="webpage_load_failed">网页加载失败，请检查网络</string>
     <string name="quality_select_title">选择画质（可单选，也可视频+音频合并）</string>
 
 <string name="new_playlist_title">新建歌单</string>

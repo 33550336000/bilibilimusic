@@ -17,6 +17,10 @@ object BiliLyricHelper {
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     )
 
+    /** 带登录 Cookie 的请求头；未登录时退化为匿名请求。 */
+    private fun headersWithCookie(cookie: String): Map<String, String> =
+        if (cookie.isEmpty()) baseHeaders else baseHeaders + ("Cookie" to cookie)
+
     private const val CACHE_CAPACITY = 24
     private val cache = object : LinkedHashMap<String, BiliLyric?>(CACHE_CAPACITY, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, BiliLyric?>?): Boolean =
@@ -40,7 +44,7 @@ object BiliLyricHelper {
         val key = "$bvid/$cid"
         if (hasCache(key)) return cached(key)
 
-        val result = fetchFromMusicLibrary(bvid, cid, durationSec)
+        val result = fetchFromMusicLibrary(bvid, cid, durationSec, cookie)
             ?: fetchFromSubtitle(bvid, cid, cookie)
 
         putCache(key, result)
@@ -72,16 +76,18 @@ object BiliLyricHelper {
     }
 
 
-    private fun fetchFromMusicLibrary(bvid: String, cid: Long, durationSec: Int): BiliLyric? {
+    private fun fetchFromMusicLibrary(bvid: String, cid: Long, durationSec: Int, cookie: String): BiliLyric? {
         val musicId = try {
             val json = HttpUtils.get(
                 "https://api.bilibili.com/x/player/wbi/v2?bvid=$bvid&cid=$cid",
-                baseHeaders,
+                headersWithCookie(cookie),
                 connectTimeout = TIMEOUT_MS,
                 readTimeout = TIMEOUT_MS
             )
             val obj = JSONObject(json)
-            if (obj.optInt("code") != 0) return null
+            val code = obj.optInt("code")
+            BiliLoginHelper.handleApiCode(code, cookie)
+            if (code != 0) return null
             obj.optJSONObject("data")
                 ?.optJSONObject("bgm_info")
                 ?.optString("music_id", "")
@@ -98,7 +104,9 @@ object BiliLyricHelper {
                 readTimeout = TIMEOUT_MS
             )
             val obj = JSONObject(json)
-            if (obj.optInt("code") != 0) return null
+            val code = obj.optInt("code")
+            BiliLoginHelper.handleApiCode(code, cookie)
+            if (code != 0) return null
             obj.optJSONObject("data")
                 ?.optString("mv_lyric", "")
                 ?.takeIf { it.isNotEmpty() }
@@ -109,7 +117,7 @@ object BiliLyricHelper {
         val lrc = try {
             val bytes = HttpUtils.getBytes(
                 normalizeUrl(lyricUrl),
-                baseHeaders,
+                headersWithCookie(cookie),
                 connectTimeout = TIMEOUT_MS,
                 readTimeout = TIMEOUT_MS
             )

@@ -26,7 +26,9 @@ object BiliSubtitleHelper {
                 readTimeout = TIMEOUT_MS
             )
             val obj = JSONObject(json)
-            if (obj.optInt("code") != 0) return emptyList()
+            val code = obj.optInt("code")
+            BiliLoginHelper.handleApiCode(code, cookie)
+            if (code != 0) return emptyList()
 
             val arr = obj.optJSONObject("data")
                 ?.optJSONObject("subtitle")

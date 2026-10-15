@@ -562,7 +562,7 @@ inner class SubPlaylistAdapter(
         try {
             holder.tvName.setTextColor(Color.parseColor(SpUtils.getFontColor(context)))
         } catch (e: Exception) {
-            holder.tvName.setTextColor(Color.WHITE)
+            holder.tvName.setTextColor(Color.parseColor(SpUtils.DEFAULT_FONT_COLOR))
         }
         holder.tvName.textSize = (SpUtils.getFontSize(context) + 2).toFloat()
 

@@ -1,8 +1,10 @@
 package com.tilixibiesi.ui
 import com.tilixibiesi.R
+import com.tilixibiesi.bili.BiliLoginHelper
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.LocalizedResources
 import com.tilixibiesi.data.SpUtils
+import com.tilixibiesi.util.ActivityTracker
 import com.tilixibiesi.util.ViewUtils
 
 import android.annotation.SuppressLint
@@ -81,11 +83,18 @@ open class BaseActivity : Activity() {
             unregisterReceiver(languageUpdatedReceiver)
         } catch (_: Exception) {
         }
+        BiliLoginHelper.onActivityDestroyed(this)
+        ActivityTracker.onDestroyed(this)
         super.onDestroy()
     }
 
     override fun onResume() {
         super.onResume()
+        ActivityTracker.onResumed(this)
+        // 后台期间错过的「登录失效」请求，回到前台后补弹登录页
+        BiliLoginHelper.onActivityResumed(this)
+        // 启动时校验一次本地保存的登录 Cookie（每个进程只校验一次）
+        BiliLoginHelper.verifyStoredCookie(this)
         val currentLang = LanguageUtils.getEffectiveLanguage(applicationContext)
         if (currentLang != lastLanguageCode) {
             recreate()
@@ -97,6 +106,14 @@ open class BaseActivity : Activity() {
         val content = findViewById<ViewGroup>(android.R.id.content)
         ViewUtils.applyScaleOnTouch(content)
         setupBottomNav()
+    }
+
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        // 登录覆盖层在最上层，返回键先关它
+        if (BiliLoginHelper.handleBackPressed()) return
+        super.onBackPressed()
     }
 
     protected fun setupBottomNav() {

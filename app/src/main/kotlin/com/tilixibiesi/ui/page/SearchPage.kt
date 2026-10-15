@@ -3,6 +3,7 @@ import com.tilixibiesi.util.PlaylistDialogHelper
 import com.tilixibiesi.util.ToastUtils
 
 import com.tilixibiesi.bili.BiliHistoryHelper
+import com.tilixibiesi.bili.BiliLoginHelper
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.model.BiliVideo
@@ -19,13 +20,11 @@ import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.WindowUtils
 import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.data.SpUtils
-import com.tilixibiesi.data.WebViewMetricsCleaner
 import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.ui.BaseActivity
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.R
 
-import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.res.Configuration
@@ -41,13 +40,6 @@ import android.view.TextureView
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
-import android.webkit.CookieManager
-import android.webkit.WebChromeClient
-import android.webkit.WebResourceError
-import android.webkit.WebResourceRequest
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.AbsListView
 import android.widget.AdapterView
 import android.widget.Button
@@ -64,14 +56,9 @@ import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicInteger
-import android.graphics.Bitmap
 
-@SuppressLint("SetJavaScriptEnabled")
 class SearchPage(base: Context) : BasePage(base) {
 
     @Suppress("unused")
@@ -87,18 +74,14 @@ class SearchPage(base: Context) : BasePage(base) {
     private lateinit var allMusicList: MutableList<MusicBean>
     private lateinit var searchResultList: MutableList<MusicBean>
     private var isBiliMode = false
-    private var isFullBiliSource = false
     private lateinit var btnBiliToggle: Button
     private val handler = Handler(Looper.getMainLooper())
     private val biliSearchRequestId = AtomicInteger(0)
-    private var hasExtractedCookie = false
     private var currentKeyword = ""
     private var submittedKeyword = ""
     private var currentPage = 1
     private var hasMorePage = false
     private var isLoadingMore = false
-    private var isCheckingCookie = false
-    private var cookieValidChecked = false
     private var lastSourceSize = -1
     private lateinit var progressBar: ProgressBar
     private lateinit var tvSearchingHint: TextView
@@ -109,33 +92,22 @@ class SearchPage(base: Context) : BasePage(base) {
     private val biliVideoList = mutableListOf<BiliVideo>()
     private var currentVideoIndex = -1
 
-    private lateinit var webViewContainer: FrameLayout
-    private var loginWebView: WebView? = null
-    private lateinit var btnCloseWebView: ImageButton
-    private lateinit var progressWebView: ProgressBar
-
     override fun onCreate(savedInstanceState: Bundle?) {
         setContentView(R.layout.activity_search)
 
         allMusicList = buildSourceList().toMutableList()
 
         searchResultList = mutableListOf()
-        isFullBiliSource = SpUtils.isFullBiliSource(this)
 
         initView()
         initBiliToggle()
         initPageButtons()
         initFullscreenVideo()
-        initWebViewLogin()
         applySettings()
 
         if (allMusicList.isEmpty()) {
             Toast.makeText(this, R.string.music_list_empty, Toast.LENGTH_SHORT).show()
             return
-        }
-
-        if (isFullBiliSource) {
-            checkCookieValidity()
         }
     }
 
@@ -150,44 +122,9 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    private fun checkCookieValidity() {
-        if (isCheckingCookie || cookieValidChecked) return
-        val cookie = SpUtils.getBiliCookie(this)
-        if (cookie.isEmpty()) return
-        isCheckingCookie = true
-        AppExecutors.io.execute {
-            try {
-                val url = URL("https://api.bilibili.com/x/web-interface/nav")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.requestMethod = "GET"
-                conn.setRequestProperty("Cookie", cookie)
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-                conn.connectTimeout = 5000
-                conn.readTimeout = 5000
-                val responseCode = conn.responseCode
-                if (responseCode == 200) {
-                    val text = conn.inputStream.bufferedReader().readText()
-                    val json = JSONObject(text)
-                    val retCode = json.optInt("code", -1)
-                    if (retCode == -101) {
-                        handler.post {
-                            Toast.makeText(this@SearchPage, R.string.login_expired, Toast.LENGTH_LONG).show()
-                            openBiliLoginWebView()
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-            } finally {
-                isCheckingCookie = false
-                cookieValidChecked = true
-            }
-        }
-    }
-
     override fun onPause() {
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.releaseCovers()
         findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.setActive(it, false) }
-        closeLoginWebViewIfVisible()
         if (!::videoPlayer.isInitialized) return
         videoPlayer.onHostPause()
         val layoutFullscreen = findViewById<FrameLayout>(R.id.layout_fullscreen_video) ?: return
@@ -218,7 +155,6 @@ class SearchPage(base: Context) : BasePage(base) {
 
     override fun onResume() {
         refreshSearchSource()
-        isFullBiliSource = SpUtils.isFullBiliSource(this)
         updateBiliButtonState()
         updateListVisibility()
         applySettings()
@@ -236,15 +172,10 @@ class SearchPage(base: Context) : BasePage(base) {
     override fun onDestroy() {
         BiliVideoPlayer.stopCurrentVideo()
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.shutdown()
-        destroyLoginWebView()
         findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.release(it) }
     }
 
     override fun onBackPressed(): Boolean {
-        if (findViewById<FrameLayout>(R.id.layout_webview_login)?.visibility == View.VISIBLE) {
-            closeLoginWebView()
-            return true
-        }
         if (findViewById<FrameLayout>(R.id.layout_fullscreen_video)?.visibility == View.VISIBLE &&
             ::videoPlayer.isInitialized
         ) {
@@ -347,92 +278,6 @@ class SearchPage(base: Context) : BasePage(base) {
             override fun onAddToPlaylistClick(position: Int, musicBean: MusicBean) {
                 PlaylistDialogHelper.showAddToPlaylistDialog(this@SearchPage, musicBean)
             }
-        }
-    }
-
-    private fun initWebViewLogin() {
-        webViewContainer = findViewById(R.id.layout_webview_login)!!
-        btnCloseWebView = findViewById(R.id.btn_close_webview)!!
-        progressWebView = findViewById(R.id.progress_webview)!!
-        btnCloseWebView.setOnClickListener {
-            tryExtractCookie()
-            closeLoginWebView()
-        }
-    }
-
-    private fun createLoginWebView(): WebView {
-        val wv = WebView(this)
-        wv.layoutParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        )
-        wv.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            useWideViewPort = true
-            loadWithOverviewMode = true
-            setSupportZoom(true)
-            builtInZoomControls = true
-            displayZoomControls = false
-            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            userAgentString = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36 Edg/120.0.0.0"
-        }
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
-
-        wv.webViewClient = object : WebViewClient() {
-            override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                progressWebView.visibility = View.VISIBLE
-            }
-            override fun onPageFinished(view: WebView?, url: String?) {
-                progressWebView.visibility = View.GONE
-                tryExtractCookie()
-            }
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                progressWebView.visibility = View.GONE
-                Toast.makeText(this@SearchPage, R.string.webpage_load_failed, Toast.LENGTH_SHORT).show()
-            }
-        }
-        wv.webChromeClient = object : WebChromeClient() {
-            override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                progressWebView.progress = newProgress
-                if (newProgress == 100) progressWebView.visibility = View.GONE
-            }
-        }
-        webViewContainer.addView(wv, 0)
-        loginWebView = wv
-        return wv
-    }
-
-    private fun destroyLoginWebView() {
-        val wv = loginWebView ?: return
-        loginWebView = null
-        runCatching {
-            wv.stopLoading()
-            wv.webViewClient = WebViewClient()
-            wv.webChromeClient = null
-            (wv.parent as? FrameLayout)?.removeView(wv)
-            wv.destroy()
-        }
-    }
-
-    private fun tryExtractCookie() {
-        if (hasExtractedCookie) return
-        val cookies = CookieManager.getInstance().getCookie("https://bilibili.com") ?: ""
-        if (cookies.isEmpty()) return
-        val sessdata = extractCookieValue(cookies, "SESSDATA")
-        val biliJct = extractCookieValue(cookies, "bili_jct")
-        if (!sessdata.isNullOrEmpty() && !biliJct.isNullOrEmpty()) {
-            hasExtractedCookie = true
-            val dedeUserID = extractCookieValue(cookies, "DedeUserID")
-            val fullCookie = "SESSDATA=$sessdata; bili_jct=$biliJct; DedeUserID=${dedeUserID ?: ""}; " +
-                    "DedeUserID__ckMd5=${extractCookieValue(cookies, "DedeUserID__ckMd5") ?: ""}; " +
-                    "sid=${extractCookieValue(cookies, "sid") ?: ""}"
-            SpUtils.saveBiliCookie(this, fullCookie.trimEnd(';', ' '))
-            SpUtils.setFullBiliSource(this, true)
-            isFullBiliSource = true
-            Toast.makeText(this, R.string.login_success_full, Toast.LENGTH_SHORT).show()
-            handler.postDelayed({ closeLoginWebView() }, 500)
         }
     }
 
@@ -572,10 +417,6 @@ class SearchPage(base: Context) : BasePage(base) {
             if (kw.isNotEmpty()) filterMusic(kw)
             else clearSearchResults()
         }
-        btnBiliToggle.setOnLongClickListener {
-            showFullBiliSourceDialog()
-            true
-        }
     }
 
     private fun updateBiliButtonState() {
@@ -588,64 +429,6 @@ class SearchPage(base: Context) : BasePage(base) {
     private fun updateListVisibility() {
         lvSearchResult.visibility = if (isBiliMode) View.GONE else View.VISIBLE
         gvBiliResult.visibility = if (isBiliMode) View.VISIBLE else View.GONE
-    }
-
-    private fun showFullBiliSourceDialog() {
-        if (isFullBiliSource) {
-            DialogHelper.createStyledDialog(activity,
-                AlertDialog.Builder(this)
-                    .setTitle(R.string.full_bili_source_title)
-                    .setMessage(R.string.full_bili_source_enabled_msg)
-                    .setPositiveButton(R.string.ok) { _, _ ->
-                        SpUtils.setFullBiliSource(this, false)
-                        isFullBiliSource = false
-                        Toast.makeText(this, R.string.full_bili_source_disabled_toast, Toast.LENGTH_SHORT).show()
-                    }
-                    .setNegativeButton(R.string.cancel, null)
-            )
-        } else {
-            val savedCookie = SpUtils.getBiliCookie(this)
-            if (savedCookie.isNotEmpty()) {
-                SpUtils.setFullBiliSource(this, true)
-                isFullBiliSource = true
-                Toast.makeText(this, R.string.full_bili_source_enabled_toast, Toast.LENGTH_SHORT).show()
-            } else {
-                openBiliLoginWebView()
-            }
-        }
-    }
-
-    private fun openBiliLoginWebView() {
-        cookieValidChecked = false
-        hasExtractedCookie = false
-        CookieManager.getInstance().removeAllCookies(null)
-        val wv = loginWebView ?: createLoginWebView()
-        wv.loadUrl("https://passport.bilibili.com/login")
-        webViewContainer.visibility = View.VISIBLE
-        WindowUtils.setFullScreen(activity)
-    }
-
-    private fun closeLoginWebView() {
-        webViewContainer.visibility = View.GONE
-        destroyLoginWebView()
-        clearWebViewCacheAsync()
-        setFullScreen()
-    }
-
-    private fun closeLoginWebViewIfVisible() {
-        if (loginWebView == null) return
-        destroyLoginWebView()
-        clearWebViewCacheAsync()
-    }
-
-    private fun clearWebViewCacheAsync() {
-        AppExecutors.io.execute {
-            WebViewMetricsCleaner.purgeWebViewArtifacts(this)
-            runCatching {
-                CookieManager.getInstance().removeAllCookies(null)
-                CookieManager.getInstance().flush()
-            }
-        }
     }
 
     private fun initPageButtons() {
@@ -730,6 +513,10 @@ class SearchPage(base: Context) : BasePage(base) {
             .replace(Regex("\\.(mp3|flac|wav|aac|ogg|wma|m4a|opus)$"), "")
     }
 
+    /** 统一取用本地文件中的登录 Cookie；未开启完整源时返回空串（走匿名搜索）。 */
+    private fun biliCookie(): String =
+        if (SpUtils.isFullBiliSource(this)) SpUtils.getBiliCookie(this) else ""
+
     private fun loadPage(page: Int) {
         if (isLoadingMore) return
         isLoadingMore = true
@@ -738,7 +525,7 @@ class SearchPage(base: Context) : BasePage(base) {
 
         val id = biliSearchRequestId.incrementAndGet()
         AppExecutors.io.execute {
-            val cookie = if (isFullBiliSource) SpUtils.getBiliCookie(this) else ""
+            val cookie = biliCookie()
             val result = BiliSearchHelper.searchVideosPage(currentKeyword, page, cookie)
             if (id != biliSearchRequestId.get()) {
                 handler.post {
@@ -752,9 +539,8 @@ class SearchPage(base: Context) : BasePage(base) {
                 if (id != biliSearchRequestId.get()) return@post
                 hideSearchingHint()
 
-                if (result.errorCode == -101) {
-                    Toast.makeText(this@SearchPage, R.string.cookie_invalid_load, Toast.LENGTH_LONG).show()
-                    openBiliLoginWebView()
+                // -101 已由 BiliLoginHelper 统一处理（弹登录页），这里只需放弃本次结果
+                if (BiliLoginHelper.isAuthInvalid(result.errorCode)) {
                     isLoadingMore = false
                     return@post
                 }
@@ -819,10 +605,16 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun showDownloadQualityDialog(video: BiliVideo) {
+        // 下载需要登录凭证：没有就先弹登录页，登录成功后再继续
+        BiliLoginHelper.ensureLoggedIn(activity) {
+            doShowDownloadQualityDialog(video, SpUtils.getBiliCookie(this))
+        }
+    }
+
+    private fun doShowDownloadQualityDialog(video: BiliVideo, cookie: String) {
         val dialog = DialogHelper.createLoadingDialog(this, LanguageUtils.getString(this@SearchPage, R.string.loading_fetch_quality))
         dialog.show()
         AppExecutors.io.execute {
-            val cookie = SpUtils.getBiliCookie(this)
             val detail = BiliSearchHelper.getVideoDetail(video.bvid, cookie) ?: run {
                 handler.post { dialog.dismiss(); ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.video_info_fail)) }
                 return@execute
@@ -916,7 +708,7 @@ class SearchPage(base: Context) : BasePage(base) {
                     if (dialogFont.isEmpty()) Color.parseColor(SpUtils.getFontColor(this))
                     else Color.parseColor(dialogFont)
                 } catch (_: Exception) {
-                    Color.WHITE
+                    Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
                 }
                 for ((label, tag) in items) {
                     val cb = CheckBox(this).apply {
@@ -1016,9 +808,5 @@ class SearchPage(base: Context) : BasePage(base) {
             etSearch.setTextColor(Color.parseColor(SpUtils.getFontColor(this)))
         } catch (_: Exception) { etSearch.setTextColor(0xFFFFFFFF.toInt()) }
         etSearch.textSize = SpUtils.getFontSize(this).toFloat()
-    }
-
-    private fun extractCookieValue(cookieString: String, key: String): String? {
-        return Regex("$key=([^;]*)").find(cookieString)?.groupValues?.get(1)?.trim()
     }
 }

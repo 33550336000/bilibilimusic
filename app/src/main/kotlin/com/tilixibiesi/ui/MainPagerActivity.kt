@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.FrameLayout
 import com.tilixibiesi.data.AppPermissionsBridge
+import com.tilixibiesi.bili.BiliLoginHelper
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.ui.page.BasePage
 import com.tilixibiesi.ui.page.PageHost
@@ -221,7 +222,11 @@ class MainPagerActivity : BaseActivity(), PageHost {
         pages.forEach { if (it.created) it.onConfigurationChanged(newConfig) }
     }
 
+    @Deprecated("Deprecated in Java")
+    @Suppress("DEPRECATION")
     override fun onBackPressed() {
+        // 登录覆盖层在最上层，返回键先关它
+        if (BiliLoginHelper.handleBackPressed()) return
         if ((pages.getOrNull(PAGE_SONGS) as? SongsPage)?.handleNowPlayingBack() == true) return
         val page = pages.getOrNull(currentPosition)
         if (page?.created == true && page.onBackPressed()) return
