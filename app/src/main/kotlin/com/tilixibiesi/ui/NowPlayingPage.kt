@@ -4,6 +4,7 @@ import com.tilixibiesi.R
 import com.tilixibiesi.bili.BiliCoverLoader
 import com.tilixibiesi.bili.BiliLyric
 import com.tilixibiesi.bili.BiliLyricHelper
+import com.tilixibiesi.bili.BiliLyricStore
 import com.tilixibiesi.bili.BiliSearchHelper
 import com.tilixibiesi.bili.BiliVideoMetaHelper
 import com.tilixibiesi.data.DataFileUtils
@@ -11,6 +12,7 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.CacheManager
 import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.ViewUtils
 import com.tilixibiesi.ui.widget.SquareLayout
@@ -35,6 +37,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
+import java.io.File
 import java.util.Locale
 
 class NowPlayingPage(
@@ -473,13 +476,34 @@ class NowPlayingPage(
     private fun loadCover(bean: MusicBean?) {
         ivCover.setImageResource(R.drawable.ic_cover_placeholder)
         ivBlur.setImageDrawable(null)
+        if (bean == null) return
 
-        val direct = bean?.coverUrl?.takeIf { it.isNotEmpty() }
+        val baseName = CacheManager.baseNameOf(bean)
+        // 判定与解码都要读盘，放到后台线程，避免卡住主线程
+        AppExecutors.io.execute {
+            val local = if (isPlayingLocalCache(bean)) {
+                BiliCoverLoader.loadLocalFile(baseName)
+            } else null
+            handler.post {
+                if (this.bean !== bean) return@post
+                if (local != null) {
+                    ivCover.setImageBitmap(local)
+                    ivBlur.setImageBitmap(downscaleForBlur(local))
+                } else {
+                    loadRemoteCover(bean)
+                }
+            }
+        }
+    }
+
+    /** 本地封面缺失时的网络回退。 */
+    private fun loadRemoteCover(bean: MusicBean) {
+        val direct = bean.coverUrl?.takeIf { it.isNotEmpty() }
         if (direct != null) {
             fetchCoverInto(direct)
             return
         }
-        val bvid = bean?.bvid?.takeIf { it.isNotEmpty() } ?: return
+        val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return
         BiliVideoMetaHelper.fetch(bvid) { meta ->
             if (this.bean?.bvid != bvid) return@fetch
             val url = meta?.coverUrl
@@ -589,14 +613,31 @@ class NowPlayingPage(
             showNoLyrics()
             return
         }
+        // 同一首曲目已经加载过：直接用内存里的结果
         if (lyricLoadedBvid == bvid) {
             val cached = lyric
             if (cached == null || cached.lines.isEmpty()) showNoLyrics() else renderLyric(cached)
             return
         }
+        val baseName = CacheManager.baseNameOf(bean)
         val requestId = ++lyricRequestId
         val durationSec = (sbProgress.max / 1000).takeIf { it > 0 } ?: (bean.duration)
+
+        // 读盘 + 判定都放后台，主线程只负责渲染
         AppExecutors.io.execute {
+            // 本地歌词优先：播放本地缓存时命中本地就完全不走网络
+            val local = BiliLyricStore.load(baseName)
+            if (local != null) {
+                handler.post {
+                    if (requestId != lyricRequestId) return@post
+                    lyricBvid = bvid
+                    lyricLoadedBvid = bvid
+                    lyric = local
+                    renderLyric(local)
+                }
+                return@execute
+            }
+
             val cookie = SpUtils.getBiliCookie(context)
             val cid = BiliSearchHelper.resolveCid(bvid, cookie) ?: 0L
             val result = if (cid <= 0L) null else BiliLyricHelper.fetch(
@@ -605,6 +646,8 @@ class NowPlayingPage(
                 durationSec = durationSec,
                 cookie = cookie
             )
+            // 解析成功顺手落一份本地歌词，下次播放本地缓存即可离线使用
+            if (result != null) BiliLyricStore.save(baseName, result)
             handler.post {
                 if (requestId != lyricRequestId) return@post
                 lyricBvid = bvid
@@ -613,6 +656,23 @@ class NowPlayingPage(
                 if (result == null || result.lines.isEmpty()) showNoLyrics() else renderLyric(result)
             }
         }
+    }
+
+    /**
+     * 该曲目此刻是否在播放本地缓存。
+     *
+     * 判定顺序：`localPath` 指向真实存在的本地文件，或者缓存目录里存在同名音频文件。
+     * 本地路径可能因为文件被删而失效，所以必须校验存在性。
+     * 会读盘，必须在后台线程调用。
+     */
+    private fun isPlayingLocalCache(bean: MusicBean?): Boolean {
+        if (bean == null) return false
+        val path = bean.localPath
+        if (!path.isNullOrEmpty()) {
+            // 已有明确路径时以它为准（在线地址不算本地缓存）
+            return !path.startsWith("http") && File(path).exists()
+        }
+        return CacheManager.findAudioFile(CacheManager.baseNameOf(bean)) != null
     }
 
     private fun showNoLyrics() {

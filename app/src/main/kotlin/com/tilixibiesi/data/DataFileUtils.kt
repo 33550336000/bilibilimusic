@@ -32,8 +32,17 @@ object DataFileUtils {
 
     private val renameMap = mutableMapOf<String, String>()
 
+    /**
+     * 重命名映射的「文件名视角」索引：键是把原始名称净化成文件名后的形式。
+     *
+     * 缓存文件名会做非法字符净化（`/` → `_`）并去掉扩展名，
+     * 从磁盘反查显示名时只能拿到净化后的名字，因此这里额外建一份索引。
+     */
+    private val renameMapByFileName = mutableMapOf<String, String>()
+
     fun initRenameMap() {
         renameMap.clear()
+        renameMapByFileName.clear()
         val file = relRead(RENAME_FILE_REL)
         if (!file.exists()) return
         try {
@@ -48,6 +57,7 @@ object DataFileUtils {
                             val newName = line.substring(idx + 1).trim()
                             if (original.isNotEmpty() && newName.isNotEmpty()) {
                                 renameMap[original] = newName
+                                renameMapByFileName[fileNameKey(original)] = newName
                             }
                         }
                     }
@@ -57,22 +67,46 @@ object DataFileUtils {
         }
     }
 
+    /** 名称 → 文件名索引键：去扩展名 + 净化成实际文件名。 */
+    private fun fileNameKey(name: String): String =
+        AppPaths.sanitizeName(stripAudioExtension(name))
+
+    /**
+     * 取显示名称：先套重命名映射，再退回去掉音频扩展名的名称。
+     *
+     * 重命名映射的键是「实际名称」，本地音乐的键带扩展名（`xx.mp3`），
+     * B 站曲目的键是原始标题（不带扩展名）。传入的名称既可能来自
+     * 内存里的 `musicName`，也可能来自磁盘上的缓存文件名（已净化、无扩展名），
+     * 因此依次尝试：原名 → 去扩展名 → 文件名索引。
+     */
     fun getDisplayName(rawName: String?): String {
         if (rawName == null) return ""
         renameMap[rawName]?.let { return it }
-        return rawName.stripAudioExtension()
+        val stripped = stripAudioExtension(rawName)
+        renameMap[stripped]?.let { return it }
+        renameMapByFileName[AppPaths.sanitizeName(stripped)]?.let { return it }
+        return stripped
     }
 
-    private fun String.stripAudioExtension(): String {
-        val dot = lastIndexOf('.')
-        if (dot < 0) return this
-        val ext = substring(dot).lowercase()
-        return if (ext in AUDIO_SUFFIXES) substring(0, dot) else this
+    /**
+     * 只去掉音频扩展名，不套用重命名映射。
+     *
+     * 曲目实际名称与显示名称是两回事：`musicName` 存实际名称，
+     * [getDisplayName] 才负责套上重命名。缓存文件名必须按实际名称落盘，
+     * 否则每次重命名都会算出新文件名，播放时被当成新曲目重新下载一份。
+     */
+    fun stripAudioExtension(rawName: String?): String {
+        if (rawName == null) return ""
+        val dot = rawName.lastIndexOf('.')
+        if (dot < 0) return rawName
+        val ext = rawName.substring(dot).lowercase()
+        return if (ext in AUDIO_SUFFIXES) rawName.substring(0, dot) else rawName
     }
 
     fun saveRenameEntry(originalName: String?, newDisplayName: String?) {
         if (originalName == null || newDisplayName == null) return
         renameMap[originalName] = newDisplayName
+        renameMapByFileName[fileNameKey(originalName)] = newDisplayName
         try {
             val dir = relWrite(APPDATA_REL)
             if (!dir.exists()) dir.mkdirs()
@@ -84,6 +118,7 @@ object DataFileUtils {
 
     fun removeRenameEntry(originalName: String): Boolean {
         val removed = renameMap.remove(originalName) != null
+        renameMapByFileName.remove(fileNameKey(originalName))
         if (removed) {
             try {
                 val dir = relWrite(APPDATA_REL)

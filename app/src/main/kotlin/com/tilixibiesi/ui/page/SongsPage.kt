@@ -1058,7 +1058,7 @@ class SongsPage(base: Context) : BasePage(base) {
             bean.bvid?.let { removeBiliEntryFromHistory(it) }
             musicList.remove(bean)
             PlaylistManager.getPlaylists(this).forEach { it.musicList.removeAll { m -> m.musicName == bean.musicName } }
-            if (MusicPlayerService.currentPlayingName == bean.musicName) {
+            if (MusicPlayerService.currentPlayingName == displayName) {
                 sendServiceAction(MusicPlayerService.ACTION_STOP)
                 refreshPlayerUIForStop()
             }
@@ -1072,7 +1072,7 @@ class SongsPage(base: Context) : BasePage(base) {
         PlaylistManager.getPlaylists(this).forEach { it.musicList.removeAll { m -> m.musicName == bean.musicName } }
         PlaylistManager.savePlaylists(this, PlaylistManager.getPlaylists(this))
 
-        if (MusicPlayerService.currentPlayingName == bean.musicName) {
+        if (MusicPlayerService.currentPlayingName == displayName) {
             sendServiceAction(MusicPlayerService.ACTION_STOP)
             refreshPlayerUIForStop()
         }
