@@ -13,7 +13,10 @@ data class BiliLyric(
     enum class Source {
         MUSIC_LIBRARY,
 
-        SUBTITLE
+        SUBTITLE,
+
+        /** 来自本地 `cache/Lyric/` 的歌词文件。 */
+        LOCAL
     }
 
     fun textAt(positionMs: Long): String? {

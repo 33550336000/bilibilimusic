@@ -11,6 +11,7 @@ import com.tilixibiesi.bili.BiliApiHelper
 import com.tilixibiesi.bili.BiliAudioQuality
 import com.tilixibiesi.bili.BiliLyric
 import com.tilixibiesi.bili.BiliLyricHelper
+import com.tilixibiesi.bili.BiliLyricStore
 import com.tilixibiesi.bili.BiliSearchHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.AudioFocusController
@@ -65,7 +66,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         const val EXTRA_PLAY_MODE = "EXTRA_PLAY_MODE"
         const val EXTRA_CURRENT_POSITION = "CURRENT_POSITION"
         const val EXTRA_DURATION = "DURATION"
-        private const val CACHE_DIR_REL = "system/axeron/long/Android/cache"
         var musicList: MutableList<MusicBean>? = null
         const val ACTION_UPDATE_FOCUS_MODE = "com.tilixibiesi.ACTION_UPDATE_FOCUS_MODE"
         const val ACTION_PAUSE_FOR_VIDEO = "com.tilixibiesi.ACTION_PAUSE_FOR_VIDEO"
@@ -148,6 +148,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     private val biliAudioUrlCache = mutableMapOf<String, List<String>>()
     private val biliRetryIndex = mutableMapOf<String, Int>()
+
+    /** bvid -> 解析 [biliAudioUrlCache] 时所用的音质 id，用于判断地址是否已按当前音质解析。 */
+    private val biliResolvedQuality = mutableMapOf<String, Int>()
     private var currentBvid: String? = null
     private var currentMusicBean: MusicBean? = null
 
@@ -163,7 +166,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         isServiceRunning = true
         DataFileUtils.initRenameMap()
 
-        cacheManager = CacheManager(StoragePaths.resolveWrite(CACHE_DIR_REL).absolutePath)
+        cacheManager = CacheManager()
         statsManager = PlaybackStatsWriter(StoragePaths.resolveWrite(PlaybackDetails.DIR_REL).absolutePath)
         mediaSessionManager = MediaSessionManager()
 
@@ -413,7 +416,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     private fun playResolved(bean: MusicBean, gen: Int, autoCache: Boolean) {
         fun doPlay(path: String) {
             if (autoCache && path.startsWith("http") && SpUtils.isAutoCacheEnabled(this@MusicPlayerService)) {
-                cacheManager.startBackgroundCache(bean, this@MusicPlayerService)
+                startAutoCacheForBili(bean, path, gen)
             }
             setupDataSourceAndPlay(path, bean)
         }
@@ -421,12 +424,16 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         val localPath = bean.localPath
         if (localPath != null && File(localPath).exists()) {
             bean.isDownloaded = true
+            // 本地播放也要记下当前曲目：通知栏歌词与缓存音质校对都依赖它。
+            // 不设置 currentBvid，保持本地文件失败时的原有兜底行为。
+            currentMusicBean = bean
             doPlay(localPath)
             return
         }
 
         val cachedPath = cacheManager.getCachedFilePath(bean)
         if (cachedPath != null) {
+            currentMusicBean = bean
             doPlay(cachedPath)
             return
         }
@@ -438,11 +445,13 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
             fun fillBackupUrls(firstUrl: String?) {
                 AppExecutors.io.execute {
-                    val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), audioQuality().id)
+                    val preferred = audioQuality().id
+                    val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), preferred)
                     biliAudioUrlCache[bvid] =
                         if (firstUrl != null && !urls.contains(firstUrl)) listOf(firstUrl) + urls
                         else urls
                     biliRetryIndex[bvid] = 0
+                    biliResolvedQuality[bvid] = preferred
                 }
             }
 
@@ -455,7 +464,8 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             }
 
             AppExecutors.io.execute {
-                val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), audioQuality().id)
+                val preferred = audioQuality().id
+                val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), preferred)
                 val firstUrl = urls.firstOrNull()
                 mainHandler.post {
                     if (gen != playGeneration) return@post
@@ -463,6 +473,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                         bean.musicUrl = firstUrl
                         biliAudioUrlCache[bvid] = urls
                         biliRetryIndex[bvid] = 0
+                        biliResolvedQuality[bvid] = preferred
                         doPlay(firstUrl)
                     } else {
                         Toast.makeText(
@@ -485,9 +496,62 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     }
 
 
+    /**
+     * 若已有缓存的音质与当前播放音质不符，按当前音质重新解析地址并在后台重下。
+     *
+     * 覆盖「播放时用的就是本地缓存」的情况：这类曲目不会走在线解析流程，
+     * 但缓存本身可能是按旧音质下载的。
+     */
+    private fun updateBiliCacheForQualityIfNeeded(bean: MusicBean) {
+        if (!bean.isBilibili) return
+        if (!SpUtils.isAutoCacheEnabled(this@MusicPlayerService)) return
+        val quality = audioQuality()
+        if (!cacheManager.biliCacheQualityMismatch(bean, quality.id)) return
+        val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return
+        AppExecutors.io.execute {
+            val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), quality.id)
+            mainHandler.post {
+                val url = urls.firstOrNull() ?: return@post
+                cacheManager.startBackgroundCache(bean, this@MusicPlayerService, url)
+            }
+        }
+    }
+
     /** 统一取用本地文件中的登录 Cookie；未开启完整源时返回空串（走匿名接口）。 */
     private fun biliCookie(): String =
         if (SpUtils.isFullBiliSource(this)) SpUtils.getBiliCookie(this) else ""
+
+    /**
+     * 自动下载：确保落盘的是「当前播放音质」对应的音频地址。
+     *
+     * 普通音乐直接用正在播放的地址；B 站曲目若当前地址不是按当前音质解析出来的
+     * （例如沿用了设置里保存的旧地址），先重新解析一次再交给 [CacheManager] 下载。
+     */
+    private fun startAutoCacheForBili(bean: MusicBean, playingPath: String, gen: Int) {
+        val bvid = bean.bvid?.takeIf { it.isNotEmpty() }
+        if (!bean.isBilibili || bvid == null) {
+            cacheManager.startBackgroundCache(bean, this@MusicPlayerService, playingPath)
+            return
+        }
+        val qualityId = audioQuality().id
+        if (biliResolvedQuality[bvid] == qualityId) {
+            cacheManager.startBackgroundCache(bean, this@MusicPlayerService, playingPath)
+            return
+        }
+        AppExecutors.io.execute {
+            val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), qualityId)
+            mainHandler.post {
+                if (gen != playGeneration) return@post
+                val qualityUrl = urls.firstOrNull() ?: playingPath
+                if (urls.isNotEmpty()) {
+                    biliAudioUrlCache[bvid] = urls
+                    biliRetryIndex[bvid] = 0
+                    biliResolvedQuality[bvid] = qualityId
+                }
+                cacheManager.startBackgroundCache(bean, this@MusicPlayerService, qualityUrl)
+            }
+        }
+    }
 
     /** 当前设置的 B 站音乐音质，默认最低音质。 */
     private fun audioQuality(): BiliAudioQuality =
@@ -496,14 +560,23 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     /**
      * 音质设置变更后重载当前 B 站曲目。
      *
-     * 已下载/已缓存的本地文件不受音质影响，直接忽略；
-     * 在线播放时按新音质重新解析地址，并保留当前播放进度与播放/暂停状态。
+     * 手动下载的本地文件不受音质影响，直接忽略；
+     * 自动下载的缓存若音质与当前设置不符，会先删除再按新音质重新下载，
+     * 在线播放维持当前进度与播放/暂停状态。
      */
     private fun reloadCurrentWithNewQuality() {
         val bean = currentMusicBean ?: return
         val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return
         if (bean.isDownloaded && bean.localPath != null && File(bean.localPath!!).exists()) return
-        if (cacheManager.getCachedFilePath(bean) != null) return
+
+        val quality = audioQuality()
+        val removedOutdated = cacheManager.removeOutdatedBiliCache(bean, quality.id)
+        if (removedOutdated || cacheManager.getCachedFilePath(bean) == null) {
+            bean.localPath = null
+        } else {
+            // 缓存音质与设置一致，无需重载
+            return
+        }
 
         val resumePosition = if (isPrepared) {
             try { mediaPlayer?.currentPosition ?: 0 } catch (_: IllegalStateException) { 0 }
@@ -512,13 +585,16 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         val gen = playGeneration
 
         AppExecutors.io.execute {
-            val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), audioQuality().id)
+            val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), quality.id)
             mainHandler.post {
                 if (gen != playGeneration) return@post
                 val firstUrl = urls.firstOrNull() ?: return@post
                 biliAudioUrlCache[bvid] = urls
                 biliRetryIndex[bvid] = 0
                 bean.musicUrl = firstUrl
+                if (SpUtils.isAutoCacheEnabled(this@MusicPlayerService)) {
+                    cacheManager.startBackgroundCache(bean, this@MusicPlayerService, firstUrl)
+                }
                 pendingResumePosition = resumePosition
                 pendingResumePlaying = wasPlaying
                 setupDataSourceAndPlay(firstUrl, bean)
@@ -547,20 +623,14 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     private fun resetBiliState() {
         biliAudioUrlCache.clear()
         biliRetryIndex.clear()
+        biliResolvedQuality.clear()
         currentBvid = null
         currentMusicBean = null
     }
 
 
-    private fun buildFilePlayList(): List<String> {
-        val cacheDir = StoragePaths.resolveWrite(CACHE_DIR_REL)
-        if (!cacheDir.exists() || !cacheDir.isDirectory) return emptyList()
-        return cacheDir.listFiles()
-            ?.filter { it.isFile && !it.name.endsWith(".tmp") && it.name != "cache_map.json" }
-            ?.sortedBy { it.name }
-            ?.map { it.absolutePath }
-            ?: emptyList()
-    }
+    private fun buildFilePlayList(): List<String> =
+        CacheManager.listAudioFiles().map { it.absolutePath }
 
     private fun setupDataSourceAndPlay(playPath: String, musicBean: MusicBean) {
         val gen = playGeneration
@@ -590,11 +660,13 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-    private fun getDisplayNameFromCache(filePath: String): String? {
-        val cacheMap = cacheManager.loadCacheMap()
-        val md5Name = File(filePath).name
-        return cacheMap.entries.find { it.value == md5Name }?.key
-    }
+    /**
+     * 缓存文件的展示名。
+     *
+     * 下载不再使用 MD5，文件名就是曲目实际名称，因此直接把文件名当作原始名，
+     * 由 [DataFileUtils.getDisplayName] 去掉音频扩展名与重命名映射。
+     */
+    private fun getDisplayNameFromCache(filePath: String): String? = File(filePath).name
 
     private fun playFile(filePath: String, displayName: String?) {
         resetBiliState()
@@ -843,8 +915,11 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             startForegroundWithType(NOTIFICATION_ID, buildNotification(name, false))
         }
         savePlayState()
-        currentMusicBean?.bvid?.takeIf { it.isNotEmpty() }?.let { bvid ->
-            startLyricLoad(bvid, (resolveDurationMs() / 1000L).toInt())
+        currentMusicBean?.let { bean ->
+            updateBiliCacheForQualityIfNeeded(bean)
+            bean.bvid?.takeIf { it.isNotEmpty() }?.let { bvid ->
+                startLyricLoad(bvid, (resolveDurationMs() / 1000L).toInt())
+            }
         }
     }
 
@@ -1051,7 +1126,24 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         currentLyric = null
         lastContentText = null
 
+        // 歌词与音频同名，都按实际名称存盘
+        val currentBean = currentMusicBean ?: return
+        val baseName = CacheManager.baseNameOf(currentBean)
+
         AppExecutors.io.execute {
+            // 本地歌词优先；命中本地就不再请求网络
+            val local = BiliLyricStore.load(baseName)
+            if (local != null) {
+                mainHandler.post {
+                    if (lyricLoadingBvid != bvid) return@post
+                    lyricFinishedBvid = bvid
+                    currentLyric = local
+                    val name = currentPlayingName ?: return@post
+                    updateNotification(name, isPlaying())
+                }
+                return@execute
+            }
+
             val cookie = biliCookie()
             val cid = BiliSearchHelper.resolveCid(bvid, cookie) ?: 0L
             if (cid <= 0L) {
@@ -1064,6 +1156,8 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 durationSec = durationSec,
                 cookie = cookie
             )
+            // 解析成功就落一份到 cache/Lyric/，下次离线可用
+            if (lyric != null) BiliLyricStore.save(baseName, lyric)
             mainHandler.post {
                 if (lyricLoadingBvid != bvid) return@post
                 lyricFinishedBvid = bvid
@@ -1287,7 +1381,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 if (biliBean != null) {
                     biliHistoryList = loadBiliHistoryList()
                     biliHistoryIndex = biliHistoryList.indexOfFirst {
-                        it.musicName == savedDisplayName
+                        DataFileUtils.getDisplayName(it.musicName) == savedDisplayName
                     }
                     currentPlayingName = savedDisplayName
                     currentPlayingRawName = biliBean.musicName

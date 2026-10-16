@@ -1,6 +1,8 @@
 package com.tilixibiesi.ui
 
 import com.tilixibiesi.R
+import com.tilixibiesi.bili.BiliCoverLoader
+import com.tilixibiesi.bili.BiliLyricStore
 import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.StoragePaths
@@ -21,7 +23,6 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.ListView
 import android.widget.TextView
-import java.io.File
 
 class StorageDialogs(
     private val context: Context,
@@ -31,22 +32,26 @@ class StorageDialogs(
 ) {
 
     fun showCacheManager() {
-        val cacheDir = StoragePaths.resolveRead(CACHE_DIR_REL)
-        val cacheManager = CacheManager(cacheDir.absolutePath)
-        val map = cacheManager.loadCacheMap()
-        if (map.isEmpty()) {
+        val files = CacheManager.listAudioFiles().toMutableList()
+        if (files.isEmpty()) {
             ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_dir_empty))
             return
         }
-        val musicNames = map.keys.toMutableList()
         val adapter = object : BaseAdapter() {
-            override fun getCount() = musicNames.size
-            override fun getItem(pos: Int) = musicNames[pos]
+            override fun getCount() = files.size
+            override fun getItem(pos: Int) = files[pos]
             override fun getItemId(pos: Int) = pos.toLong()
             override fun getView(pos: Int, convertView: View?, parent: ViewGroup): View {
                 val view = convertView ?: inflater.inflate(android.R.layout.simple_list_item_1, parent, false)
+                val file = files[pos]
                 view.findViewById<TextView>(android.R.id.text1).apply {
-                    text = DataFileUtils.getDisplayName(musicNames[pos])
+                    // 文件名存的是实际名称，展示时再套用重命名映射
+                    val name = DataFileUtils.getDisplayName(CacheManager.nameOf(file))
+                    text = if (CacheManager.isBiliAudioFile(file)) {
+                        LanguageUtils.getString(context, R.string.saved_music_bili_format, name)
+                    } else {
+                        name
+                    }
                     setTextColor(fontColor)
                 }
                 view.setBackgroundColor(Color.TRANSPARENT)
@@ -62,45 +67,47 @@ class StorageDialogs(
         }
 
         listView.setOnItemClickListener { _, _, pos, _ ->
-            val musicName = musicNames[pos]
-            val md5 = map[musicName] ?: return@setOnItemClickListener
-            val filePath = File(cacheDir, md5).absolutePath
-            if (!File(filePath).exists()) {
+            val file = files[pos]
+            if (!file.exists()) {
                 ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_file_invalid))
                 return@setOnItemClickListener
             }
+            // 传实际名称：服务端据此还原展示名（含扩展名/重命名映射）
+            val actualName = CacheManager.nameOf(file)
             val intent = android.content.Intent(context, MusicPlayerService::class.java).apply {
                 action = MusicPlayerService.ACTION_PLAY_FILE
-                putExtra(MusicPlayerService.EXTRA_FILE_PATH, filePath)
-                putExtra(MusicPlayerService.EXTRA_DISPLAY_NAME, DataFileUtils.getDisplayName(musicName))
+                putExtra(MusicPlayerService.EXTRA_FILE_PATH, file.absolutePath)
+                putExtra(MusicPlayerService.EXTRA_DISPLAY_NAME, actualName)
             }
             context.startForegroundService(intent)
             ToastUtils.show(
                 context,
                 LanguageUtils.getString(
-                    context, R.string.toast_playing_format, DataFileUtils.getDisplayName(musicName)
+                    context,
+                    R.string.toast_playing_format,
+                    DataFileUtils.getDisplayName(actualName)
                 )
             )
         }
 
         listView.setOnItemLongClickListener { _, _, pos, _ ->
-            val name = musicNames[pos]
+            val file = files[pos]
+            val actualName = CacheManager.nameOf(file)
+            val displayName = DataFileUtils.getDisplayName(actualName)
             showDialog(
                 AlertDialog.Builder(context)
                     .setTitle(LanguageUtils.getString(context, R.string.dialog_title_delete_music))
                     .setMessage(
-                        LanguageUtils.getString(
-                            context, R.string.dialog_msg_delete_music_format, DataFileUtils.getDisplayName(name)
-                        )
+                        LanguageUtils.getString(context, R.string.dialog_msg_delete_music_format, displayName)
                     )
                     .setPositiveButton(LanguageUtils.getString(context, R.string.btn_delete)) { _, _ ->
-                        val md5 = map[name] ?: return@setPositiveButton
-                        File(cacheDir, md5).delete()
-                        cacheManager.updateCacheMap { it.remove(name) }
-                        map.remove(name)
-                        musicNames.remove(name)
+                        file.delete()
+                        // 音频删掉后，配套的本地歌词/封面也一并清理（都按实际名称存）
+                        BiliLyricStore.delete(actualName)
+                        BiliCoverLoader.localCoverFile(actualName).delete()
+                        files.removeAt(pos)
                         adapter.notifyDataSetChanged()
-                        if (map.isEmpty()) {
+                        if (files.isEmpty()) {
                             ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_dir_empty))
                         }
                     }
@@ -120,8 +127,16 @@ class StorageDialogs(
                             .setTitle(LanguageUtils.getString(context, R.string.dialog_title_clear_all_music))
                             .setMessage(LanguageUtils.getString(context, R.string.dialog_msg_clear_all_music))
                             .setPositiveButton(LanguageUtils.getString(context, R.string.btn_ok)) { _, _ ->
-                                cacheDir.listFiles()?.forEach { it.delete() }
-                                cacheManager.saveCacheMap(emptyMap())
+                                listOf(
+                                    StoragePaths.resolveWrite(CACHE_DIR_REL),
+                                    StoragePaths.resolveWrite(BILI_CACHE_DIR_REL),
+                                    StoragePaths.resolveWrite(COVER_DIR_REL),
+                                    StoragePaths.resolveWrite(LYRIC_DIR_REL)
+                                ).forEach { dir ->
+                                    dir.listFiles()?.forEach { if (it.isFile) it.delete() }
+                                }
+                                files.clear()
+                                adapter.notifyDataSetChanged()
                                 ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_dir_empty))
                             }
                             .setNegativeButton(LanguageUtils.getString(context, R.string.btn_cancel), null)
@@ -236,5 +251,8 @@ class StorageDialogs(
 
     private companion object {
         const val CACHE_DIR_REL = "system/axeron/long/Android/cache"
+        const val BILI_CACHE_DIR_REL = "system/axeron/long/Android/cache/bilibili"
+        const val COVER_DIR_REL = "system/axeron/long/Android/cache/Videocover"
+        const val LYRIC_DIR_REL = "system/axeron/long/Android/cache/Lyric"
     }
 }

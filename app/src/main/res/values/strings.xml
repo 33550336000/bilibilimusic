@@ -119,6 +119,7 @@
     <string name="dialog_title_delete_music">删除音乐</string>
     <string name="dialog_title_delete_word">删除屏蔽字</string>
     <string name="dialog_title_saved_music">已保存歌曲</string>
+    <string name="saved_music_bili_format">B站 · %1$s</string>
     <string name="dialog_title_send_notification">发送通知</string>
     <string name="dialog_title_today_duration">今日播放时长显示</string>
     <string name="dialog_title_search_btn_style">搜索按钮样式</string>
