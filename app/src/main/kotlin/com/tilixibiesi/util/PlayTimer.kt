@@ -17,8 +17,6 @@ class PlayTimer(
     private var endTimeMs = 0L
     private var running = false
 
-    val isRunning: Boolean get() = running
-
     fun start(seconds: Int) {
         cancel()
         running = true

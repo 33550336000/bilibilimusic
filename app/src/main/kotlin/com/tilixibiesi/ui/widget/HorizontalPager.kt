@@ -213,6 +213,9 @@ class HorizontalPager @JvmOverloads constructor(
     private var pendingPage: Int? = null
     private var insideLayout = false
     private var pendingClearTemporary: Int? = null
+
+    /** 预测性返回跟手滑动期间为 true：此时 scrollX 可以停在任何位置，不被布局复位。 */
+    private var previewing = false
     private var pendingClearRunnable: Runnable? = null
     private val hitRect = Rect()
 
@@ -348,7 +351,7 @@ class HorizontalPager @JvmOverloads constructor(
             currentPage = visibleOrder.minByOrNull { abs(it - currentPage) } ?: currentPage
             onPageChangeListener?.invoke(currentPage)
         }
-        if (scrollState == SCROLL_STATE_IDLE) {
+        if (scrollState == SCROLL_STATE_IDLE && !previewing) {
             scrollTo(slotOf(currentPage).coerceAtLeast(0) * width, scrollY)
         }
     }
@@ -372,6 +375,7 @@ class HorizontalPager @JvmOverloads constructor(
 
     private fun settleFinished() {
         scroller.abortAnimation()
+        previewing = false
         setScrollState(SCROLL_STATE_IDLE)
         ensureOrder()
         val w = pageWidthPx
@@ -408,7 +412,16 @@ class HorizontalPager @JvmOverloads constructor(
     fun setCurrentPage(position: Int, smooth: Boolean = true) {
         ensureOrder()
         val target = position.coerceIn(0, lastIndex())
-        if (target == currentPage && scrollState == SCROLL_STATE_IDLE) return
+        if (target == currentPage && scrollState == SCROLL_STATE_IDLE) {
+            previewing = false
+            // 预览可能把内容滑走了一半，落回当前页的合法位置
+            if (pageWidthPx > 0) {
+                val aligned = slotOf(currentPage).coerceAtLeast(0) * pageWidthPx
+                if (aligned != scrollX) scrollTo(aligned, scrollY)
+            }
+            return
+        }
+        previewing = false
 
         if (!isEnabled(target)) return
 
@@ -435,6 +448,48 @@ class HorizontalPager @JvmOverloads constructor(
         postInvalidateOnAnimation()
     }
 
+
+    /**
+     * 指定页面对齐时的 scrollX；页面不可用或尚未布局时返回 null。
+     *
+     * 顺带确保该页已创建：预测性返回要滑过去时，目标页可能还没被 [ensurePages]
+     * 实例化过（只在当前页前后一格创建），不提前创建就会滑出一片空白。
+     */
+    fun pageScrollX(page: Int): Int? {
+        if (pageWidthPx <= 0) return null
+        ensureOrder()
+        val slot = slotOf(page)
+        if (slot < 0) return null
+        ensurePages(page)
+        return slot * pageWidthPx
+    }
+
+    /**
+     * 预测性返回跟手预览：直接改 scrollX，不经过 scroller，也不改 currentPage。
+     * 抬手时由调用方决定是 [setCurrentPage] 还是 [animateScrollBackTo]。
+     */
+    fun previewScrollTo(x: Int) {
+        if (pageWidthPx <= 0) return
+        previewing = true
+        scroller.abortAnimation()
+        if (scrollState == SCROLL_STATE_SETTLING) setScrollState(SCROLL_STATE_IDLE)
+        scrollTo(x.coerceIn(0, lastIndex() * pageWidthPx), scrollY)
+        invalidate()
+    }
+
+    /** 预览被取消时平滑滚回原位置。 */
+    fun animateScrollBackTo(x: Int) {
+        if (pageWidthPx <= 0) return
+        if (x == scrollX) {
+            previewing = false
+            return
+        }
+        previewing = true
+        scroller.abortAnimation()
+        setScrollState(SCROLL_STATE_SETTLING)
+        scroller.startScroll(scrollX, scrollY, x - scrollX, 0, SETTLE_DURATION)
+        postInvalidateOnAnimation()
+    }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         if (pageCount <= 1) return false
@@ -650,7 +705,6 @@ class HorizontalPager @JvmOverloads constructor(
         ensurePages(target)
 
         val dest = targetSlot * w
-        val remaining = abs(dest - scrollX)
         val duration = computeSettleDuration()
 
         setScrollState(SCROLL_STATE_SETTLING)

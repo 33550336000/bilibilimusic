@@ -5,6 +5,7 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.LocalizedResources
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.util.ActivityTracker
+import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.ViewUtils
 
 import android.annotation.SuppressLint
@@ -79,6 +80,7 @@ open class BaseActivity : Activity() {
     }
 
     override fun onDestroy() {
+        PredictiveBack.unregister(this, PredictiveBack.TAG_LOGIN)
         try {
             unregisterReceiver(languageUpdatedReceiver)
         } catch (_: Exception) {
@@ -108,6 +110,16 @@ open class BaseActivity : Activity() {
         setupBottomNav()
     }
 
+    /**
+     * 刻意不在这里统一注册返回回调。
+     *
+     * 注册了 `PRIORITY_DEFAULT` 的 [android.window.OnBackInvokedCallback] 之后，
+     * 系统自己的预测动画（跨 Activity、回到桌面）就不播了。绝大多数界面（歌单详情、
+     * 选歌页）根本不需要拦截返回，交给系统才是对的；只有确实要拦的地方
+     * （播放页浮层、全屏视频、登录页、主页翻页）才各自按需注册。
+     *
+     * API 33 以下系统仍直接调 [onBackPressed]，所以下面那个重写要保留。
+     */
     @Deprecated("Deprecated in Java")
     @Suppress("DEPRECATION")
     override fun onBackPressed() {

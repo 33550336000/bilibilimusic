@@ -4,7 +4,7 @@
   所以不跟着页面左右滑动，任何页面都看得到。外边距让它离开屏幕边缘；
   底部导航栏打开时 BaseActivity 会给根布局加 paddingBottom，它会自动被抬上去。
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.tilixibiesi.ui.widget.LiquidGlassLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/layout_player_control"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -12,9 +12,12 @@
     android:visibility="gone"
     android:layout_marginHorizontal="10dp"
     android:layout_marginBottom="10dp"
+    android:elevation="12dp">
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@drawable/player_bar_bg"
-    android:elevation="12dp"
     android:paddingHorizontal="12dp"
     android:paddingVertical="10dp">
 
@@ -40,7 +43,7 @@
             android:layout_weight="1"
             android:layout_marginStart="12dp"
             android:textSize="17sp"
-            android:textColor="#FFFFFFFF"
+            android:textColor="#FF000000"
             android:ellipsize="end"
             android:maxLines="2"
             android:gravity="top" />
@@ -68,7 +71,7 @@
             android:layout_height="40dp"
             android:text="@string/detail"
             android:textSize="16sp"
-            android:textColor="#FFFFFFFF"
+            android:textColor="#FF000000"
             android:gravity="center"
             android:background="?android:attr/selectableItemBackground"
             android:textAllCaps="false"
@@ -80,6 +83,7 @@
             android:layout_height="40dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_timer_white"
+            android:tint="#FF000000"
             android:scaleType="fitCenter"
             android:padding="6dp"
             android:contentDescription="@string/timer" />
@@ -90,6 +94,7 @@
             android:layout_height="44dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_previous"
+            android:tint="#FF000000"
             android:contentDescription="@string/previous" />
 
         <ImageButton
@@ -98,6 +103,7 @@
             android:layout_height="52dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_play"
+            android:tint="#FF000000"
             android:contentDescription="@string/play_pause" />
 
         <ImageButton
@@ -106,6 +112,7 @@
             android:layout_height="44dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_media_next"
+            android:tint="#FF000000"
             android:contentDescription="@string/next" />
 
         <ImageButton
@@ -114,6 +121,8 @@
             android:layout_height="40dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_revert"
+            android:tint="#FF000000"
             android:contentDescription="@string/play_mode" />
     </LinearLayout>
 </LinearLayout>
+</com.tilixibiesi.ui.widget.LiquidGlassLayout>

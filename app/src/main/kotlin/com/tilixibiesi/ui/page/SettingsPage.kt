@@ -340,6 +340,32 @@ class SettingsPage(base: Context) : BasePage(base) {
             )
         }
 
+        val btnLiquidGlass = findViewById<Button>(R.id.btn_liquid_glass)!!
+        updateLiquidGlassButtonText()
+        btnLiquidGlass.setOnClickListener {
+            val current = SpUtils.getLiquidGlassEnabled(this)
+            val message = if (current)
+                LanguageUtils.getString(this@SettingsPage, R.string.toast_liquid_glass_disabled)
+            else
+                LanguageUtils.getString(this@SettingsPage, R.string.toast_liquid_glass_enabled)
+            showMaterialDialog(
+                AlertDialog.Builder(this)
+                    .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.dialog_title_liquid_glass))
+                    .setMessage(getString(if (current)
+                        R.string.dialog_msg_liquid_glass_off
+                    else
+                        R.string.dialog_msg_liquid_glass_on))
+                    .setPositiveButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_ok)) { _, _ ->
+                        SpUtils.setLiquidGlassEnabled(this, !current)
+                        updateLiquidGlassButtonText()
+                        (activity as? MainPagerActivity)?.refreshFloatingPlayerBar()
+                        ToastUtils.show(this@SettingsPage, message)
+                    }
+                    .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
+                    .also { showMaterialDialog(it) }
+            )
+        }
+
         findViewById<Button>(R.id.btn_clear_cache)!!.setOnClickListener { storageDialogs.showCacheManager() }
 
         val btnToggleClickFx = findViewById<Button>(R.id.btn_toggle_click_fx)!!
@@ -583,6 +609,14 @@ class SettingsPage(base: Context) : BasePage(base) {
                 LanguageUtils.getString(this@SettingsPage, R.string.btn_bottom_nav_on)
             else
                 LanguageUtils.getString(this@SettingsPage, R.string.btn_bottom_nav_off)
+    }
+
+    private fun updateLiquidGlassButtonText() {
+        findViewById<Button>(R.id.btn_liquid_glass)?.text = LanguageUtils.getString(
+            this@SettingsPage,
+            if (SpUtils.getLiquidGlassEnabled(this)) R.string.btn_liquid_glass_on
+            else R.string.btn_liquid_glass_off
+        )
     }
 
     private fun updateClickFxButtonText() {

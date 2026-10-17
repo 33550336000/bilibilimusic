@@ -45,6 +45,7 @@
         android:icon="@mipmap/ic_launcher"
         android:excludeFromRecents="false" 
         android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
         android:hardwareAccelerated="true"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
@@ -76,6 +77,12 @@
             android:theme="@style/AppTheme.NoTitleBar"
             android:name="com.tilixibiesi.ui.SelectMusicActivity"
             android:exported="true" />
+        <activity
+            android:name="com.tilixibiesi.ui.BackGesturePrimerActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/TransparentPrimer" />
 
         <service
             android:name="com.tilixibiesi.service.MusicPlayerService"

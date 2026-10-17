@@ -68,7 +68,6 @@
 
     <string name="btn_bili_audio_quality">播放音质：%1$s</string>
     <string name="dialog_title_bili_audio_quality">B站音乐音质</string>
-    <string name="dialog_msg_bili_audio_quality">选择在线播放 B 站音乐时优先使用的音质。\n若所选音质不可用，将自动使用更高品质。</string>
     <string name="toast_bili_audio_quality_changed">播放音质已切换为：%1$s</string>
     <string name="audio_quality_64k">64K</string>
     <string name="audio_quality_132k">132K</string>
@@ -344,6 +343,14 @@
 <string name="toast_bottom_nav_disabled">底部导航栏已关闭</string>
     <string name="dialog_msg_bottom_nav_on">是否开启底部导航栏？</string>
     <string name="dialog_msg_bottom_nav_off">是否关闭底部导航栏？</string>
+    <string name="btn_liquid_glass">液态玻璃控制栏</string>
+    <string name="btn_liquid_glass_on">液态玻璃控制栏-开</string>
+    <string name="btn_liquid_glass_off">液态玻璃控制栏-关</string>
+    <string name="dialog_title_liquid_glass">液态玻璃控制栏</string>
+    <string name="dialog_msg_liquid_glass_on">是否开启液态玻璃效果？开启后悬浮播放栏会折射背后的内容。</string>
+    <string name="dialog_msg_liquid_glass_off">是否关闭液态玻璃效果？关闭后悬浮播放栏为纯白底。</string>
+    <string name="toast_liquid_glass_enabled">液态玻璃已开启</string>
+    <string name="toast_liquid_glass_disabled">液态玻璃已关闭</string>
 <string name="nav_songs">歌曲</string>
 <string name="nav_search">搜索</string>
 <string name="nav_playlist">歌单</string>
