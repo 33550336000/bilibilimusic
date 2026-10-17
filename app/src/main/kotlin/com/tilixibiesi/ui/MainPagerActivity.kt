@@ -42,6 +42,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
 
     private lateinit var pager: HorizontalPager
     private lateinit var pages: Array<BasePage>
+    private lateinit var floatingPlayerBar: View
+    private var playerBarWanted = false
+    private var videoFullscreen = false
+    private var playerBarInset = 0
     private var fxOverlay: ClickFxOverlay? = null
 
     private var currentPosition = PAGE_SONGS
@@ -73,7 +77,8 @@ class MainPagerActivity : BaseActivity(), PageHost {
                 override fun getCount(): Int = pages.size
                 override fun instantiateView(position: Int): View {
                     val page = pages[position]
-                    return page.performCreate(this@MainPagerActivity, null).also {
+                    return page.performCreate(this@MainPagerActivity, null).also { view ->
+                        if (playerBarInset > 0) applyPlayerBarInsetTo(view)
                         if (position == currentPosition) notifyPageShown(position)
                     }
                 }
@@ -85,6 +90,12 @@ class MainPagerActivity : BaseActivity(), PageHost {
         }
         applySearchPageAvailability()
         root.addView(pager)
+        // 悬浮播放控制栏与翻页控件平级：跟着窗口，不跟着页面滑动
+        floatingPlayerBar = layoutInflater.inflate(R.layout.layout_floating_player, root, false)
+        floatingPlayerBar.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            applyPlayerBarInset()
+        }
+        root.addView(floatingPlayerBar)
         setContentView(root)
         WindowUtils.setFullScreen(this)
 
@@ -155,6 +166,52 @@ class MainPagerActivity : BaseActivity(), PageHost {
                 if (i != position && p.created) p.onPause()
             }
         }
+    }
+
+    /**
+     * 悬浮栏压在所有页面之上，把它的高度（含外边距）补成每个页面根布局的下内边距，
+     * 页面内容就停在栏的上沿，四个页面都不用各自处理。
+     */
+    private fun applyPlayerBarInset() {
+        val inset = if (floatingPlayerBar.visibility == View.VISIBLE) {
+            val margin = (floatingPlayerBar.layoutParams as? ViewGroup.MarginLayoutParams)
+                ?.bottomMargin ?: 0
+            floatingPlayerBar.height + margin
+        } else {
+            0
+        }
+        if (inset == playerBarInset) return
+        playerBarInset = inset
+        pages.forEach { page -> page.pageView?.let { applyPlayerBarInsetTo(it) } }
+    }
+
+    private fun applyPlayerBarInsetTo(pageRoot: View) {
+        if (pageRoot.paddingBottom == playerBarInset) return
+        pageRoot.setPadding(
+            pageRoot.paddingLeft,
+            pageRoot.paddingTop,
+            pageRoot.paddingRight,
+            playerBarInset
+        )
+    }
+
+    /** 播放状态驱动的显隐；全屏视频期间另行压制，退出全屏自动恢复。 */
+    fun setFloatingPlayerBarVisible(visible: Boolean) {
+        playerBarWanted = visible
+        updateFloatingPlayerBar()
+    }
+
+    fun setVideoFullscreen(active: Boolean) {
+        videoFullscreen = active
+        updateFloatingPlayerBar()
+    }
+
+    private fun updateFloatingPlayerBar() {
+        val visible = playerBarWanted && !videoFullscreen
+        if ((floatingPlayerBar.visibility == View.VISIBLE) != visible) {
+            floatingPlayerBar.visibility = if (visible) View.VISIBLE else View.GONE
+        }
+        applyPlayerBarInset()
     }
 
     private fun handlePageChanged(position: Int) {

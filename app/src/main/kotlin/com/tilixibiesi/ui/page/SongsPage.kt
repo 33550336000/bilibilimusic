@@ -23,12 +23,14 @@ import android.view.View
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.ListView
 import android.widget.SeekBar
 import android.widget.TextView
 import com.tilixibiesi.R
 import com.tilixibiesi.bili.BiliHistoryHelper
 import com.tilixibiesi.bili.BiliVideoPlayer
+import com.tilixibiesi.bili.BiliCoverLoader
 import com.tilixibiesi.data.AppPermissionsBridge
 import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.LanguageUtils
@@ -70,7 +72,6 @@ class SongsPage(base: Context) : BasePage(base) {
         private const val IC_MODE_SINGLE_LOOP = android.R.drawable.ic_menu_revert
 
         private const val DEFAULT_SEEK_MAX = 100
-        private const val CONTROL_BAR_HEIGHT_DP = 132
     }
 
     private var originalSearchBg: Drawable? = null
@@ -83,6 +84,7 @@ class SongsPage(base: Context) : BasePage(base) {
     private lateinit var musicAdapter: MusicAdapter
     private lateinit var playerControlLayout: View
     private lateinit var tvCurrentMusic: TextView
+    private lateinit var ivControlCover: ImageView
     private lateinit var btnPlayPause: ImageButton
     private lateinit var btnPrev: ImageButton
     private lateinit var btnNext: ImageButton
@@ -248,17 +250,20 @@ class SongsPage(base: Context) : BasePage(base) {
 
     private fun initView() {
         lvMusic = findViewById(R.id.lv_music)!!
-        playerControlLayout = findViewById(R.id.layout_player_control)!!
-        tvCurrentMusic = findViewById(R.id.tv_current_music)!!
-        btnPlayPause = findViewById(R.id.btn_play_pause)!!
-        btnPrev = findViewById(R.id.btn_prev)!!
-        btnNext = findViewById(R.id.btn_next)!!
-        btnPlayMode = findViewById(R.id.btn_play_mode)!!
-        seekBar = findViewById(R.id.seekbar_progress)!!
+        // 控制栏挂在 Activity 根布局上（与翻页控件平级），不在本页的 pageView 里
+        playerControlLayout = activity.findViewById(R.id.layout_player_control)!!
+        tvCurrentMusic = activity.findViewById(R.id.tv_current_music)!!
+        ivControlCover = activity.findViewById(R.id.iv_control_cover)!!
+        ivControlCover.clipToOutline = true
+        btnPlayPause = activity.findViewById(R.id.btn_play_pause)!!
+        btnPrev = activity.findViewById(R.id.btn_prev)!!
+        btnNext = activity.findViewById(R.id.btn_next)!!
+        btnPlayMode = activity.findViewById(R.id.btn_play_mode)!!
+        seekBar = activity.findViewById(R.id.seekbar_progress)!!
         btnSearchFloat = findViewById(R.id.btn_search_float)!!
         originalSearchBg = btnSearchFloat.background
-        btnTimer = findViewById(R.id.btn_timer)!!
-        btnDetail = findViewById(R.id.btn_detail)!!
+        btnTimer = activity.findViewById(R.id.btn_timer)!!
+        btnDetail = activity.findViewById(R.id.btn_detail)!!
         tvTodayDuration = findViewById(R.id.tv_today_duration)!!
         tvTodayDuration.visibility = View.GONE
         tvTotalTodayDuration = findViewById(R.id.tv_total_today_duration)!!
@@ -540,6 +545,7 @@ class SongsPage(base: Context) : BasePage(base) {
         currentPlayPosition = position
         musicAdapter.notifyDataSetChanged()
         tvCurrentMusic.text = DataFileUtils.getDisplayName(bean.musicName)
+        syncControlCover()
         setPlayerControlVisible(true)
         seekBar.visibility = View.VISIBLE
         if (isCurrentTrack) {
@@ -564,13 +570,8 @@ class SongsPage(base: Context) : BasePage(base) {
     }
 
     private fun setPlayerControlVisible(visible: Boolean) {
-        playerControlLayout.visibility = if (visible) View.VISIBLE else View.GONE
-        val bottomPadding = if (visible) CONTROL_BAR_HEIGHT_DP else 0
-        val px = (bottomPadding * resources.displayMetrics.density).toInt()
-        if (lvMusic.paddingBottom != px) {
-            lvMusic.setPadding(lvMusic.paddingLeft, lvMusic.paddingTop, lvMusic.paddingRight, px)
-            lvMusic.clipToPadding = false
-        }
+        // 控制栏在 Activity 根布局上，显隐一致交给宿主，顺便让各页面让出它占的高度
+        (activity as? MainPagerActivity)?.setFloatingPlayerBarVisible(visible)
     }
 
     private fun sendServiceAction(action: String, vararg extras: Pair<String, Any>) {
@@ -628,6 +629,7 @@ class SongsPage(base: Context) : BasePage(base) {
             val nameChanged = DataFileUtils.getDisplayName(musicName) !=
                 MusicPlayerService.currentPlayingName.let { DataFileUtils.getDisplayName(it ?: "") }
             tvCurrentMusic.text = DataFileUtils.getDisplayName(musicName)
+            syncControlCover()
             setPlayerControlVisible(true)
             seekBar.visibility = View.VISIBLE
             isUserSeeking = false
@@ -661,6 +663,14 @@ class SongsPage(base: Context) : BasePage(base) {
             DataFileUtils.getDisplayName(it.musicName) == playingName
         }
         return musicList.getOrNull(index)
+    }
+
+    /** 控制栏封面：与播放页同一套取图逻辑，普通音乐取不到就停在占位图。 */
+    private fun syncControlCover() {
+        val bean = resolveCurrentBean()
+        // 列表重建会换掉 Bean 实例，所以按曲名比较：同一首歌不必重复读盘/拉网络
+        if (ivControlCover.tag == bean) return
+        BiliCoverLoader.loadForBean(ivControlCover, bean)
     }
 
     private fun ensureNowPlaying(): NowPlayingPage {
@@ -715,6 +725,7 @@ class SongsPage(base: Context) : BasePage(base) {
         updatePlayPauseButton(false)
         currentPlayPosition = -1
         tvCurrentMusic.text = ""
+        BiliCoverLoader.loadForBean(ivControlCover, null)
         setPlayerControlVisible(true)
         seekBar.visibility = View.GONE
         resetSeekBar()
@@ -728,6 +739,7 @@ class SongsPage(base: Context) : BasePage(base) {
                 DataFileUtils.getDisplayName(it.musicName) == playingName
             }
             tvCurrentMusic.text = playingName
+            syncControlCover()
             updatePlayPauseButton(isServicePlaying)
             musicList.forEachIndexed { i, bean -> bean.isPlaying = (i == currentPlayPosition) }
             if (notifyList) musicAdapter.notifyDataSetChanged()

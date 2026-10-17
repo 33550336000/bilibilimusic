@@ -244,7 +244,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 }
             }
             val cur = if (prepared) try { mp.currentPosition } catch (e: IllegalStateException) { 0 } else 0
-            val playing = prepared && (try { mp.isPlaying } catch (e: IllegalStateException) { false })
+            // 用播放意图状态回答：prepared 之前 mp.isPlaying 还是 false，
+            // 若照它回答，刚点开播放页的那一次请求就会把按钮刷成「可播放」。
+            val playing = isPlaying
             Intent(BROADCAST_PLAY_STATE).apply {
                 putExtra(EXTRA_CURRENT_POSITION, cur)
                 putExtra(EXTRA_DURATION, dur)
@@ -1296,6 +1298,8 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                             Intent(BROADCAST_PLAY_STATE).apply {
                                 putExtra(EXTRA_CURRENT_POSITION, current)
                                 putExtra(EXTRA_DURATION, duration)
+                                // 带上播放状态，界面才有机会自己纠正回正确图标
+                                putExtra(EXTRA_IS_PLAYING, true)
                                 setPackage(packageName)
                                 sendBroadcast(this)
                             }
@@ -1330,7 +1334,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             Intent(BROADCAST_PLAY_STATE).apply {
                 putExtra(EXTRA_CURRENT_POSITION, mp.currentPosition)
                 putExtra(EXTRA_DURATION, dur)
-                putExtra(EXTRA_IS_PLAYING, mp.isPlaying)
+                putExtra(EXTRA_IS_PLAYING, isPlaying)
                 setPackage(packageName)
                 sendBroadcast(this)
             }
