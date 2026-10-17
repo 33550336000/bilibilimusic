@@ -28,6 +28,7 @@ object SpUtils {
     private const val KEY_DIALOG_ALPHA = "dialog_alpha"
     private const val KEY_AUTO_LOAD_DEFAULT = "auto_load_default"
     private const val KEY_BOTTOM_NAV_ENABLED = "bottom_nav_enabled"
+    private const val KEY_LIQUID_GLASS_ENABLED = "liquid_glass_enabled"
 
     private const val KEY_CLICK_FX_ENABLED = "click_fx_enabled"
     private const val KEY_COLLAPSED_SECTIONS = "collapsed_sections"
@@ -125,6 +126,12 @@ object SpUtils {
         getSp(context).getBoolean(KEY_BOTTOM_NAV_ENABLED, false)
     fun setBottomNavEnabled(context: Context, enabled: Boolean) {
         getSp(context).edit().putBoolean(KEY_BOTTOM_NAV_ENABLED, enabled).apply()
+    }
+
+    fun getLiquidGlassEnabled(context: Context): Boolean =
+        getSp(context).getBoolean(KEY_LIQUID_GLASS_ENABLED, false)
+    fun setLiquidGlassEnabled(context: Context, enabled: Boolean) {
+        getSp(context).edit().putBoolean(KEY_LIQUID_GLASS_ENABLED, enabled).apply()
     }
 
     fun getClickFxEnabled(context: Context): Boolean =

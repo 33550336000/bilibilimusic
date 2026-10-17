@@ -26,6 +26,7 @@ import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.data.WebViewMetricsCleaner
 import com.tilixibiesi.util.ActivityTracker
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.WindowUtils
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -213,6 +214,19 @@ object BiliLoginHelper {
 
         overlay = container
         webView = wv
+        PredictiveBack.register(
+            activity,
+            PredictiveBack.TAG_LOGIN,
+            onInvoke = { closeLogin(extract = true) },
+            onProgress = { progress ->
+                container.scaleX = 1f - 0.06f * progress
+                container.scaleY = 1f - 0.06f * progress
+                container.alpha = 1f - 0.35f * progress
+            },
+            onCancel = {
+                container.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(180).start()
+            }
+        )
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true)
         wv.loadUrl(LOGIN_URL)
@@ -244,6 +258,7 @@ object BiliLoginHelper {
         activityRef = null
         onLoginSuccess = null
         loggedInThisSession = false
+        activity?.let { PredictiveBack.unregister(it, PredictiveBack.TAG_LOGIN) }
 
         runCatching {
             wv?.stopLoading()

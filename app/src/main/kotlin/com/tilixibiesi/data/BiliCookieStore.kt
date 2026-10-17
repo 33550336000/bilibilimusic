@@ -25,8 +25,6 @@ object BiliCookieStore {
 
     fun cookieFile(): File = StoragePaths.resolveWrite(COOKIE_FILE_REL)
 
-    fun cookieDir(): File = StoragePaths.resolveWrite(COOKIE_DIR_REL)
-
     /** 从本地文件加载 Cookie；文件缺失时回退并迁移旧版 SharedPreferences 记录。 */
     fun get(context: Context): String {
         val file = cookieFile()

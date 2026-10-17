@@ -25,6 +25,8 @@ import com.tilixibiesi.data.AppBackgroundListener
 import com.tilixibiesi.data.WebViewMetricsCleaner
 import com.tilixibiesi.ui.widget.ClickFxOverlay
 import com.tilixibiesi.ui.widget.HorizontalPager
+import com.tilixibiesi.ui.widget.LiquidGlassLayout
+import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.WindowUtils
 
 class MainPagerActivity : BaseActivity(), PageHost {
@@ -50,6 +52,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
 
     private var currentPosition = PAGE_SONGS
     private var started = false
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +87,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
                 }
             }
             onPageChangeListener = { pos -> handlePageChanged(pos) }
+            onScrollStateChanged = { _ -> invalidateGlassBackdrop() }
             dragGuard = { _, _ ->
                 (pages.getOrNull(PAGE_SEARCH) as? SearchPage)?.isVideoFullscreenActive == true
             }
@@ -92,6 +96,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
         root.addView(pager)
         // 悬浮播放控制栏与翻页控件平级：跟着窗口，不跟着页面滑动
         floatingPlayerBar = layoutInflater.inflate(R.layout.layout_floating_player, root, false)
+        (floatingPlayerBar as? LiquidGlassLayout)?.apply {
+            backdropSource = pager
+            glassEnabled = SpUtils.getLiquidGlassEnabled(this@MainPagerActivity)
+        }
         floatingPlayerBar.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             applyPlayerBarInset()
         }
@@ -108,6 +116,25 @@ class MainPagerActivity : BaseActivity(), PageHost {
         applyClickFxOverlay()
 
         AppPermissionsBridge.request(this)
+
+        primeBackAnimation()
+    }
+
+    /**
+     * 冷启动后让窗口补一次 pause→resume。
+     *
+     * 系统的返回动画控制器要等窗口完成一次真正的生命周期往返才会接管它；
+     * 在那之前注册的返回回调虽然收得到，但 progress 恒为 0、touchX 也不更新，
+     * 表现为「能返回却没有跟手预演」——这正是「离开主活动再回来才生效」的原因。
+     *
+     * 这里拉起一个全透明、无转场的空 Activity 并让它立刻结束，
+     * 借这一次往返把窗口预热好，用户看不到任何中间态。
+     */
+    private fun primeBackAnimation() {
+        window.decorView.post {
+            startActivity(Intent(this, BackGesturePrimerActivity::class.java))
+            overridePendingTransition(0, 0)
+        }
     }
 
     private fun applyClickFxOverlay() {
@@ -185,14 +212,45 @@ class MainPagerActivity : BaseActivity(), PageHost {
         pages.forEach { page -> page.pageView?.let { applyPlayerBarInsetTo(it) } }
     }
 
+    /**
+     * 把悬浮栏占的高度让给页面里那个可滚动容器，而不是页面根。
+     *
+     * 打在页面根上的话，根的子 View 都是 match_parent，可用高度会被直接扣掉一截，
+     * 内容就在悬浮栏上沿被「截断」。打在列表/ScrollView 上并关掉 clipToPadding，
+     * 内容仍能滚到悬浮栏底下，只是最后一屏会留出这段空白，滚到底不会压住悬浮栏。
+     */
     private fun applyPlayerBarInsetTo(pageRoot: View) {
-        if (pageRoot.paddingBottom == playerBarInset) return
-        pageRoot.setPadding(
-            pageRoot.paddingLeft,
-            pageRoot.paddingTop,
-            pageRoot.paddingRight,
+        val scrollable = findScrollContainer(pageRoot) ?: pageRoot
+        if (scrollable.paddingBottom == playerBarInset) return
+        scrollable.setPadding(
+            scrollable.paddingLeft,
+            scrollable.paddingTop,
+            scrollable.paddingRight,
             playerBarInset
         )
+        // clipToPadding 是 ViewGroup 的属性（ScrollView / ListView 都有）
+        if (scrollable !== pageRoot) (scrollable as? ViewGroup)?.clipToPadding = false
+    }
+
+    /** 深度优先找页面里第一个可滚动容器（列表或 ScrollView）。 */
+    private fun findScrollContainer(root: View): View? {
+        if (root is android.widget.AbsListView || root is android.widget.ScrollView) return root
+        if (root !is ViewGroup) return null
+        for (i in 0 until root.childCount) {
+            findScrollContainer(root.getChildAt(i))?.let { return it }
+        }
+        return null
+    }
+
+    /** 背后内容动过（翻页、返回预览、页面切换）时，让玻璃立刻重新捕获。 */
+    fun invalidateGlassBackdrop() {
+        (floatingPlayerBar as? LiquidGlassLayout)?.refreshBackdrop()
+    }
+
+    /** 设置页切换液态玻璃后，让悬浮栏立刻按新设置重绘。 */
+    fun refreshFloatingPlayerBar() {
+        (floatingPlayerBar as? LiquidGlassLayout)?.glassEnabled =
+            SpUtils.getLiquidGlassEnabled(this)
     }
 
     /** 播放状态驱动的显隐；全屏视频期间另行压制，退出全屏自动恢复。 */
@@ -247,6 +305,26 @@ class MainPagerActivity : BaseActivity(), PageHost {
         WindowUtils.setFullScreen(this)
         pages.getOrNull(currentPosition)?.takeIf { it.created }?.onResume()
         applyClickFxOverlay()
+        // 整个生命周期只真正注册一次：重复注册会重置系统的返回动画状态。
+        // 「当前页要不要预演」放在回调内部判断，而不是靠反复注销/注册切换。
+        PredictiveBack.register(
+            this,
+            PredictiveBack.TAG_PAGER,
+            onInvoke = {
+                // 登录覆盖层在最上层，先关它
+                if (BiliLoginHelper.handleBackPressed()) return@register
+                if (handleBackPressed()) return@register
+                if (currentPosition == PAGE_SONGS) {
+                    // 停在歌曲页：返回就是退出应用
+                    finish()
+                } else {
+                    // 预演已经把内容滑到一半，返回被别的层消费了就滑回去
+                    pager.pageScrollX(currentPosition)?.let { pager.animateScrollBackTo(it) }
+                }
+            },
+            onProgress = { if (currentPosition != PAGE_SONGS) onBackProgressPreview(it) },
+            onCancel = { if (currentPosition != PAGE_SONGS) onBackCancelPreview() }
+        )
     }
 
     override fun onPause() {
@@ -255,7 +333,28 @@ class MainPagerActivity : BaseActivity(), PageHost {
         super.onPause()
     }
 
+    /**
+     * 跟手预演：从当前页滑向歌曲页。
+     *
+     * 翻页控件里本来就并排着歌曲页，滑过去就露出了它；用缩放/淡出只会露出
+     * 窗口底色（黑色），看不出「回到哪一页」。
+     * 与 BaseActivity 注册的返回回调共用同一次注册，避免两个回调互相顶掉。
+     */
+    private fun onBackProgressPreview(progress: Float) {
+        if (currentPosition == PAGE_SONGS) return
+        val from = pager.pageScrollX(currentPosition) ?: return
+        val to = pager.pageScrollX(PAGE_SONGS) ?: return
+        invalidateGlassBackdrop()
+        pager.previewScrollTo((from + (to - from) * progress).toInt())
+    }
+
+    private fun onBackCancelPreview() {
+        if (currentPosition == PAGE_SONGS) return
+        pager.pageScrollX(currentPosition)?.let { pager.animateScrollBackTo(it) }
+    }
+
     override fun onDestroy() {
+        PredictiveBack.unregister(this, PredictiveBack.TAG_PAGER)
         pages.forEach { if (it.created) it.onDestroy() }
         WebViewMetricsCleaner.removeBackgroundListener(backgroundFxReleaser)
         fxOverlay?.pause()
@@ -284,14 +383,27 @@ class MainPagerActivity : BaseActivity(), PageHost {
     override fun onBackPressed() {
         // 登录覆盖层在最上层，返回键先关它
         if (BiliLoginHelper.handleBackPressed()) return
-        if ((pages.getOrNull(PAGE_SONGS) as? SongsPage)?.handleNowPlayingBack() == true) return
+        if (handleBackPressed()) return
+        super.onBackPressed()
+    }
+
+    /**
+     * 三层返回逻辑：播放页浮层 → 页内返回 → 非主页回主页。
+     *
+     * 抽出来是为了让 [onBackPressed]（旧路径）和预测性返回回调（新路径）共用，
+     * targetSdk >= 36 后系统只走后者。
+     *
+     * @return true 表示已消费，不需要再退出 Activity
+     */
+    private fun handleBackPressed(): Boolean {
+        if ((pages.getOrNull(PAGE_SONGS) as? SongsPage)?.handleNowPlayingBack() == true) return true
         val page = pages.getOrNull(currentPosition)
-        if (page?.created == true && page.onBackPressed()) return
+        if (page?.created == true && page.onBackPressed()) return true
         if (currentPosition != PAGE_SONGS) {
             setPage(PAGE_SONGS, true)
-            return
+            return true
         }
-        super.onBackPressed()
+        return false
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {

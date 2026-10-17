@@ -9,12 +9,12 @@ ext {
 
 android {
     namespace = "com.tilixibiesi"
-    compileSdk = 30
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.tilixibiesi"
         minSdk = 30
-        targetSdk = 30
+        targetSdk = 36
         versionCode = 13
         versionName = "33550336"
         ndk {

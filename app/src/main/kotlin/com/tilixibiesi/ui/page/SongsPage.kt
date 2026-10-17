@@ -285,8 +285,9 @@ class SongsPage(base: Context) : BasePage(base) {
         seekBar.visibility = View.VISIBLE
         seekBar.max = DEFAULT_SEEK_MAX
         seekBar.progress = 0
-        seekBar.progressDrawable = resources.getDrawable(R.drawable.seekbar_track, null)
-        seekBar.thumb = resources.getDrawable(R.drawable.seekbar_thumb, null)
+        // 悬浮栏是白底，用深色轨道/滑块，否则白色进度条在白底上看不见
+        seekBar.progressDrawable = resources.getDrawable(R.drawable.floating_seekbar_track, null)
+        seekBar.thumb = resources.getDrawable(R.drawable.floating_seekbar_thumb, null)
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {}
             override fun onStartTrackingTouch(seekBar: SeekBar?) {

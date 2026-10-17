@@ -1,5 +1,6 @@
 package com.tilixibiesi.ui.page
 import com.tilixibiesi.util.PlaylistDialogHelper
+import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.ToastUtils
 
 import com.tilixibiesi.bili.BiliHistoryHelper
@@ -173,12 +174,48 @@ class SearchPage(base: Context) : BasePage(base) {
         findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.release(it) }
     }
 
+    /**
+     * 全屏播放时返回只会退出全屏，行为确定，适合让系统做预测性预演：
+     * 右滑跟手时视频会跟着缩回小窗（progress 越大越接近关闭态）。
+     */
+    private fun registerVideoPredictiveBack() {
+        PredictiveBack.register(
+            activity,
+            PredictiveBack.TAG_FULLSCREEN_VIDEO,
+            onInvoke = { if (::videoPlayer.isInitialized) closeFullscreenVideo() },
+            onProgress = { progress ->
+                if (!::videoPlayer.isInitialized) return@register
+                findViewById<View>(R.id.layout_fullscreen_video)?.apply {
+                    val scale = 1f - 0.12f * progress
+                    scaleX = scale
+                    scaleY = scale
+                    alpha = 1f - 0.35f * progress
+                }
+            },
+            onCancel = {
+                findViewById<View>(R.id.layout_fullscreen_video)?.apply {
+                    animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(180).start()
+                }
+            }
+        )
+    }
+
+    /** 关掉全屏播放器并复位跟手动画留下的缩放/透明度。 */
+    private fun closeFullscreenVideo() {
+        findViewById<View>(R.id.layout_fullscreen_video)?.apply {
+            scaleX = 1f
+            scaleY = 1f
+            alpha = 1f
+        }
+        videoPlayer.close()
+        currentVideoIndex = -1
+    }
+
     override fun onBackPressed(): Boolean {
         if (findViewById<FrameLayout>(R.id.layout_fullscreen_video)?.visibility == View.VISIBLE &&
             ::videoPlayer.isInitialized
         ) {
-            videoPlayer.close()
-            currentVideoIndex = -1
+            closeFullscreenVideo()
             return true
         }
         return false
@@ -350,10 +387,12 @@ class SearchPage(base: Context) : BasePage(base) {
             callback = object : BiliVideoPlayer.Callback {
                 override fun onFullscreenOpened() {
                     (activity as? MainPagerActivity)?.setVideoFullscreen(true)
+                    registerVideoPredictiveBack()
                 }
 
                 override fun onFullscreenClosed() {
                     (activity as? MainPagerActivity)?.setVideoFullscreen(false)
+                    PredictiveBack.unregister(activity, PredictiveBack.TAG_FULLSCREEN_VIDEO)
                 }
                 override fun setSystemUIForFullscreen() = setFullScreen()
                 override fun restoreSystemUI() = this@SearchPage.restoreSystemUI()

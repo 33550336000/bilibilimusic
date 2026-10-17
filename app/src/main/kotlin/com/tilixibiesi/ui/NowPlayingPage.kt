@@ -14,6 +14,7 @@ import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.CacheManager
+import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.ViewUtils
 import com.tilixibiesi.ui.widget.SquareLayout
@@ -403,22 +404,24 @@ class NowPlayingPage(
         isVisible = true
         root.animate().cancel()
         root.visibility = View.VISIBLE
-        root.translationY = root.height.toFloat().takeIf { it > 0f } ?: dp(800f).toFloat()
+        root.translationY = hiddenOffset()
         root.animate()
             .translationY(0f)
             .setDuration(ANIM_MS)
             .setInterpolator(DecelerateInterpolator())
             .start()
         refresh()
+        registerPredictiveBack()
     }
 
     fun hide() {
         if (!isVisible) return
         isVisible = false
+        PredictiveBack.unregister(activity, PredictiveBack.TAG_NOW_PLAYING)
         showPlayerPane()
         root.animate().cancel()
         root.animate()
-            .translationY(root.height.toFloat())
+            .translationY(hiddenOffset())
             .setDuration(ANIM_MS)
             .setInterpolator(AccelerateInterpolator())
             .withEndAction {
@@ -426,6 +429,28 @@ class NowPlayingPage(
             }
             .start()
     }
+
+    /** 播放页完全盖住主界面，返回一定是关它：注册进来，让下滑手势跟手预览关闭。 */
+    private fun registerPredictiveBack() {
+        PredictiveBack.register(
+            activity,
+            PredictiveBack.TAG_NOW_PLAYING,
+            onInvoke = { if (isVisible) handleBack() },
+            onProgress = { progress ->
+                if (!isVisible || isLyricsVisible) return@register
+                root.animate().cancel()
+                root.translationY = hiddenOffset() * progress
+            },
+            onCancel = {
+                if (!isVisible) return@register
+                root.animate().translationY(0f).setDuration(ANIM_MS)
+                    .setInterpolator(DecelerateInterpolator()).start()
+            }
+        )
+    }
+
+    private fun hiddenOffset(): Float =
+        root.height.toFloat().takeIf { it > 0f } ?: dp(800f).toFloat()
 
     fun handleBack(): Boolean {
         if (!isVisible) return false
