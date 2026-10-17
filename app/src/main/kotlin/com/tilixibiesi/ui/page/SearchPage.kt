@@ -18,7 +18,6 @@ import com.tilixibiesi.ui.widget.DanmakuView
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.AppExecutors
-import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.WindowUtils
 import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.data.SpUtils
@@ -123,7 +122,6 @@ class SearchPage(base: Context) : BasePage(base) {
 
     override fun onPause() {
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.releaseCovers()
-        findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.setActive(it, false) }
         if (!::videoPlayer.isInitialized) return
         videoPlayer.onHostPause()
         val layoutFullscreen = findViewById<FrameLayout>(R.id.layout_fullscreen_video) ?: return
@@ -157,7 +155,6 @@ class SearchPage(base: Context) : BasePage(base) {
         updateBiliButtonState()
         updateListVisibility()
         applySettings()
-        findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.setActive(it, true) }
         if (!::videoPlayer.isInitialized) return
         videoPlayer.onHostResume()
         val layoutFullscreen = findViewById<FrameLayout>(R.id.layout_fullscreen_video) ?: return
@@ -171,7 +168,6 @@ class SearchPage(base: Context) : BasePage(base) {
     override fun onDestroy() {
         BiliVideoPlayer.stopCurrentVideo()
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.shutdown()
-        findViewById<View>(R.id.search_bg_host)?.let { BackgroundHelper.release(it) }
     }
 
     /**
@@ -838,8 +834,6 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun applySettings() {
-        val bgHost = findViewById<View>(R.id.search_bg_host) ?: return
-        BackgroundHelper.applyBackground(this, bgHost, SpUtils.getBackgroundAlpha(this))
         etSearch.setTextColor(FontUtils.color(this, 0xFFFFFFFF.toInt()))
         etSearch.textSize = SpUtils.getFontSize(this).toFloat()
     }

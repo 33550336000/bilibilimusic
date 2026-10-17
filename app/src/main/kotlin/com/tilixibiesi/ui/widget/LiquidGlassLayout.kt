@@ -8,7 +8,6 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Outline
 import android.graphics.Path
-import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.RenderEffect
 import android.graphics.RenderNode
@@ -19,13 +18,11 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
-import android.os.SystemClock
 import android.util.AttributeSet
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
-import android.widget.FrameLayout
+import android.widget.LinearLayout
 import kotlin.math.abs
 
 /**
@@ -39,7 +36,7 @@ import kotlin.math.abs
  *     [RenderEffect.createRuntimeShaderEffect]，于是着色器的输入就是「模糊后的背景」。
  *     着色器按 SDF 圆角矩形求表面法线，做半圆倒角高度场、Snell 折射、逐通道色散、
  *     边缘镜像回声、Fresnel 边缘高光。
- *  4. 色调与合成——白调在着色器里叠到折射结果上，触摸泛光/倾斜高光画在最上层。
+ *  4. 色调与合成——白调在着色器里叠到折射结果上，倾斜高光画在最上层。
  *
  * 降级：API < 33 没有 AGSL，退化为「模糊 + 白调」；AGSL 编译或绘制抛异常时同样回落，
  * 任何情况下都不崩。关闭玻璃时直接画白底圆角，零额外开销。
@@ -48,7 +45,7 @@ class LiquidGlassLayout @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : FrameLayout(context, attrs, defStyleAttr) {
+) : LinearLayout(context, attrs, defStyleAttr) {
 
     companion object {
         /** 背景捕获降采样倍数：越小越清晰，也越贵。 */
@@ -57,26 +54,32 @@ class LiquidGlassLayout @JvmOverloads constructor(
         private const val CORNER_DP = 26f
         private const val BEVEL_DP = 18f
 
-        private const val TOUCH_BLOOM_MS = 520L
+        /**
+         * 本机能否真正跑折射：API 33+ 才有 AGSL RuntimeShader。
+         *
+         * 编译一次就缓存结果，失败（厂商实现缺失等）一律当作不可用，
+         * 调用方据此直接退回普通背景，而不是画一层模糊糊上去。
+         */
+        private val shaderSupported: Boolean by lazy {
+            Build.VERSION.SDK_INT >= 33 && runCatching { RuntimeShader(AGSL) }.isSuccess
+        }
 
-        /** 触摸坐标的「无效」哨兵值，着色器据此跳过泛光。 */
-        private const val NO_TOUCH = -9999f
+        /** 折射是否可用；不可用时调用方应保持原有背景实现。 */
+        fun isAvailable(): Boolean = shaderSupported
 
         /**
          * AGSL 折射着色器。
          *
          * uBackdrop 由 createRuntimeShaderEffect 绑定为「模糊后的背景」。
          * 逐像素流程：SDF → 法线 → 倒角高度场 → 3D 法线 → Snell 折射 →
-         * 三通道色散 → 边缘镜像回声 → 白调 → Fresnel 高光 → 倾斜/触摸高光。
+         * 三通道色散 → 边缘镜像回声 → 白调 → Fresnel 高光 → 倾斜高光。
          */
         val AGSL = """
 uniform shader uBackdrop;
 uniform float2 uSize;
 uniform float uCorner;
 uniform float uBevel;
-uniform float2 uTouch;
 uniform float2 uTilt;
-uniform float uBloom;
 
 // 圆角矩形的符号距离场
 float sdRoundBox(float2 p, float2 b, float r) {
@@ -147,12 +150,6 @@ half4 main(float2 fragCoord) {
     float hd = length((p - hl) / float2(uSize.x * 0.55, uSize.y * 1.10));
     col += float3(smoothstep(0.85, 0.0, hd) * 0.16);
 
-    // ---- 12. 触摸泛光 ----
-    if (uBloom > 0.001 && uTouch.x > -9000.0) {
-        float td = length(p - uTouch) / (uSize.y * 1.35 + 1.0);
-        col += float3(smoothstep(0.75, 0.0, td) * uBloom * 0.55);
-    }
-
     // 轻微压暗，玻璃不至于过曝
     col *= 0.97;
 
@@ -193,7 +190,40 @@ half4 main(float2 fragCoord) {
         }
 
     private val density = resources.displayMetrics.density
-    private val cornerPx = CORNER_DP * density
+
+    /** 圆角半径（dp）：控制栏默认 [CORNER_DP]，设置页卡片用它对齐原来的 32dp 卡片圆角。 */
+    var cornerRadiusDp: Float = CORNER_DP
+        set(value) {
+            if (field == value) return
+            field = value
+            cornerPx = value * density
+            invalidateOutline()
+            invalidate()
+        }
+
+    /**
+     * 关闭时是否自己画不透明白底。
+     *
+     * 控制栏底下没有别的背景，关掉玻璃就得自己补一层白底；
+     * 设置页卡片关掉玻璃要回到原来的卡片底色（由 View 自己的 background 画），
+     * 所以那里把它设为 false。
+     */
+    var solidWhenDisabled: Boolean = true
+
+    /**
+     * 是否跟随陀螺仪画倾斜高光。
+     *
+     * 只有控制栏需要：一屏六张卡片各注册一个旋转矢量传感器，既费电，
+     * 每帧还要各自重绘，收益却看不出来。
+     */
+    var tiltEnabled: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            updateTiltSensor()
+        }
+
+    private var cornerPx = CORNER_DP * density
     private val bevelPx = BEVEL_DP * density
     private val clipPath = Path()
     private val boundsF = RectF()
@@ -220,15 +250,6 @@ half4 main(float2 fragCoord) {
 
     private val blurNode = RenderNode("liquidGlassBlur")
     private val shaderNode = RenderNode("liquidGlassShader")
-
-    private var touchX = NO_TOUCH
-    private var touchY = NO_TOUCH
-
-    /** 手指当前是否按在本栏上。 */
-    private var touching = false
-
-    /** 抬手时刻，用于衰减；按住期间不用它。 */
-    private var releaseAt = 0L
 
     private var tiltX = 0f
     private var tiltY = 0f
@@ -310,8 +331,20 @@ half4 main(float2 fragCoord) {
      */
     private val preDrawWatcher = android.view.ViewTreeObserver.OnPreDrawListener {
         val src = backdropSource
-        if (src != null && glassEnabled && scrollSignature(src) != lastSignature) invalidate()
+        if (src != null && glassEnabled && backdropSignature(src) != lastSignature) invalidate()
         true
+    }
+
+    /**
+     * 背景签名 = 来源子树的内容 + 自己相对窗口的位置。
+     *
+     * 只算来源子树是不够的：设置页的卡片在 ScrollView 里，滚动时来源（背景层）一动不动，
+     * 变的是卡片自己的位置。不把自身位置算进去，滚过之后玻璃会一直折射「上一屏」的内容。
+     */
+    private fun backdropSignature(src: View): Int {
+        val selfLoc = IntArray(2)
+        getLocationInWindow(selfLoc)
+        return scrollSignature(src) * 31 + selfLoc[0] * 31 + selfLoc[1]
     }
 
     private fun detachPreDrawWatcher() {
@@ -327,20 +360,20 @@ half4 main(float2 fragCoord) {
         clipPath.addRoundRect(boundsF, cornerPx, cornerPx, Path.Direction.CW)
 
         if (!glassEnabled) {
-            canvas.drawRoundRect(boundsF, cornerPx, cornerPx, whitePaint)
-            canvas.drawRoundRect(boundsF, cornerPx, cornerPx, borderPaint)
+            drawSolid(canvas)
             return
         }
 
-        val bmp = refreshBackdropIfNeeded()
+        // 没有 AGSL：控制栏退回「模糊 + 白调」，卡片直接让位给原来的卡片底色
+        val bmp = if (shaderSupported) refreshBackdropIfNeeded() else null
         if (bmp == null) {
-            canvas.drawRoundRect(boundsF, cornerPx, cornerPx, whitePaint)
-            canvas.drawRoundRect(boundsF, cornerPx, cornerPx, borderPaint)
+            if (!shaderSupported && !solidWhenDisabled) return
+            drawSolid(canvas)
             return
         }
 
         var drawn = false
-        if (Build.VERSION.SDK_INT >= 33 && canvas.isHardwareAccelerated) {
+        if (canvas.isHardwareAccelerated) {
             drawn = try {
                 drawShaderPass(canvas, bmp)
             } catch (_: Throwable) {
@@ -348,9 +381,18 @@ half4 main(float2 fragCoord) {
                 false
             }
         }
+        // 着色器中途坏掉：卡片回到原背景，控制栏继续用降级路径
+        if (!drawn && !solidWhenDisabled) return
         if (!drawn) drawFallback(canvas, bmp)
 
         drawSpecular(canvas)
+        canvas.drawRoundRect(boundsF, cornerPx, cornerPx, borderPaint)
+    }
+
+    /** 纯白底兜底：控制栏关闭玻璃/不可用时的样子。 */
+    private fun drawSolid(canvas: Canvas) {
+        if (!solidWhenDisabled) return
+        canvas.drawRoundRect(boundsF, cornerPx, cornerPx, whitePaint)
         canvas.drawRoundRect(boundsF, cornerPx, cornerPx, borderPaint)
     }
 
@@ -361,9 +403,7 @@ half4 main(float2 fragCoord) {
         s.setFloatUniform("uSize", width.toFloat(), height.toFloat())
         s.setFloatUniform("uCorner", cornerPx)
         s.setFloatUniform("uBevel", bevelPx)
-        s.setFloatUniform("uTouch", touchX, touchY)
         s.setFloatUniform("uTilt", tiltX, tiltY)
-        s.setFloatUniform("uBloom", bloomAmount())
 
         val radius = blurRadiusDp * density
         blurNode.setPosition(0, 0, width, height)
@@ -410,58 +450,29 @@ half4 main(float2 fragCoord) {
         canvas.restoreToCount(save)
     }
 
-    /** 触摸泛光 + 倾斜镜面高光（仅降级路径需要，着色器路径已在片元里算过）。 */
+    /** 倾斜镜面高光（仅降级路径需要，着色器路径已在片元里算过）。 */
     private fun drawSpecular(canvas: Canvas) {
         if (Build.VERSION.SDK_INT >= 33 && !shaderBroken && shader != null) return
 
-        val bloom = bloomAmount()
-        val tiltLight = abs(tiltX) > 0.001f || abs(tiltY) > 0.001f
-        if (bloom <= 0.01f && !tiltLight) return
+        if (abs(tiltX) <= 0.001f && abs(tiltY) <= 0.001f) return
 
         val save = canvas.save()
         canvas.clipPath(clipPath)
 
-        if (bloom > 0.01f) {
-            specPaint.reset()
-            specPaint.isAntiAlias = true
-            specPaint.shader = RadialGradient(
-                touchX, touchY, (height * 1.35f).coerceAtLeast(90f * density),
-                intArrayOf(0x5AFFFFFF, 0x1FFFFFFF, Color.TRANSPARENT),
-                floatArrayOf(0f, 0.42f, 1f),
-                Shader.TileMode.CLAMP
-            )
-            specPaint.alpha = (bloom * 255).toInt().coerceIn(0, 255)
-            canvas.drawRect(boundsF, specPaint)
-        }
-
-        if (tiltLight) {
-            val cx = width * (0.5f + tiltX * 0.42f)
-            val cy = height * (0.35f + tiltY * 0.30f)
-            specPaint.reset()
-            specPaint.isAntiAlias = true
-            specPaint.shader = LinearGradient(
-                cx - width * 0.55f, cy - height,
-                cx + width * 0.55f, cy + height,
-                intArrayOf(Color.TRANSPARENT, 0x24FFFFFF, Color.TRANSPARENT),
-                floatArrayOf(0f, 0.5f, 1f),
-                Shader.TileMode.CLAMP
-            )
-            canvas.drawRect(boundsF, specPaint)
-        }
+        val cx = width * (0.5f + tiltX * 0.42f)
+        val cy = height * (0.35f + tiltY * 0.30f)
+        specPaint.reset()
+        specPaint.isAntiAlias = true
+        specPaint.shader = LinearGradient(
+            cx - width * 0.55f, cy - height,
+            cx + width * 0.55f, cy + height,
+            intArrayOf(Color.TRANSPARENT, 0x24FFFFFF, Color.TRANSPARENT),
+            floatArrayOf(0f, 0.5f, 1f),
+            Shader.TileMode.CLAMP
+        )
+        canvas.drawRect(boundsF, specPaint)
 
         canvas.restoreToCount(save)
-    }
-
-    /**
-     * 泛光强度：按住期间恒为 1（不闪一下就消失），抬手后按 [TOUCH_BLOOM_MS] 衰减。
-     */
-    private fun bloomAmount(): Float {
-        if (touchX < NO_TOUCH / 2f) return 0f
-        if (touching) return 1f
-        if (releaseAt == 0L) return 0f
-        val elapsed = SystemClock.uptimeMillis() - releaseAt
-        if (elapsed < 0 || elapsed > TOUCH_BLOOM_MS) return 0f
-        return (1f - elapsed.toFloat() / TOUCH_BLOOM_MS).coerceIn(0f, 1f)
     }
 
     // ---------- 背景捕获 ----------
@@ -471,7 +482,7 @@ half4 main(float2 fragCoord) {
         if (width <= 0 || height <= 0) return backdrop
         if (capturing) return backdrop
 
-        val signature = scrollSignature(src)
+        val signature = backdropSignature(src)
         if (signature == lastSignature) return backdrop
 
         val bw = (width / DOWNSCALE).coerceAtLeast(8)
@@ -560,73 +571,11 @@ half4 main(float2 fragCoord) {
 
     // ---------- 交互 ----------
 
-    /**
-     * 用 dispatch 而不是 onTouchEvent 跟踪按下点：
-     * 栏里全是按钮，点击会被子 View 消费，onTouchEvent 收不到。
-     */
-    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
-        if (glassEnabled) {
-            when (event.actionMasked) {
-                // 按住期间泛光常亮并跟着手指走，位置每帧更新
-                MotionEvent.ACTION_DOWN -> {
-                    touching = true
-                    touchX = event.x
-                    touchY = event.y
-                    invalidate()
-                    scheduleBloomFrames()
-                }
-
-                MotionEvent.ACTION_MOVE -> {
-                    if (touching && (event.x != touchX || event.y != touchY)) {
-                        touchX = event.x
-                        touchY = event.y
-                        invalidate()
-                    }
-                }
-
-                MotionEvent.ACTION_UP,
-                MotionEvent.ACTION_CANCEL -> {
-                    touching = false
-                    // 从抬手这一刻开始衰减
-                    releaseAt = SystemClock.uptimeMillis()
-                    invalidate()
-                    scheduleBloomFrames()
-                }
-            }
-        }
-        return super.dispatchTouchEvent(event)
-    }
-
-    /** 泛光衰减期间逐帧刷新；衰减结束后自动停止，不会持续耗电。 */
-    private fun scheduleBloomFrames() {
-        if (!glassEnabled) return
-        removeCallbacks(bloomTicker)
-        postOnAnimation(bloomTicker)
-    }
-
-    private val bloomTicker = object : Runnable {
-        override fun run() {
-            if (touching) {
-                // 按住时不需要逐帧重画，移动事件会自己触发
-                return
-            }
-            if (bloomAmount() <= 0f) {
-                touchX = NO_TOUCH
-                touchY = NO_TOUCH
-                releaseAt = 0L
-                invalidate()
-                return
-            }
-            invalidate()
-            postOnAnimation(this)
-        }
-    }
-
     private fun updateTiltSensor() {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         sensorManager = sm
         val sensor = sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        if (glassEnabled && isAttachedToWindow && sensor != null && sm != null) {
+        if (glassEnabled && tiltEnabled && isAttachedToWindow && sensor != null && sm != null) {
             sm.registerListener(tiltListener, sensor, SensorManager.SENSOR_DELAY_GAME)
         } else {
             sm?.unregisterListener(tiltListener)

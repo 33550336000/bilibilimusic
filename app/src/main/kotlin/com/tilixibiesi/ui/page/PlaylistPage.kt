@@ -23,7 +23,6 @@ import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.model.PlaylistBean
 import com.tilixibiesi.ui.PlaylistDetailActivity
 import com.tilixibiesi.ui.SelectMusicActivity
-import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.ShareHelper
@@ -35,7 +34,6 @@ class PlaylistPage(base: Context) : BasePage(base) {
     private lateinit var adapter: PlaylistAdapter
     private lateinit var btnAddPlaylist: ImageButton
     private lateinit var tvPlaylistHint: TextView
-    private lateinit var bgHost: View
     private var pendingPlaylistId: String? = null
 
     companion object {
@@ -45,12 +43,10 @@ class PlaylistPage(base: Context) : BasePage(base) {
     override fun onCreate(savedInstanceState: Bundle?) {
         setContentView(R.layout.activity_playlist)
 
-        bgHost = findViewById(R.id.playlist_bg_host)!!
         lvPlaylists = findViewById(R.id.lv_playlists)!!
         btnAddPlaylist = findViewById(R.id.btn_add_playlist)!!
         tvPlaylistHint = findViewById(R.id.tv_playlist_hint)!!
 
-        applyBackground()
         applyTitleStyle()
         loadPlaylists()
 
@@ -61,29 +57,13 @@ class PlaylistPage(base: Context) : BasePage(base) {
     }
 
     override fun onResume() {
-        applyBackground()
-        BackgroundHelper.setActive(bgHost, true)
         applyTitleStyle()
         loadPlaylists()
         adapter.notifyDataSetChanged()
     }
 
-    override fun onPause() {
-        BackgroundHelper.setActive(bgHost, false)
-    }
-
-    override fun onDestroy() {
-        BackgroundHelper.release(bgHost)
-        super.onDestroy()
-    }
-
     private fun showMaterialDialog(builder: AlertDialog.Builder): AlertDialog =
         DialogHelper.createStyledDialog(this, builder)
-
-    private fun applyBackground() {
-        val alphaPercent = SpUtils.getBackgroundAlpha(this)
-        BackgroundHelper.applyBackground(this, bgHost, alphaPercent)
-    }
 
     private fun applyTitleStyle() {
         val fontColor = FontUtils.color(this)

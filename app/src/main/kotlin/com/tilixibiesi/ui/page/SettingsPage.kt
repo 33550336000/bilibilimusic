@@ -5,7 +5,6 @@ import com.tilixibiesi.data.SettingsStore
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.data.FootprintUtils
 import com.tilixibiesi.data.LanguageUtils
-import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.FontUtils
@@ -13,6 +12,7 @@ import com.tilixibiesi.ui.widget.HsvColorPicker
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.ui.SettingsToggleDialogs
 import com.tilixibiesi.ui.StorageDialogs
+import com.tilixibiesi.ui.widget.LiquidGlassLayout
 import com.tilixibiesi.R
 import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.service.VideoPlaybackService
@@ -41,6 +41,19 @@ import android.graphics.Typeface
 class SettingsPage(base: Context) : BasePage(base) {
     companion object {
         private const val REQUEST_PICK_DEFAULT_BG = 1005
+
+        /** 与 card_background_semi 的 32dp 圆角对齐，切换玻璃时视觉不跳。 */
+        private const val CARD_CORNER_DP = 32f
+        private const val CARD_BLUR_DP = 10f
+
+        private val CARD_IDS = intArrayOf(
+            R.id.title_section_display,
+            R.id.title_section_background,
+            R.id.title_section_music,
+            R.id.title_section_ui_nav,
+            R.id.title_section_tools,
+            R.id.title_section_other
+        )
     }
 
     private lateinit var btnAutoCache: Button
@@ -54,9 +67,7 @@ class SettingsPage(base: Context) : BasePage(base) {
     private lateinit var tvAlphaValue: TextView
     private lateinit var btnSelectDefaultBackground: Button
     private lateinit var btnRestoreDefault: Button
-    private var tempBackgroundAlpha: Int = 100
     private lateinit var rootView: View
-    private lateinit var bgHost: View
     private lateinit var btnBlockedWords: Button
     private lateinit var sbFontColorHue: SeekBar
     private lateinit var tvFontColorPreview: TextView
@@ -74,7 +85,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         setContentView(R.layout.activity_settings)
         findViewById<TextView>(R.id.title_settings_page)?.text = LanguageUtils.getString(this@SettingsPage, R.string.settings_title)
         rootView = findViewById<View>(R.id.settings_root)!!
-        bgHost = findViewById<View>(R.id.settings_bg_host)!!
         rootView.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
                 val x = event.rawX.toInt()
@@ -96,20 +106,35 @@ class SettingsPage(base: Context) : BasePage(base) {
         initView()
         loadCurrentSettings()
         applyBackground()
+        applyCardGlass()
         setupCollapsibleSections()
     }
 
-    override fun onResume() {
-        BackgroundHelper.setActive(bgHost, true)
-    }
-
-    override fun onPause() {
-        BackgroundHelper.setActive(bgHost, false)
-    }
-
-    override fun onDestroy() {
-        BackgroundHelper.release(bgHost)
-        super.onDestroy()
+    /**
+     * 六个设置卡片改用液态玻璃，折射源是主页那层全局背景。
+     *
+     * 玻璃不可用（API < 33 或着色器编译失败）时整段跳过：卡片保持 XML 里的
+     * `card_background_semi`，与改动前完全一致。
+     */
+    private fun applyCardGlass() {
+        val host = activity as? MainPagerActivity ?: return
+        val enabled = SpUtils.getLiquidGlassEnabled(this) && LiquidGlassLayout.isAvailable()
+        for (id in CARD_IDS) {
+            val card = findViewById<LiquidGlassLayout>(id) ?: continue
+            if (!enabled) {
+                card.background = resources.getDrawable(R.drawable.card_background_semi, null)
+                card.glassEnabled = false
+                continue
+            }
+            // 底色交还给玻璃自己画，否则会盖住折射结果
+            card.background = null
+            card.solidWhenDisabled = false
+            card.tiltEnabled = false
+            card.cornerRadiusDp = CARD_CORNER_DP
+            card.blurRadiusDp = CARD_BLUR_DP
+            card.backdropSource = host.backgroundLayer
+            card.glassEnabled = true
+        }
     }
 
     private fun refreshBottomNav() {
@@ -359,6 +384,7 @@ class SettingsPage(base: Context) : BasePage(base) {
                         SpUtils.setLiquidGlassEnabled(this, !current)
                         updateLiquidGlassButtonText()
                         (activity as? MainPagerActivity)?.refreshFloatingPlayerBar()
+                        applyCardGlass()
                         ToastUtils.show(this@SettingsPage, message)
                     }
                     .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
@@ -461,7 +487,6 @@ class SettingsPage(base: Context) : BasePage(base) {
 
         sbBackgroundAlpha.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                tempBackgroundAlpha = progress
                 tvAlphaValue.text = LanguageUtils.getString(this@SettingsPage, R.string.current_brightness, progress)
                 if (fromUser) {
                     SpUtils.saveBackgroundAlpha(this@SettingsPage, progress)
@@ -671,8 +696,7 @@ class SettingsPage(base: Context) : BasePage(base) {
     }
 
     private fun applyBackground() {
-        val alpha = tempBackgroundAlpha.coerceAtLeast(0)
-        BackgroundHelper.applyBackground(this, bgHost, alpha)
+        (activity as? MainPagerActivity)?.refreshBackground()
     }
 
     private fun showLanguageDialog() {
@@ -781,7 +805,6 @@ class SettingsPage(base: Context) : BasePage(base) {
 
         val alpha = SpUtils.getBackgroundAlpha(this)
         sbBackgroundAlpha.progress = alpha
-        tempBackgroundAlpha = alpha
         tvAlphaValue.text = LanguageUtils.getString(this@SettingsPage, R.string.current_brightness, alpha)
 
         findViewById<Button>(R.id.btn_volume_key_switch)!!.text =
@@ -893,7 +916,6 @@ class SettingsPage(base: Context) : BasePage(base) {
 
                 SettingsStore.deleteSettingsFile()
 
-                tempBackgroundAlpha = 100
                 SpUtils.saveBackgroundAlpha(this, 100)
                 sbBackgroundAlpha.progress = 100
                 tvAlphaValue.text = LanguageUtils.getString(this@SettingsPage, R.string.current_brightness, 100)

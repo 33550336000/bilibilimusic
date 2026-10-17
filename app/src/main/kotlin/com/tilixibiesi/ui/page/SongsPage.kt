@@ -46,7 +46,6 @@ import com.tilixibiesi.ui.AccessibleTextView
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.ui.NowPlayingPage
 import com.tilixibiesi.ui.adapter.MusicAdapter
-import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.FontUtils
@@ -143,8 +142,6 @@ class SongsPage(base: Context) : BasePage(base) {
 
     override fun onResume() {
         stopBiliBackgroundPlayback()
-        applyBackgroundSettings()
-        BackgroundHelper.setActive(findViewById(R.id.main_bg_host)!!, true)
         applyTitleStyle()
         updateSearchFloatVisibility()
         btnSearchFloat.post {
@@ -175,7 +172,6 @@ class SongsPage(base: Context) : BasePage(base) {
     override fun onPause() {
         if (isAdjustMode) exitAdjustMode()
         PlaybackStatsManager.stopUpdater()
-        BackgroundHelper.setActive(findViewById(R.id.main_bg_host)!!, false)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -190,7 +186,6 @@ class SongsPage(base: Context) : BasePage(base) {
         PlaybackStatsManager.stopUpdater()
         PlaybackStatsManager.releaseViews()
         unregisterPageReceiver(playStateReceiver)
-        findViewById<View>(R.id.main_bg_host)?.let { BackgroundHelper.release(it) }
         super.onDestroy()
     }
 
@@ -370,7 +365,6 @@ class SongsPage(base: Context) : BasePage(base) {
         setPlayerControlVisible(true)
         playerControlLayout.isFocusable = true
         playerControlLayout.isFocusableInTouchMode = true
-        applyBackgroundSettings()
 
         playerControlLayout.setOnClickListener { openNowPlaying() }
         tvCurrentMusic.setOnClickListener { openNowPlaying() }
@@ -858,11 +852,6 @@ class SongsPage(base: Context) : BasePage(base) {
             originalSearchBg?.let { btnSearchFloat.background = it }
                 ?: run { btnSearchFloat.background = resources.getDrawable(R.drawable.button_float_bg, null) }
         }
-    }
-
-    private fun applyBackgroundSettings() {
-        val alphaPercent = SpUtils.getBackgroundAlpha(this)
-        BackgroundHelper.applyBackground(this, findViewById(R.id.main_bg_host)!!, alphaPercent)
     }
 
     private fun applyTitleStyle() {

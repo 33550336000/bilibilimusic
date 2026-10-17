@@ -4,6 +4,7 @@ import com.tilixibiesi.util.AppExecutors
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
 object SpUtils {
@@ -128,8 +129,17 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_BOTTOM_NAV_ENABLED, enabled).apply()
     }
 
-    fun getLiquidGlassEnabled(context: Context): Boolean =
-        getSp(context).getBoolean(KEY_LIQUID_GLASS_ENABLED, false)
+    /**
+     * 液态玻璃是否开启。
+     *
+     * 用户没设置过时按系统能力给默认值：折射着色器（AGSL RuntimeShader）要 API 33 才有，
+     * 33+ 默认打开，低版本保持关闭，避免默认值把不可用的效果当成「已开启」。
+     */
+    fun getLiquidGlassEnabled(context: Context): Boolean {
+        val sp = getSp(context)
+        if (!sp.contains(KEY_LIQUID_GLASS_ENABLED)) return Build.VERSION.SDK_INT >= 33
+        return sp.getBoolean(KEY_LIQUID_GLASS_ENABLED, false)
+    }
     fun setLiquidGlassEnabled(context: Context, enabled: Boolean) {
         getSp(context).edit().putBoolean(KEY_LIQUID_GLASS_ENABLED, enabled).apply()
     }
