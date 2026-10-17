@@ -5,6 +5,7 @@ import com.tilixibiesi.R
 import android.content.Intent
 import android.view.MotionEvent
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.View
@@ -26,6 +27,7 @@ import com.tilixibiesi.data.WebViewMetricsCleaner
 import com.tilixibiesi.ui.widget.ClickFxOverlay
 import com.tilixibiesi.ui.widget.HorizontalPager
 import com.tilixibiesi.ui.widget.LiquidGlassLayout
+import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.WindowUtils
 
@@ -43,6 +45,17 @@ class MainPagerActivity : BaseActivity(), PageHost {
     }
 
     private lateinit var pager: HorizontalPager
+    /** 背景层与翻页控件共用同一层：背景不随页面滑动，各页根布局保持透明。 */
+    private lateinit var contentLayer: FrameLayout
+
+    /**
+     * 只承载全局背景的那一层，位于翻页控件之下。
+     *
+     * 设置页卡片做液态玻璃时拿它当折射源：卡片自己也在页面里，
+     * 若以翻页控件为源，捕获背景时会把卡片本身画进去。
+     */
+    lateinit var backgroundLayer: FrameLayout
+        private set
     private lateinit var pages: Array<BasePage>
     private lateinit var floatingPlayerBar: View
     private var playerBarWanted = false
@@ -79,6 +92,19 @@ class MainPagerActivity : BaseActivity(), PageHost {
             )
         }
 
+        // 背景铺在这一层，翻页控件是它的子 View：翻页只滑页面，背景原地不动。
+        contentLayer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        backgroundLayer = FrameLayout(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
         pager = HorizontalPager(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -101,11 +127,13 @@ class MainPagerActivity : BaseActivity(), PageHost {
             }
         }
         applySearchPageAvailability()
-        root.addView(pager)
+        contentLayer.addView(backgroundLayer)
+        contentLayer.addView(pager)
+        root.addView(contentLayer)
         // 悬浮播放控制栏与翻页控件平级：跟着窗口，不跟着页面滑动
         floatingPlayerBar = layoutInflater.inflate(R.layout.layout_floating_player, root, false)
         (floatingPlayerBar as? LiquidGlassLayout)?.apply {
-            backdropSource = pager
+            backdropSource = contentLayer
             glassEnabled = SpUtils.getLiquidGlassEnabled(this@MainPagerActivity)
         }
         floatingPlayerBar.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
@@ -114,6 +142,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
         root.addView(floatingPlayerBar)
         setContentView(root)
         WindowUtils.setFullScreen(this)
+        applyBackground()
 
         val target = intent.getIntExtra(EXTRA_TARGET_PAGE, PAGE_SONGS).coerceIn(0, pages.size - 1)
         val safeTarget =
@@ -139,6 +168,8 @@ class MainPagerActivity : BaseActivity(), PageHost {
      * 借这一次往返把窗口预热好，用户看不到任何中间态。
      */
     private fun primeBackAnimation() {
+        // 跟手进度只有 API 34+ 才有，低版本这次往返没有任何收益，不必多拉起一个 Activity
+        if (Build.VERSION.SDK_INT < 34) return
         window.decorView.post {
             startActivity(Intent(this, BackGesturePrimerActivity::class.java))
             overridePendingTransition(0, 0)
@@ -312,9 +343,25 @@ class MainPagerActivity : BaseActivity(), PageHost {
     }
 
 
+    /**
+     * 全局背景只铺一层：放在翻页控件下面，翻页时页面滑过去，背景原地不动。
+     * 各页面根布局因此都是透明的，不再各自贴一张首尾接不上的图。
+     */
+    private fun applyBackground() {
+        BackgroundHelper.applyBackground(this, backgroundLayer, SpUtils.getBackgroundAlpha(this))
+    }
+
+    /** 设置页改了背景图或透明度后立刻重铺，并让液态玻璃重新捕获。 */
+    fun refreshBackground() {
+        applyBackground()
+        invalidateGlassBackdrop()
+    }
+
     override fun onResume() {
         super.onResume()
         WindowUtils.setFullScreen(this)
+        applyBackground()
+        BackgroundHelper.setActive(backgroundLayer, true)
         pages.getOrNull(currentPosition)?.takeIf { it.created }?.onResume()
         applyClickFxOverlay()
         // 整个生命周期只真正注册一次：重复注册会重置系统的返回动画状态。
@@ -341,6 +388,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
 
     override fun onPause() {
         pages.getOrNull(currentPosition)?.takeIf { it.created }?.onPause()
+        BackgroundHelper.setActive(backgroundLayer, false)
         fxOverlay?.pause()
         super.onPause()
     }
@@ -367,6 +415,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
 
     override fun onDestroy() {
         PredictiveBack.unregister(this, PredictiveBack.TAG_PAGER)
+        BackgroundHelper.release(backgroundLayer)
         pages.forEach { if (it.created) it.onDestroy() }
         WebViewMetricsCleaner.removeBackgroundListener(backgroundFxReleaser)
         fxOverlay?.pause()
