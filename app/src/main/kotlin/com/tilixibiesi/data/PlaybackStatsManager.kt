@@ -3,6 +3,7 @@ package com.tilixibiesi.data
 import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.R
+import com.tilixibiesi.util.FontUtils
 import android.content.Context
 import android.graphics.Color
 import android.os.Handler
@@ -69,11 +70,7 @@ object PlaybackStatsManager {
             totalView?.apply {
                 text = LanguageUtils.getString(ctx, R.string.format_total_duration, formatDuration(totalSeconds, ctx))
                 visibility = View.VISIBLE
-                try {
-                    setTextColor(Color.parseColor(SpUtils.getFontColor(ctx)))
-                } catch (_: Exception) {
-                    setTextColor(Color.BLACK)
-                }
+                setTextColor(FontUtils.color(ctx, Color.BLACK))
             }
         } else {
             totalView?.visibility = View.GONE
@@ -89,11 +86,7 @@ object PlaybackStatsManager {
             todayView?.apply {
                 text = LanguageUtils.getString(ctx, R.string.format_today_duration, formatDuration(seconds, ctx))
                 visibility = View.VISIBLE
-                try {
-                    setTextColor(Color.parseColor(SpUtils.getFontColor(ctx)))
-                } catch (_: Exception) {
-                    setTextColor(Color.BLACK)
-                }
+                setTextColor(FontUtils.color(ctx, Color.BLACK))
             }
         }
     }

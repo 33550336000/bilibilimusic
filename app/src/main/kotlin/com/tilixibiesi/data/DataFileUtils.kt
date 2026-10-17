@@ -371,4 +371,19 @@ object DataFileUtils {
         if (blockedWords.isEmpty()) return
         list.removeAll { isBlocked(it, blockedWords) }
     }
+
+    /** 原地剔除已删除名单里的曲目。 */
+    fun removeDeleted(list: MutableList<MusicBean>, deletedNames: Set<String>) {
+        if (deletedNames.isEmpty()) return
+        list.removeAll { deletedNames.contains(it.musicName) }
+    }
+
+    /**
+     * 原地应用「已删除名单 + 屏蔽词」两层可见性过滤，
+     * 等价于各调用点原先各自手写的那两段（读一次两个名单，各过滤一遍）。
+     */
+    fun removeInvisible(list: MutableList<MusicBean>) {
+        removeDeleted(list, loadDeletedMusicNames())
+        removeBlocked(list, loadBlockedWords())
+    }
 }

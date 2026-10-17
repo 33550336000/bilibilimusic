@@ -392,9 +392,7 @@ class SongsPage(base: Context) : BasePage(base) {
 
         if (isCacheValid) {
             val cachedList = DataFileUtils.loadMusicList().toMutableList()
-            applyBlockedWordsFilter(cachedList)
-            val deletedNames = DataFileUtils.loadDeletedMusicNames()
-            cachedList.removeAll { deletedNames.contains(it.musicName) }
+            DataFileUtils.removeInvisible(cachedList)
             applyMusicListUpdate(cachedList)
             checkLocalFiles()
             musicAdapter.notifyDataSetChanged()
@@ -405,8 +403,7 @@ class SongsPage(base: Context) : BasePage(base) {
         }
 
         val localList = DataFileUtils.loadMusicList().toMutableList()
-        val deletedNames = DataFileUtils.loadDeletedMusicNames()
-        localList.removeAll { deletedNames.contains(it.musicName) }
+        DataFileUtils.removeInvisible(localList)
         if (localList.isNotEmpty()) {
             applyMusicListUpdate(localList)
             checkLocalFiles()
@@ -418,9 +415,8 @@ class SongsPage(base: Context) : BasePage(base) {
         HttpUtils.getMusicListAsync(this, object : HttpUtils.OnMusicListLoadListener {
             override fun onSuccess(musicList: List<MusicBean>) {
                 runOnUiThread {
-                    val del = DataFileUtils.loadDeletedMusicNames()
-                    val filtered = musicList.filter { !del.contains(it.musicName) }.toMutableList()
-                    applyBlockedWordsFilter(filtered)
+                    val filtered = musicList.toMutableList()
+                    DataFileUtils.removeInvisible(filtered)
                     applyMusicListUpdate(filtered)
                     DataFileUtils.saveMusicList(filtered)
                     checkLocalFiles()
@@ -450,12 +446,6 @@ class SongsPage(base: Context) : BasePage(base) {
         val pureList = musicList.filter { !it.isBilibili }
         SpUtils.saveMusicList(this, pureList)
         DataFileUtils.saveMusicList(pureList)
-    }
-
-    private fun applyBlockedWordsFilter(list: MutableList<MusicBean>) {
-        val blocked = DataFileUtils.loadBlockedWords()
-        if (blocked.isEmpty()) return
-        list.removeAll { bean -> blocked.any { word -> bean.musicName.contains(word, ignoreCase = true) } }
     }
 
     private fun checkLocalFiles() {
@@ -836,13 +826,7 @@ class SongsPage(base: Context) : BasePage(base) {
     }
 
     private fun applySearchButtonStyle() {
-        btnSearchFloat.setTextColor(
-            try {
-                Color.parseColor(SpUtils.getFontColor(this))
-            } catch (_: Exception) {
-                Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-            }
-        )
+        btnSearchFloat.setTextColor(FontUtils.color(this))
         if (SpUtils.isSearchBtnTransparentStyle(this)) {
             btnSearchFloat.background = resources.getDrawable(R.drawable.search_button_adjust_bg, null)
         } else {
@@ -858,11 +842,7 @@ class SongsPage(base: Context) : BasePage(base) {
 
     private fun applyTitleStyle() {
         val titleTv = findViewById<TextView>(R.id.tv_title) ?: return
-        val fontColor = try {
-            Color.parseColor(SpUtils.getFontColor(this))
-        } catch (_: Exception) {
-            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-        }
+        val fontColor = FontUtils.color(this)
         titleTv.text = LanguageUtils.getString(this@SongsPage, R.string.all_songs)
         btnDetail.text = LanguageUtils.getString(this@SongsPage, R.string.detail)
         btnSearchFloat.text = LanguageUtils.getString(this@SongsPage, R.string.search)
@@ -997,11 +977,7 @@ class SongsPage(base: Context) : BasePage(base) {
     }
 
     private fun showRenameInputDialog(originalName: String) {
-        val fontColor = try {
-            Color.parseColor(SpUtils.getFontColor(this))
-        } catch (_: Exception) {
-            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-        }
+        val fontColor = FontUtils.color(this)
         val input = EditText(this).apply {
             setText(DataFileUtils.getDisplayName(originalName))
             setSelection(text.length)

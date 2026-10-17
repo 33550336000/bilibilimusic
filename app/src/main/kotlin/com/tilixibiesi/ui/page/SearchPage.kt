@@ -15,6 +15,7 @@ import com.tilixibiesi.bili.BiliSubtitleHelper
 import com.tilixibiesi.bili.BiliSubtitleTrack
 import com.tilixibiesi.ui.widget.DanmakuView
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.WindowUtils
@@ -114,12 +115,9 @@ class SearchPage(base: Context) : BasePage(base) {
     private fun buildSourceList(): List<MusicBean> {
         val source = SongsPage.musicList.takeIf { it.isNotEmpty() }
             ?: DataFileUtils.loadMusicList()
-        val deleted = DataFileUtils.loadDeletedMusicNames()
-        val blockedWords = DataFileUtils.loadBlockedWords()
-        return source.filter { bean ->
-            !deleted.contains(bean.musicName) &&
-                blockedWords.none { word -> bean.musicName.contains(word, ignoreCase = true) }
-        }
+        val visible = source.toMutableList()
+        DataFileUtils.removeInvisible(visible)
+        return visible
     }
 
     override fun onPause() {
@@ -708,13 +706,7 @@ class SearchPage(base: Context) : BasePage(base) {
                     }
                 }
                 val dialogView = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(16, 8, 16, 8) }
-                val fontColor = try {
-                    val dialogFont = SpUtils.getDialogFontColor(this)
-                    if (dialogFont.isEmpty()) Color.parseColor(SpUtils.getFontColor(this))
-                    else Color.parseColor(dialogFont)
-                } catch (_: Exception) {
-                    Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-                }
+                val fontColor = DialogHelper.fontColor(this)
                 for ((label, tag) in items) {
                     val cb = CheckBox(this).apply {
                         text = label; setTextColor(fontColor); isEnabled = tag.index != -1; this.tag = tag
@@ -809,9 +801,7 @@ class SearchPage(base: Context) : BasePage(base) {
     private fun applySettings() {
         val bgHost = findViewById<View>(R.id.search_bg_host) ?: return
         BackgroundHelper.applyBackground(this, bgHost, SpUtils.getBackgroundAlpha(this))
-        try {
-            etSearch.setTextColor(Color.parseColor(SpUtils.getFontColor(this)))
-        } catch (_: Exception) { etSearch.setTextColor(0xFFFFFFFF.toInt()) }
+        etSearch.setTextColor(FontUtils.color(this, 0xFFFFFFFF.toInt()))
         etSearch.textSize = SpUtils.getFontSize(this).toFloat()
     }
 }

@@ -22,7 +22,6 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
@@ -288,19 +287,9 @@ private fun showLongPressActionDialog(musicBean: MusicBean) {
 }
 
     private fun refreshMusicList() {
-        val deletedNames = DataFileUtils.loadDeletedMusicNames()
-        val blockedWords = DataFileUtils.loadBlockedWords()
         val currentPlaylist = playlistId?.let { PlaylistManager.getPlaylistById(this, it) }
-
-        musicList = currentPlaylist?.musicList
-            ?.filter { !deletedNames.contains(it.musicName) }
-            ?.toMutableList() ?: mutableListOf()
-
-        if (blockedWords.isNotEmpty()) {
-            musicList.removeAll { bean ->
-                blockedWords.any { word -> bean.musicName.contains(word, ignoreCase = true) }
-            }
-        }
+        musicList = currentPlaylist?.musicList?.toMutableList() ?: mutableListOf()
+        DataFileUtils.removeInvisible(musicList)
 
         allMusicList = musicList.toList()
         filteredMusicList.clear()
@@ -559,11 +548,7 @@ inner class SubPlaylistAdapter(
         val sub = list[pos]
         holder.tvName.text = LanguageUtils.getString(context, R.string.sub_playlist_item_format, sub.name, sub.musicList.size)
 
-        try {
-            holder.tvName.setTextColor(Color.parseColor(SpUtils.getFontColor(context)))
-        } catch (e: Exception) {
-            holder.tvName.setTextColor(Color.parseColor(SpUtils.DEFAULT_FONT_COLOR))
-        }
+        holder.tvName.setTextColor(FontUtils.color(context))
         holder.tvName.textSize = (SpUtils.getFontSize(context) + 2).toFloat()
 
         view!!.setOnClickListener {

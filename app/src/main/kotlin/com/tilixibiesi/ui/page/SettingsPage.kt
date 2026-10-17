@@ -8,6 +8,7 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.ui.widget.HsvColorPicker
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.ui.SettingsToggleDialogs
@@ -122,6 +123,15 @@ class SettingsPage(base: Context) : BasePage(base) {
     }
 
     private fun initView() {
+        initFontSection()
+        initDefaultSettingsSection()
+        initDialogStyleSection()
+        initSwitchSection()
+        initSliderSection()
+        initVideoNotifyProgressButton()
+    }
+
+    private fun initFontSection() {
         val containerFontColor = findViewById<FrameLayout>(R.id.container_font_color)!!
         etFontColor = findViewById<EditText>(R.id.et_font_color)!!
         labelFontColor = findViewById<TextView>(R.id.label_font_color)!!
@@ -172,7 +182,9 @@ class SettingsPage(base: Context) : BasePage(base) {
         btnAdjustSearchButton = findViewById<Button>(R.id.btn_adjust_search_button)!!
         btnSearchBtnStyle = findViewById<Button>(R.id.btn_search_btn_style)!!
         btnBlockedWords = findViewById<Button>(R.id.btn_blocked_words)!!
+    }
 
+    private fun initDefaultSettingsSection() {
         btnSaveAsDefault = findViewById<Button>(R.id.btn_save_default)!!
         btnSaveAsDefault.setOnClickListener { toggleDialogs.showSaveAsDefaultDialog() }
 
@@ -214,7 +226,9 @@ class SettingsPage(base: Context) : BasePage(base) {
                     .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
             )
         }
+    }
 
+    private fun initDialogStyleSection() {
         val sbDialogBgHue = findViewById<SeekBar>(R.id.sb_dialog_bg_hue)!!
         val tvDialogBgPreview = findViewById<TextView>(R.id.tv_dialog_bg_preview)!!
         val viewDialogBgSample = findViewById<View>(R.id.view_dialog_bg_sample)!!
@@ -255,11 +269,7 @@ class SettingsPage(base: Context) : BasePage(base) {
 
         btnDialogFontFollowGlobal.setOnClickListener {
             SpUtils.saveDialogFontColor(this@SettingsPage, "")
-            val globalColor = try {
-                Color.parseColor(SpUtils.getFontColor(this@SettingsPage))
-            } catch (_: Exception) {
-                Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-            }
+            val globalColor = FontUtils.color(this@SettingsPage)
             dialogFontColorPicker.setColor(globalColor)
             tvDialogFontPreview.text = getString(
                 R.string.current_dialog_font_global_format,
@@ -288,7 +298,9 @@ class SettingsPage(base: Context) : BasePage(base) {
                 ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_playlist_footprint_cleared))
             }
         }
+    }
 
+    private fun initSwitchSection() {
         // 「音乐与播放」卡片里的第一项：B站音乐播放音质
         val btnBiliAudioQuality = findViewById<Button>(R.id.btn_bili_audio_quality)!!
         toggleDialogs.updateBiliAudioQualityButtonText(btnBiliAudioQuality)
@@ -383,7 +395,9 @@ class SettingsPage(base: Context) : BasePage(base) {
 
         val btnSwitchPlayMode = findViewById<Button>(R.id.btn_switch_play_mode)!!
         btnSwitchPlayMode.setOnClickListener { toggleDialogs.showSwitchPlayModeDialog(btnSwitchPlayMode) }
+    }
 
+    private fun initSliderSection() {
         sbFontSize.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                 tvFontSizePreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_font_size, progress)
@@ -472,9 +486,8 @@ class SettingsPage(base: Context) : BasePage(base) {
                     .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
             )
         }
-
-        initVideoNotifyProgressButton()
     }
+
 
     private fun initVideoNotifyProgressButton() {
         val btn = findViewById<Button>(R.id.btn_video_notify_progress) ?: return
@@ -773,11 +786,7 @@ class SettingsPage(base: Context) : BasePage(base) {
 
         val dialogFontColor = SpUtils.getDialogFontColor(this)
         if (dialogFontColor.isEmpty()) {
-            val globalColor = try {
-                Color.parseColor(SpUtils.getFontColor(this))
-            } catch (_: Exception) {
-                Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-            }
+            val globalColor = FontUtils.color(this)
             dialogFontColorPicker.setColor(globalColor)
             findViewById<TextView>(R.id.tv_dialog_font_preview)!!.text =
                 LanguageUtils.getString(this@SettingsPage, R.string.current_dialog_font_global_format, SpUtils.getFontColor(this))
@@ -905,11 +914,7 @@ class SettingsPage(base: Context) : BasePage(base) {
                 findViewById<View>(R.id.view_dialog_bg_sample)!!.setBackgroundColor(white)
 
                 // 弹窗字体默认「跟随全局」，因此滑块回填到全局字体色
-                val globalFontColor = try {
-                    Color.parseColor(SpUtils.getFontColor(this))
-                } catch (_: Exception) {
-                    Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-                }
+                val globalFontColor = FontUtils.color(this)
                 dialogFontColorPicker.setColor(globalFontColor)
                 findViewById<TextView>(R.id.tv_dialog_font_preview)!!.text =
                     LanguageUtils.getString(
@@ -952,11 +957,7 @@ class SettingsPage(base: Context) : BasePage(base) {
     }
 
     private val userFontColor: Int
-            get() = try {
-                Color.parseColor(SpUtils.getFontColor(this))
-            } catch (e: Exception) {
-                Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-            }
+            get() = FontUtils.color(this)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (resultCode != Activity.RESULT_OK || data == null) return
 
