@@ -48,6 +48,14 @@ class MainPagerActivity : BaseActivity(), PageHost {
     private var playerBarWanted = false
     private var videoFullscreen = false
     private var playerBarInset = 0
+
+    /**
+     * 悬浮控制栏当前占用的高度（含外边距）；不可见时为 0。
+     *
+     * 页面里那些「浮在最上层、不参与页面内边距」的控件（比如搜索按钮）
+     * 需要靠它把自己抬到栏的上沿之上，否则会被栏压住。
+     */
+    val floatingPlayerBarInset: Int get() = playerBarInset
     private var fxOverlay: ClickFxOverlay? = null
 
     private var currentPosition = PAGE_SONGS
@@ -209,7 +217,11 @@ class MainPagerActivity : BaseActivity(), PageHost {
         }
         if (inset == playerBarInset) return
         playerBarInset = inset
-        pages.forEach { page -> page.pageView?.let { applyPlayerBarInsetTo(it) } }
+        pages.forEach { page ->
+            page.pageView?.let { applyPlayerBarInsetTo(it) }
+            // 浮在页面之上、不吃内边距的控件（搜索按钮）要跟着栏的高度重新定位
+            (page as? SongsPage)?.repositionSearchButton()
+        }
     }
 
     /**

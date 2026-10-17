@@ -761,17 +761,41 @@ class SongsPage(base: Context) : BasePage(base) {
         updateSearchFloatVisibility()
     }
 
+    /** 悬浮控制栏高度变了：把搜索按钮重新贴到栏的上沿之上。 */
+    fun repositionSearchButton() {
+        if (!::btnSearchFloat.isInitialized) return
+        btnSearchFloat.post { applySearchButtonPosition() }
+    }
+
     private fun applySearchButtonPosition() {
+        val parent = btnSearchFloat.parent as View ?: return
+        if (parent.height <= 0 || btnSearchFloat.height <= 0) return
+
+        // 布局把按钮贴在父容器底部（gravity=bottom|end，marginBottom=16dp）。
+        // 用「父容器高度 - 按钮高度」直接算出贴底时的 top，不去碰 top/translationY
+        // 互相换算——那两者在反复调用时会互相污染，越算越偏。
+        val marginBottom = (16 * resources.displayMetrics.density).toInt()
+        val restTop = parent.height - btnSearchFloat.height - marginBottom
+        // 悬浮控制栏压在最上层且不参与页面内边距，按钮的底边必须停在栏上沿之上
+        val barInset = (activity as? MainPagerActivity)?.floatingPlayerBarInset ?: 0
+        val gap = (12 * resources.displayMetrics.density).toInt()
+        // 贴底位置再往上抬：栏高 + 间距
+        val lift = barInset + gap
+
         val x = SpUtils.getSearchButtonX(this)
         val y = SpUtils.getSearchButtonY(this)
-        if (x == -1f || y == -1f) return
-        val parent = btnSearchFloat.parent as View
-        val originalLeft = btnSearchFloat.left - btnSearchFloat.translationX
-        val originalTop = btnSearchFloat.top - btnSearchFloat.translationY
-        val maxTx = parent.width - btnSearchFloat.width - originalLeft
-        val maxTy = parent.height - btnSearchFloat.height - originalTop
-        btnSearchFloat.translationX = x.coerceIn(-originalLeft, maxTx)
-        btnSearchFloat.translationY = y.coerceIn(-originalTop, maxTy)
+        if (x == -1f || y == -1f) {
+            // 未自定义过：水平保持布局默认，垂直抬到栏上沿之上
+            btnSearchFloat.translationX = 0f
+            btnSearchFloat.translationY = -lift.toFloat()
+            return
+        }
+        // 自定义位置是相对「贴底默认位」的偏移，同样按抬升量修正
+        val maxTx = parent.width - btnSearchFloat.width - marginBottom
+        val minTy = -(restTop.toFloat())
+        val maxTy = -lift.toFloat()
+        btnSearchFloat.translationX = x.coerceIn(-marginBottom.toFloat(), maxTx.toFloat())
+        btnSearchFloat.translationY = y.coerceIn(minTy, maxTy)
     }
 
     @SuppressLint("ClickableViewAccessibility")
