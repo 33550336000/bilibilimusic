@@ -25,6 +25,7 @@ import com.tilixibiesi.ui.PlaylistDetailActivity
 import com.tilixibiesi.ui.SelectMusicActivity
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.DialogHelper
+import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.ShareHelper
 
 class PlaylistPage(base: Context) : BasePage(base) {
@@ -85,11 +86,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
     }
 
     private fun applyTitleStyle() {
-        val fontColor = try {
-            Color.parseColor(SpUtils.getFontColor(this))
-        } catch (_: Exception) {
-            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-        }
+        val fontColor = FontUtils.color(this)
         val fontSize = SpUtils.getFontSize(this).toFloat()
         tvPlaylistHint.setTextColor(fontColor)
         tvPlaylistHint.textSize = fontSize
@@ -97,17 +94,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
 
     private fun loadPlaylists() {
         val loaded = PlaylistManager.getPlaylists(this).toMutableList()
-        val deletedNames = DataFileUtils.loadDeletedMusicNames()
-        val blockedWords = DataFileUtils.loadBlockedWords()
-
-        for (pl in loaded) {
-            pl.musicList.removeAll { deletedNames.contains(it.musicName) }
-            if (blockedWords.isNotEmpty()) {
-                pl.musicList.removeAll { bean ->
-                    blockedWords.any { word -> bean.musicName.contains(word, ignoreCase = true) }
-                }
-            }
-        }
+        for (pl in loaded) DataFileUtils.removeInvisible(pl.musicList)
 
         if (!::playlistList.isInitialized) {
             playlistList = loaded
@@ -118,13 +105,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
     }
 
     private fun showCreatePlaylistDialog() {
-        val fontColor = try {
-            val dialogFont = SpUtils.getDialogFontColor(this)
-            if (dialogFont.isEmpty()) Color.parseColor(SpUtils.getFontColor(this))
-            else Color.parseColor(dialogFont)
-        } catch (_: Exception) {
-            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-        }
+        val fontColor = DialogHelper.fontColor(this)
 
         val input = EditText(this).apply {
             hint = LanguageUtils.getString(this@PlaylistPage, R.string.playlist_name_hint)
@@ -174,13 +155,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
     }
 
     private fun showRenameDialog(playlist: PlaylistBean) {
-        val fontColor = try {
-            val dialogFont = SpUtils.getDialogFontColor(this)
-            if (dialogFont.isEmpty()) Color.parseColor(SpUtils.getFontColor(this))
-            else Color.parseColor(dialogFont)
-        } catch (_: Exception) {
-            Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-        }
+        val fontColor = DialogHelper.fontColor(this)
 
         val input = EditText(this).apply {
             setText(playlist.name)
@@ -291,13 +266,8 @@ class PlaylistPage(base: Context) : BasePage(base) {
                 ctx, R.string.playlist_item_format, pl.name, pl.musicList.size
             )
 
-            val fontColor = SpUtils.getFontColor(ctx)
             val fontSize = SpUtils.getFontSize(ctx)
-            try {
-                holder.tvName.setTextColor(Color.parseColor(fontColor))
-            } catch (_: Exception) {
-                holder.tvName.setTextColor(Color.parseColor(SpUtils.DEFAULT_FONT_COLOR))
-            }
+            holder.tvName.setTextColor(FontUtils.color(ctx))
             holder.tvName.textSize = (fontSize + 2).toFloat()
 
             view!!.setOnClickListener {

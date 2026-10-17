@@ -123,17 +123,7 @@ class SelectMusicActivity : BaseActivity() {
         val result = ArrayList<MusicBean>(local.size + bili.size)
         result.addAll(bili)
         result.addAll(local)
-
-        val deleted = DataFileUtils.loadDeletedMusicNames()
-        if (deleted.isNotEmpty()) {
-            result.removeAll { deleted.contains(it.musicName) }
-        }
-        val blockedWords = DataFileUtils.loadBlockedWords()
-        if (blockedWords.isNotEmpty()) {
-            result.removeAll { bean ->
-                blockedWords.any { bean.musicName.contains(it, ignoreCase = true) }
-            }
-        }
+        DataFileUtils.removeInvisible(result)
         return result
     }
 
@@ -175,7 +165,7 @@ private fun setFullScreen() {
 
             val selected = selectedPositions.contains(position)
             view.setBackgroundColor(if (selected) Color.WHITE else Color.TRANSPARENT)
-            tvName.setTextColor(if (selected) Color.BLACK else Color.parseColor(SpUtils.getFontColor(this@SelectMusicActivity)))
+            tvName.setTextColor(if (selected) Color.BLACK else FontUtils.color(this@SelectMusicActivity))
             tvName.textSize = SpUtils.getFontSize(this@SelectMusicActivity).toFloat()
             return view
         }

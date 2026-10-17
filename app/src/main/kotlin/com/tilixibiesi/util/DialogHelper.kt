@@ -65,7 +65,7 @@ object DialogHelper {
                         override fun getItemId(position: Int): Long = original.getItemId(position)
                         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                             val v = original.getView(position, convertView, parent)
-                            setTextViewColorRecursive(v, fontColorOf(activity))
+                            setTextViewColorRecursive(v, fontColor(activity))
                             return v
                         }
                     }
@@ -108,7 +108,7 @@ object DialogHelper {
             makeChildrenBackgroundTransparent(this)
         }
 
-        val fontColor = fontColorOf(activity)
+        val fontColor = fontColor(activity)
         dialog.findViewById<TextView>(
             activity.resources.getIdentifier("alertTitle", "id", "android")
         )?.setTextColor(fontColor)
@@ -131,14 +131,14 @@ object DialogHelper {
         return dialog
     }
 
-    private fun fontColorOf(activity: Activity): Int = try {
-        val dialogFont = SpUtils.getDialogFontColor(activity)
-        if (dialogFont.isEmpty()) {
-            Color.parseColor(SpUtils.getFontColor(activity))
-        } else {
-            Color.parseColor(dialogFont)
-        }
-    } catch (e: Exception) {
+    /**
+     * 弹窗字体色：设置里选了「弹窗专用字体色」就用它，否则跟随全局字体色。
+     * 全局字体色复用 [FontUtils.color]，非法值回退到默认色。
+     */
+    fun fontColor(context: Context): Int = try {
+        val dialogFont = SpUtils.getDialogFontColor(context)
+        if (dialogFont.isEmpty()) FontUtils.color(context) else Color.parseColor(dialogFont)
+    } catch (_: Exception) {
         Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
     }
 
