@@ -350,8 +350,13 @@ class SearchPage(base: Context) : BasePage(base) {
         val hostActivity = activity as? BaseActivity ?: return
         videoPlayer = BiliVideoPlayer(hostActivity).apply {
             callback = object : BiliVideoPlayer.Callback {
-                override fun onFullscreenOpened() {}
-                override fun onFullscreenClosed() {}
+                override fun onFullscreenOpened() {
+                    (activity as? MainPagerActivity)?.setVideoFullscreen(true)
+                }
+
+                override fun onFullscreenClosed() {
+                    (activity as? MainPagerActivity)?.setVideoFullscreen(false)
+                }
                 override fun setSystemUIForFullscreen() = setFullScreen()
                 override fun restoreSystemUI() = this@SearchPage.restoreSystemUI()
                 override fun setFullScreen() = this@SearchPage.setFullScreen()

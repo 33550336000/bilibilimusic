@@ -11,6 +11,7 @@ import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.model.MusicBean
+import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.CacheManager
 import com.tilixibiesi.util.ShareHelper
@@ -37,7 +38,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
-import java.io.File
 import java.util.Locale
 
 class NowPlayingPage(
@@ -474,57 +474,10 @@ class NowPlayingPage(
     }
 
     private fun loadCover(bean: MusicBean?) {
-        ivCover.setImageResource(R.drawable.ic_cover_placeholder)
         ivBlur.setImageDrawable(null)
-        if (bean == null) return
-
-        val baseName = CacheManager.baseNameOf(bean)
-        // 判定与解码都要读盘，放到后台线程，避免卡住主线程
-        AppExecutors.io.execute {
-            val local = if (isPlayingLocalCache(bean)) {
-                BiliCoverLoader.loadLocalFile(baseName)
-            } else null
-            handler.post {
-                if (this.bean !== bean) return@post
-                if (local != null) {
-                    ivCover.setImageBitmap(local)
-                    ivBlur.setImageBitmap(downscaleForBlur(local))
-                } else {
-                    loadRemoteCover(bean)
-                }
-            }
-        }
-    }
-
-    /** 本地封面缺失时的网络回退。 */
-    private fun loadRemoteCover(bean: MusicBean) {
-        val direct = bean.coverUrl?.takeIf { it.isNotEmpty() }
-        if (direct != null) {
-            fetchCoverInto(direct)
-            return
-        }
-        val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return
-        BiliVideoMetaHelper.fetch(bvid) { meta ->
-            if (this.bean?.bvid != bvid) return@fetch
-            val url = meta?.coverUrl
-            if (url.isNullOrEmpty()) {
-                ivCover.setImageResource(R.drawable.ic_cover_placeholder)
-                return@fetch
-            }
-            this.bean?.coverUrl = url
-            fetchCoverInto(url)
-        }
-    }
-
-    private fun fetchCoverInto(url: String) {
-        BiliCoverLoader.fetch(url) { bitmap ->
-            if (bitmap == null) {
-                ivCover.setImageResource(R.drawable.ic_cover_placeholder)
-                ivBlur.setImageDrawable(null)
-                return@fetch
-            }
-            ivCover.setImageBitmap(bitmap)
-            ivBlur.setImageBitmap(downscaleForBlur(bitmap))
+        BiliCoverLoader.loadForBean(ivCover, bean) { bitmap ->
+            if (bitmap == null) ivBlur.setImageDrawable(null)
+            else ivBlur.setImageBitmap(downscaleForBlur(bitmap))
         }
     }
 
@@ -550,11 +503,7 @@ class NowPlayingPage(
                 ?: unknownAlbum
             tvAlbum.text = album
             tvLrcAlbum.text = album
-            val cover = meta?.coverUrl
-            if (this.bean?.coverUrl.isNullOrEmpty() && !cover.isNullOrEmpty()) {
-                this.bean?.coverUrl = cover
-                fetchCoverInto(cover)
-            }
+            // 封面（含 meta 里的地址）由 loadCover 统一处理，这里不再重复拉一次
         }
     }
 
@@ -578,7 +527,9 @@ class NowPlayingPage(
         }
     }
 
+    /** 打开/回到播放页时先把播放状态对齐一次，别等到下一条广播才纠正按钮。 */
     fun refresh() {
+        updateProgress(null, null, MusicPlayerService.isPlaying)
     }
 
 
@@ -656,23 +607,6 @@ class NowPlayingPage(
                 if (result == null || result.lines.isEmpty()) showNoLyrics() else renderLyric(result)
             }
         }
-    }
-
-    /**
-     * 该曲目此刻是否在播放本地缓存。
-     *
-     * 判定顺序：`localPath` 指向真实存在的本地文件，或者缓存目录里存在同名音频文件。
-     * 本地路径可能因为文件被删而失效，所以必须校验存在性。
-     * 会读盘，必须在后台线程调用。
-     */
-    private fun isPlayingLocalCache(bean: MusicBean?): Boolean {
-        if (bean == null) return false
-        val path = bean.localPath
-        if (!path.isNullOrEmpty()) {
-            // 已有明确路径时以它为准（在线地址不算本地缓存）
-            return !path.startsWith("http") && File(path).exists()
-        }
-        return CacheManager.findAudioFile(CacheManager.baseNameOf(bean)) != null
     }
 
     private fun showNoLyrics() {

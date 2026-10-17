@@ -1,7 +1,10 @@
 package com.tilixibiesi.bili
 
+import com.tilixibiesi.R
 import com.tilixibiesi.data.AppPaths
+import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.CacheManager
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -51,19 +54,25 @@ object BiliCoverLoader {
         }
     }
 
+    /**
+     * 取封面位图。[onDone] 一律在主线程回调：
+     * 调用方常直接写在 ImageView 上，而本方法的命中缓存/已失败等快路径
+     * 本身就在调用线程同步返回（调用线程可能是 AppExecutors.io），
+     * 所以三条快路径也必须投递回主线程，不能直接调。
+     */
     fun fetch(coverUrl: String, onDone: (Bitmap?) -> Unit) {
         if (coverUrl.isEmpty()) {
-            onDone(null)
+            mainHandler.post { onDone(null) }
             return
         }
         val url = normalize(coverUrl)
         val cached = cache.get(url)
         if (cached != null) {
-            onDone(cached)
+            mainHandler.post { onDone(cached) }
             return
         }
         if (isFailed(url)) {
-            onDone(null)
+            mainHandler.post { onDone(null) }
             return
         }
         AppExecutors.io.execute {
@@ -71,6 +80,72 @@ object BiliCoverLoader {
             if (bitmap != null) cache.put(url, bitmap) else markFailed(url)
             mainHandler.post { onDone(bitmap) }
         }
+    }
+
+    /**
+     * 给 [imageView] 按播放页同一套逻辑填曲目封面。
+     *
+     * 命中本地封面文件就用本地，否则依次回退 [MusicBean.coverUrl] 与 B 站视频详情里的封面；
+     * 都没有（普通音乐）就保持占位图。读盘与网络都在后台线程，回填与 [onBitmap] 都在主线程。
+     */
+    fun loadForBean(imageView: ImageView, bean: MusicBean?, onBitmap: ((Bitmap?) -> Unit)? = null) {
+        val previous = imageView.tag as? MusicBean
+        imageView.tag = bean
+        // 同一首歌换个 Bean 实例（列表重建会这样做）时保留已显示的封面，别再闪一次占位图
+        if (previous != bean) imageView.setImageResource(R.drawable.ic_cover_placeholder)
+        if (bean == null) {
+            onBitmap?.invoke(null)
+            return
+        }
+        val baseName = CacheManager.baseNameOf(bean)
+        AppExecutors.io.execute {
+            val local = if (isPlayingLocalCache(bean)) loadLocalFile(baseName) else null
+            val direct = bean.coverUrl?.takeIf { it.isNotEmpty() }
+            val bvid = bean.bvid?.takeIf { it.isNotEmpty() }
+            when {
+                local != null -> mainHandler.post { applyCover(imageView, bean, local, onBitmap) }
+                direct != null -> fetch(direct) { applyCover(imageView, bean, it, onBitmap) }
+                bvid == null -> mainHandler.post { applyCover(imageView, bean, null, onBitmap) }
+                else -> BiliVideoMetaHelper.fetch(bvid) { meta ->
+                    val url = meta?.coverUrl
+                    if (url.isNullOrEmpty()) {
+                        applyCover(imageView, bean, null, onBitmap)
+                    } else {
+                        bean.coverUrl = url
+                        fetch(url) { applyCover(imageView, bean, it, onBitmap) }
+                    }
+                }
+            }
+        }
+    }
+
+    /** 回填位图；[imageView] 期间换了曲目就丢弃这次结果。 */
+    private fun applyCover(
+        imageView: ImageView,
+        bean: MusicBean,
+        bitmap: Bitmap?,
+        onBitmap: ((Bitmap?) -> Unit)?
+    ) {
+        if (imageView.tag !== bean) return
+        if (bitmap == null) imageView.setImageResource(R.drawable.ic_cover_placeholder)
+        else imageView.setImageBitmap(bitmap)
+        onBitmap?.invoke(bitmap)
+    }
+
+    /**
+     * 该曲目此刻是否在播放本地缓存。
+     *
+     * 判定顺序：`localPath` 指向真实存在的本地文件，或者缓存目录里存在同名音频文件。
+     * 本地路径可能因为文件被删而失效，所以必须校验存在性。
+     * 会读盘，必须在后台线程调用。
+     */
+    private fun isPlayingLocalCache(bean: MusicBean): Boolean {
+        val path = bean.localPath
+        if (!path.isNullOrEmpty()) {
+            // 已有明确路径时以它为准（在线地址不算本地缓存）
+            return !path.startsWith("http") && File(path).exists()
+        }
+        return CacheManager.findAudioFile(CacheManager.baseNameOf(bean)) != null
     }
 
     private fun isFailed(url: String): Boolean = synchronized(failed) { failed.contains(url) }
