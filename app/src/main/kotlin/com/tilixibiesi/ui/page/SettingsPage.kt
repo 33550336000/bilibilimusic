@@ -44,7 +44,7 @@ class SettingsPage(base: Context) : BasePage(base) {
 
         /** 与 card_background_semi 的 32dp 圆角对齐，切换玻璃时视觉不跳。 */
         private const val CARD_CORNER_DP = 32f
-        private const val CARD_BLUR_DP = 10f
+        private const val CARD_BLUR_DP = 5f
 
         private val CARD_IDS = intArrayOf(
             R.id.title_section_display,
