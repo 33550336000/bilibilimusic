@@ -211,8 +211,21 @@ class HorizontalPager @JvmOverloads constructor(
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var scrollState = SCROLL_STATE_IDLE
     private var pendingPage: Int? = null
-    private var insideLayout = false
     private var pendingClearTemporary: Int? = null
+
+    /**
+     * 本帧的 scroller 是否已经推进过。
+     *
+     * 每次遍历开始的前置回调里清掉，之后这一帧无论被绘制多少次都只推进一次。
+     */
+    private var advancedThisFrame = false
+
+    /** 每次遍历开始前清掉帧标记并把滚动推进一次，保证本帧绘制时 scrollX 已经定稿。 */
+    private val frameStartWatcher = android.view.ViewTreeObserver.OnPreDrawListener {
+        advancedThisFrame = false
+        advanceScrollForFrame()
+        true
+    }
 
     /** 预测性返回跟手滑动期间为 true：此时 scrollX 可以停在任何位置，不被布局复位。 */
     private var previewing = false
@@ -261,7 +274,11 @@ class HorizontalPager @JvmOverloads constructor(
             addView(v, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
             added = true
         }
-        if (added && insideLayout) {
+        // 新页必须当帧就量好、摆到自己的槽位上。
+        // 之前只在布局流程里才补这一步，而滚动停下是从 computeScroll() 里 settleFinished()
+        // 进来的，那时不在布局流程里：新加的页测出来是 0x0，接着被画到 (0,0)，
+        // 画面就撕成两半 —— 松手落页那一下的错位正是这里。
+        if (added) {
             val wSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY)
             val hSpec = MeasureSpec.makeMeasureSpec(
                 height - paddingTop - paddingBottom, MeasureSpec.EXACTLY
@@ -303,8 +320,15 @@ class HorizontalPager @JvmOverloads constructor(
         }
     }
 
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        viewTreeObserver.addOnPreDrawListener(frameStartWatcher)
+    }
+
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        val observer = viewTreeObserver
+        if (observer.isAlive) observer.removeOnPreDrawListener(frameStartWatcher)
         pendingClearRunnable?.let { removeCallbacks(it) }
         pendingClearRunnable = null
         pendingClearTemporary = null
@@ -318,7 +342,6 @@ class HorizontalPager @JvmOverloads constructor(
         val widthChanged = width != pageWidthPx
         pageWidthPx = width
 
-        insideLayout = true
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility == GONE) continue
@@ -344,7 +367,6 @@ class HorizontalPager @JvmOverloads constructor(
         }
 
         ensurePages(currentPage)
-        insideLayout = false
 
         ensureOrder()
         if (slotOf(currentPage) < 0) {
@@ -365,6 +387,22 @@ class HorizontalPager @JvmOverloads constructor(
 
 
     override fun computeScroll() {
+        // 推进 scrollX 被挪到每次遍历的前置回调里（见 advanceScrollForFrame），
+        // 这里什么都不做。View 的软件绘制路径会在绘制中途无条件调用 computeScroll()，
+        // 玻璃抓背景时子树又会在软件画布上重画一遍，等于给了滚动一个「插进绘制中间」的机会：
+        // 抓图发生在它之前，屏幕上画出在它之后，玻璃就永远差一帧位移。
+        // 拖动时 scrollX 在绘制开始前就定了，所以只有松手交给 scroller 之后才看得出来。
+    }
+
+    /**
+     * 把这一帧的滚动推进一次，并且放在任何绘制之前。
+     *
+     * 只剩「推进 scrollX」和「落页」两件事：它们只改状态，不碰画布，
+     * 前置回调里做掉，之后整帧的绘制——包括玻璃抓背景那次重画——读到的都是同一个 scrollX。
+     */
+    private fun advanceScrollForFrame() {
+        if (advancedThisFrame) return
+        advancedThisFrame = true
         if (!scroller.isFinished && scroller.computeScrollOffset()) {
             scrollTo(scroller.currX, scroller.currY)
             if (scrollState == SCROLL_STATE_SETTLING) postInvalidateOnAnimation()

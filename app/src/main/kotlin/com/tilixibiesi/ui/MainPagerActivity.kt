@@ -58,6 +58,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
         private set
     private lateinit var pages: Array<BasePage>
     private lateinit var floatingPlayerBar: View
+    private lateinit var rootView: FrameLayout
     private var playerBarWanted = false
     private var videoFullscreen = false
     private var playerBarInset = 0
@@ -91,6 +92,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
+        rootView = root
 
         // 背景铺在这一层，翻页控件是它的子 View：翻页只滑页面，背景原地不动。
         contentLayer = FrameLayout(this).apply {
@@ -437,6 +439,59 @@ class MainPagerActivity : BaseActivity(), PageHost {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         pages.forEach { if (it.created) it.onConfigurationChanged(newConfig) }
+        // 清单里声明了 configChanges=orientation|screenSize，转屏不重建 Activity，
+        // 页面视图树是 onCreate 那一刻按竖屏宽度建好的，之后没人重新量过：
+        // 设置页的卡片就停在旧宽度上，内容被拉伸、卡片互相重叠。
+        //
+        // 这里必须用 forceLayout() 而不是 requestLayout()。requestLayout() 的传递依赖
+        // 父级认为「尺寸可能变了」，而整条父链的测量规格仍来自旧的窗口尺寸；两者在
+        // 同一次遍历里又会被合并成一个请求，最终什么都没变。forceLayout() 直接置位
+        // PFLAG_FORCE_LAYOUT，让这棵子树在下一趟遍历里无条件重新测量，不看父级脸色。
+        rootView.forceLayout()
+        contentLayer.forceLayout()
+        pager.forceLayout()
+        backgroundLayer.forceLayout()
+        floatingPlayerBar.forceLayout()
+        pages.forEach { page ->
+            page.pageView?.let { view ->
+                view.forceLayout()
+                requestGlassReset(view)
+            }
+        }
+        // 让位内边距要等悬浮栏按新宽度量完才有正确高度：
+        // post 有可能赶在布局完成之前，这里挂一次性回调等到真正量完。
+        awaitPlayerBarLayout()
+    }
+
+    /**
+     * 等悬浮栏下一次布局完成后再重算让位内边距，只跑一次。
+     *
+     * 转屏后立即读 height 拿到的是旧值，按它算出来的内边距会把页面内容压在栏下面。
+     */
+    private fun awaitPlayerBarLayout() {
+        floatingPlayerBar.addOnLayoutChangeListener(
+            object : View.OnLayoutChangeListener {
+                override fun onLayoutChange(
+                    v: View, left: Int, top: Int, right: Int, bottom: Int,
+                    oldLeft: Int, oldTop: Int, oldRight: Int, oldBottom: Int
+                ) {
+                    v.removeOnLayoutChangeListener(this)
+                    if (isFinishing || isDestroyed) return
+                    applyPlayerBarInset()
+                    invalidateGlassBackdrop()
+                }
+            }
+        )
+    }
+
+    /**
+     * 页面里嵌着的玻璃（设置页卡片等）也要丢掉按旧尺寸缓存的背景位图和圆角路径，
+     * 并请求重新布局：转屏后宽度变了，它们必须按新宽度重新摆放。
+     */
+    private fun requestGlassReset(root: View) {
+        if (root is LiquidGlassLayout) root.invalidateBackdrop()
+        if (root !is ViewGroup) return
+        for (i in 0 until root.childCount) requestGlassReset(root.getChildAt(i))
     }
 
     @Deprecated("Deprecated in Java")
