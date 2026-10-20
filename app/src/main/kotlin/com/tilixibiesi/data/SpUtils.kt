@@ -30,6 +30,9 @@ object SpUtils {
     private const val KEY_AUTO_LOAD_DEFAULT = "auto_load_default"
     private const val KEY_BOTTOM_NAV_ENABLED = "bottom_nav_enabled"
     private const val KEY_LIQUID_GLASS_ENABLED = "liquid_glass_enabled"
+    private const val KEY_LIQUID_GLASS_CARDS_ENABLED = "liquid_glass_cards_enabled"
+    private const val KEY_MAIN_ADD_BUTTON_VISIBLE = "main_add_button_visible"
+    private const val KEY_MAIN_DELETE_BUTTON_VISIBLE = "main_delete_button_visible"
 
     private const val KEY_CLICK_FX_ENABLED = "click_fx_enabled"
     private const val KEY_COLLAPSED_SECTIONS = "collapsed_sections"
@@ -130,7 +133,7 @@ object SpUtils {
     }
 
     /**
-     * 液态玻璃是否开启。
+     * 悬浮控制栏是否用液态玻璃。
      *
      * 用户没设置过时按系统能力给默认值：折射着色器（AGSL RuntimeShader）要 API 33 才有，
      * 33+ 默认打开，低版本保持关闭，避免默认值把不可用的效果当成「已开启」。
@@ -142,6 +145,53 @@ object SpUtils {
     }
     fun setLiquidGlassEnabled(context: Context, enabled: Boolean) {
         getSp(context).edit().putBoolean(KEY_LIQUID_GLASS_ENABLED, enabled).apply()
+    }
+
+    /**
+     * 设置页的卡片是否用液态玻璃。
+     *
+     * 与控制栏分开：控制栏常驻在所有页面，卡片只在设置页出现，
+     * 「控制栏玻璃、卡片白底」是很正常的组合，不该被同一个开关绑死。
+     * 老版本只存了 [KEY_LIQUID_GLASS_ENABLED]，这里只在迁移前兜底跟随，
+     * 启动时 [migrateLiquidGlassCardsSetting] 会把值固化下来，之后互不影响。
+     */
+    fun getLiquidGlassCardsEnabled(context: Context): Boolean {
+        val sp = getSp(context)
+        if (!sp.contains(KEY_LIQUID_GLASS_CARDS_ENABLED)) return getLiquidGlassEnabled(context)
+        return sp.getBoolean(KEY_LIQUID_GLASS_CARDS_ENABLED, false)
+    }
+    fun setLiquidGlassCardsEnabled(context: Context, enabled: Boolean) {
+        getSp(context).edit().putBoolean(KEY_LIQUID_GLASS_CARDS_ENABLED, enabled).apply()
+    }
+
+    /**
+     * 把老版本「一个开关同时管控制栏和卡片」的值迁移成卡片自己的值。
+     *
+     * 只在应用启动、且卡片开关还没有存过时执行一次。不做这一步的话，卡片会一直
+     * 跟随控制栏：关掉控制栏玻璃还是会把卡片一起关掉，正是要拆开的那件事。
+     */
+    fun migrateLiquidGlassCardsSetting(context: Context) {
+        val sp = getSp(context)
+        if (sp.contains(KEY_LIQUID_GLASS_CARDS_ENABLED)) return
+        sp.edit()
+            .putBoolean(KEY_LIQUID_GLASS_CARDS_ENABLED, getLiquidGlassEnabled(context))
+            .apply()
+    }
+
+    /** 主页面歌曲列表每行右侧的「+（加入歌单）」按钮是否显示。 */
+    fun isMainAddButtonVisible(context: Context): Boolean =
+        getSp(context).getBoolean(KEY_MAIN_ADD_BUTTON_VISIBLE, true)
+
+    fun setMainAddButtonVisible(context: Context, visible: Boolean) {
+        getSp(context).edit().putBoolean(KEY_MAIN_ADD_BUTTON_VISIBLE, visible).apply()
+    }
+
+    /** 主页面歌曲列表每行右侧的「×（删除）」按钮是否显示。 */
+    fun isMainDeleteButtonVisible(context: Context): Boolean =
+        getSp(context).getBoolean(KEY_MAIN_DELETE_BUTTON_VISIBLE, true)
+
+    fun setMainDeleteButtonVisible(context: Context, visible: Boolean) {
+        getSp(context).edit().putBoolean(KEY_MAIN_DELETE_BUTTON_VISIBLE, visible).apply()
     }
 
     fun getClickFxEnabled(context: Context): Boolean =

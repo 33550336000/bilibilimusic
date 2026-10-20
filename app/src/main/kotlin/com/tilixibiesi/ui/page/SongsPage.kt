@@ -156,6 +156,8 @@ class SongsPage(base: Context) : BasePage(base) {
         } else {
             PlaybackStatsManager.stopUpdater()
         }
+        // 设置页可能刚改过「+」「×」的显隐，回到本页时同步
+        applyMainRowButtonSettings()
         musicAdapter.notifyDataSetChanged()
         nowPlaying?.takeIf { it.isVisible }?.let { page ->
             resolveCurrentBean()?.let { bean ->
@@ -172,6 +174,24 @@ class SongsPage(base: Context) : BasePage(base) {
     override fun onPause() {
         if (isAdjustMode) exitAdjustMode()
         PlaybackStatsManager.stopUpdater()
+    }
+
+    /**
+     * 主页面每行右侧的「+（加入歌单）」与「×（删除）」可以按设置隐藏。
+     *
+     * 开关在设置页（另一个页面）里改，回到本页时再同步；值和当前一致就不刷新列表，
+     * 避免每次 onResume 都白重绘一遍。
+     */
+    private fun applyMainRowButtonSettings() {
+        if (!::musicAdapter.isInitialized) return
+        val showAdd = SpUtils.isMainAddButtonVisible(this)
+        val showDelete = SpUtils.isMainDeleteButtonVisible(this)
+        if (musicAdapter.showAddButton == showAdd && musicAdapter.showDeleteButton == showDelete) return
+        musicAdapter.showAddButton = showAdd
+        musicAdapter.showDeleteButton = showDelete
+        musicAdapter.notifyDataSetChanged()
+        // 行内按钮显隐会改变列表画面，控制栏的玻璃要重抓，别继续折射旧列表
+        (activity as? MainPagerActivity)?.invalidateGlassBackdrop()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -300,7 +320,10 @@ class SongsPage(base: Context) : BasePage(base) {
             }
         })
 
-        musicAdapter = MusicAdapter(this, musicList).apply { showDeleteButton = true }
+        musicAdapter = MusicAdapter(this, musicList).apply {
+            showAddButton = SpUtils.isMainAddButtonVisible(this@SongsPage)
+            showDeleteButton = SpUtils.isMainDeleteButtonVisible(this@SongsPage)
+        }
         lvMusic.adapter = musicAdapter
 
         lvMusic.onItemClickListener =
