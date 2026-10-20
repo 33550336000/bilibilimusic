@@ -298,6 +298,29 @@ half4 main(float2 fragCoord) {
     private var blurEffectRadius = Float.NaN
     private var shaderEffect: RenderEffect? = null
 
+    /**
+     * [shaderEffect] 是按哪一组 uniform 建出来的。
+     *
+     * RenderEffect 不是「引用着色器、每帧现取 uniform」，而是创建那一刻就把 uniform 拷走了：
+     * Java 侧 `RenderEffect.createRuntimeShaderEffect` 交给 JNI 的是
+     * `RuntimeShader.getNativeShaderBuilder()`，hwui 再调 `SkImageFilters::RuntimeShader(*builder, …)`，
+     * Skia 在 `SkRuntimeImageFilter` 里存的是 `SkRuntimeShaderBuilder` 的**副本**
+     * （见 SkRuntimeImageFilter.cpp 的 `fRuntimeEffectBuilder(builder)`）。
+     * 也就是说：effect 建好之后再 `setFloatUniform`，对已经建出来的滤镜完全没有作用。
+     *
+     * 旧代码只在第一次绘制时建一次 effect，uSize 就永远停在那一刻的尺寸上：
+     * 竖屏启动 → 转横屏，SDF 遮罩仍按竖屏宽度算，玻璃只画到旧宽度那一条，右边整块透明；
+     * 反过来横屏启动 → 竖屏，遮罩比 View 大，被 View 自身边界裁掉，看起来反而是正常的。
+     * 这就是「竖屏进入应用、设置页转横屏玻璃异常，横屏进入应用再竖屏却正常」的原因。
+     * 尺寸/圆角/倾斜任何一项变了都必须重建 effect。
+     */
+    private var effectWidth = -1
+    private var effectHeight = -1
+    private var effectCorner = Float.NaN
+    private var effectBevel = Float.NaN
+    private var effectTiltX = Float.NaN
+    private var effectTiltY = Float.NaN
+
     private val blurNode = RenderNode("liquidGlassBlur")
     private val shaderNode = RenderNode("liquidGlassShader")
     private val blurRect = RectF()
@@ -540,16 +563,45 @@ half4 main(float2 fragCoord) {
         nc.scale(width.toFloat() / bw, height.toFloat() / bh)
         nc.drawRenderNode(blurNode)
         shaderNode.endRecording()
-        if (shaderEffect == null) {
-            shaderEffect = RenderEffect.createRuntimeShaderEffect(s, "uBackdrop")
-        }
-        shaderNode.setRenderEffect(shaderEffect)
+        // uniform 必须在这之前设好；effect 会把这些值拷走，所以换了尺寸/倾斜就得重建
+        shaderNode.setRenderEffect(ensureShaderEffect(s))
 
         val save = canvas.save()
         canvas.clipPath(clipPath)
         canvas.drawRenderNode(shaderNode)
         canvas.restoreToCount(save)
         return true
+    }
+
+    /**
+     * 按当前 uniform 取折射用的 [RenderEffect]，取值变了就重建。
+     *
+     * RenderEffect 在创建时把 uniform 拷贝进 Skia 的滤镜（见 [shaderEffect] 上方注释），
+     * 之后 [RuntimeShader.setFloatUniform] 改的是 RuntimeShader 自己的 builder，滤镜读不到。
+     * 因此这里用一份「建 effect 时的 uniform 快照」做比较：只是传感器抖动/同一帧重复绘制时
+     * 直接复用，尺寸或倾斜真正变了才付一次建滤镜的代价。
+     */
+    private fun ensureShaderEffect(s: RuntimeShader): RenderEffect {
+        val cached = shaderEffect
+        if (cached != null &&
+            effectWidth == width &&
+            effectHeight == height &&
+            effectCorner == cornerPx &&
+            effectBevel == bevelPx &&
+            effectTiltX == tiltX &&
+            effectTiltY == tiltY
+        ) {
+            return cached
+        }
+        val rebuilt = RenderEffect.createRuntimeShaderEffect(s, "uBackdrop")
+        shaderEffect = rebuilt
+        effectWidth = width
+        effectHeight = height
+        effectCorner = cornerPx
+        effectBevel = bevelPx
+        effectTiltX = tiltX
+        effectTiltY = tiltY
+        return rebuilt
     }
 
     /** 把位图按自身分辨率录进 [blurNode]：后面本来就要放大，在高分辨率上模糊纯属浪费。 */

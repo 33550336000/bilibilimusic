@@ -25,6 +25,8 @@ class MusicAdapter(
     var onAddToPlaylistClickListener: OnAddToPlaylistClickListener? = null
     var onDeleteClickListener: OnDeleteClickListener? = null
     var originalIndexProvider: ((MusicBean) -> Int)? = null
+    /** 主页面可以按设置隐藏「+」与「×」，其它页面保持常显。 */
+    var showAddButton: Boolean = true
     var showDeleteButton: Boolean = false
 
     override fun getCount(): Int = musicList.size
@@ -97,7 +99,7 @@ class MusicAdapter(
         holder.tvAuthor.textSize = (fontSize - 3).toFloat()
 
         holder.btnAddToPlaylist.visibility =
-            if (onAddToPlaylistClickListener != null) View.VISIBLE else View.GONE
+            if (showAddButton && onAddToPlaylistClickListener != null) View.VISIBLE else View.GONE
 
         if (showDeleteButton && onDeleteClickListener != null) {
             holder.btnDelete.visibility = View.VISIBLE

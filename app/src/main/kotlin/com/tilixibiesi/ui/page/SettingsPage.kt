@@ -113,15 +113,19 @@ class SettingsPage(base: Context) : BasePage(base) {
     /**
      * 六个设置卡片改用液态玻璃，折射源是主页那层全局背景。
      *
+     * 用单独的「液态玻璃卡片」开关，不再跟着控制栏那个开关走。
      * 玻璃不可用（API < 33 或着色器编译失败）时整段跳过：卡片保持 XML 里的
      * `card_background_semi`，与改动前完全一致。
      */
     private fun applyCardGlass() {
         val host = activity as? MainPagerActivity ?: return
-        val enabled = SpUtils.getLiquidGlassEnabled(this) && LiquidGlassLayout.isAvailable()
+        val enabled = SpUtils.getLiquidGlassCardsEnabled(this) && LiquidGlassLayout.isAvailable()
         for (id in CARD_IDS) {
             val card = findViewById<LiquidGlassLayout>(id) ?: continue
             if (!enabled) {
+                // 关掉玻璃后交还给半透明卡片底色：solidWhenDisabled 必须关，
+                // 否则 onDraw 会自己铺一层不透明白底，把 card_background_semi 盖掉。
+                card.solidWhenDisabled = false
                 card.background = resources.getDrawable(R.drawable.card_background_semi, null)
                 card.glassEnabled = false
                 continue
@@ -135,6 +139,9 @@ class SettingsPage(base: Context) : BasePage(base) {
             card.backdropSource = host.backgroundLayer
             card.glassEnabled = true
         }
+        // 控制栏的玻璃抓的是整层 contentLayer（含设置页），卡片外观变了要重抓一次，
+        // 否则开关前后那一小块在控制栏里还是旧画面。
+        host.invalidateGlassBackdrop()
     }
 
     private fun refreshBottomNav() {
@@ -384,13 +391,54 @@ class SettingsPage(base: Context) : BasePage(base) {
                         SpUtils.setLiquidGlassEnabled(this, !current)
                         updateLiquidGlassButtonText()
                         (activity as? MainPagerActivity)?.refreshFloatingPlayerBar()
-                        applyCardGlass()
                         ToastUtils.show(this@SettingsPage, message)
                     }
                     .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
                     .also { showMaterialDialog(it) }
             )
         }
+
+        // 设置页卡片的玻璃单独控制，不再跟着上面那个控制栏开关走
+        setupToggleButton(
+            buttonId = R.id.btn_liquid_glass_cards,
+            titleRes = R.string.btn_liquid_glass_cards,
+            onLabelRes = R.string.btn_liquid_glass_cards_on,
+            offLabelRes = R.string.btn_liquid_glass_cards_off,
+            onMessageRes = R.string.dialog_msg_liquid_glass_cards_on,
+            offMessageRes = R.string.dialog_msg_liquid_glass_cards_off,
+            enabledToastRes = R.string.toast_liquid_glass_cards_enabled,
+            disabledToastRes = R.string.toast_liquid_glass_cards_disabled,
+            isEnabled = { SpUtils.getLiquidGlassCardsEnabled(this) },
+            setEnabled = { SpUtils.setLiquidGlassCardsEnabled(this, it) },
+            onChanged = { applyCardGlass() }
+        )
+
+        // 主页面歌曲列表每行右侧的两个按钮：+（加入歌单）与 ×（删除）
+        setupToggleButton(
+            buttonId = R.id.btn_main_add_button,
+            titleRes = R.string.btn_main_add_button,
+            onLabelRes = R.string.btn_main_add_button_on,
+            offLabelRes = R.string.btn_main_add_button_off,
+            onMessageRes = R.string.dialog_msg_main_add_button_on,
+            offMessageRes = R.string.dialog_msg_main_add_button_off,
+            enabledToastRes = R.string.toast_main_add_button_enabled,
+            disabledToastRes = R.string.toast_main_add_button_disabled,
+            isEnabled = { SpUtils.isMainAddButtonVisible(this) },
+            setEnabled = { SpUtils.setMainAddButtonVisible(this, it) }
+        )
+
+        setupToggleButton(
+            buttonId = R.id.btn_main_delete_button,
+            titleRes = R.string.btn_main_delete_button,
+            onLabelRes = R.string.btn_main_delete_button_on,
+            offLabelRes = R.string.btn_main_delete_button_off,
+            onMessageRes = R.string.dialog_msg_main_delete_button_on,
+            offMessageRes = R.string.dialog_msg_main_delete_button_off,
+            enabledToastRes = R.string.toast_main_delete_button_enabled,
+            disabledToastRes = R.string.toast_main_delete_button_disabled,
+            isEnabled = { SpUtils.isMainDeleteButtonVisible(this) },
+            setEnabled = { SpUtils.setMainDeleteButtonVisible(this, it) }
+        )
 
         findViewById<Button>(R.id.btn_clear_cache)!!.setOnClickListener { storageDialogs.showCacheManager() }
 
@@ -660,6 +708,59 @@ class SettingsPage(base: Context) : BasePage(base) {
                 LanguageUtils.getString(this@SettingsPage, R.string.btn_auto_cache_on)
             else
                 LanguageUtils.getString(this@SettingsPage, R.string.btn_auto_cache_off)
+        }
+    }
+
+    /**
+     * 「界面与导航」里只切换显示状态的按钮。
+     *
+     * 点一下弹确认框，确认后写入设置、刷新按钮文字，再回调让界面立刻生效；
+     * 与底栏、控制栏那些开关保持同一套交互，避免误触。参数全是资源 id 与读写闭包，
+     * 三个按钮共用一份逻辑。
+     */
+    private fun setupToggleButton(
+        buttonId: Int,
+        titleRes: Int,
+        onLabelRes: Int,
+        offLabelRes: Int,
+        onMessageRes: Int,
+        offMessageRes: Int,
+        enabledToastRes: Int,
+        disabledToastRes: Int,
+        isEnabled: () -> Boolean,
+        setEnabled: (Boolean) -> Unit,
+        onChanged: () -> Unit = {}
+    ) {
+        val button = findViewById<Button>(buttonId) ?: return
+
+        fun refreshLabel() {
+            button.text = LanguageUtils.getString(
+                this,
+                if (isEnabled()) onLabelRes else offLabelRes
+            )
+        }
+        refreshLabel()
+
+        button.setOnClickListener {
+            val current = isEnabled()
+            showMaterialDialog(
+                AlertDialog.Builder(this)
+                    .setTitle(LanguageUtils.getString(this, titleRes))
+                    .setMessage(getString(if (current) offMessageRes else onMessageRes))
+                    .setPositiveButton(LanguageUtils.getString(this, R.string.btn_ok)) { _, _ ->
+                        setEnabled(!current)
+                        refreshLabel()
+                        onChanged()
+                        ToastUtils.show(
+                            this,
+                            LanguageUtils.getString(
+                                this,
+                                if (current) disabledToastRes else enabledToastRes
+                            )
+                        )
+                    }
+                    .setNegativeButton(LanguageUtils.getString(this, R.string.btn_cancel), null)
+            )
         }
     }
 
