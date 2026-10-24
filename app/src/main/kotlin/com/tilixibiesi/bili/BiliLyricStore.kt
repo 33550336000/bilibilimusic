@@ -1,11 +1,15 @@
 package com.tilixibiesi.bili
 
+import android.util.Log
+
 import com.tilixibiesi.data.AppPaths
 import com.tilixibiesi.util.AtomicFileWriter
 
 import java.io.File
 
 object BiliLyricStore {
+
+    private const val TAG = "BiliLyricStore"
 
     private const val EXTENSION = ".lrc"
 
@@ -32,8 +36,7 @@ object BiliLyricStore {
             val text = toLrc(lyric)
             if (target.isFile && target.readText() == text) return
             AtomicFileWriter.writeText(target, text)
-        } catch (_: Exception) {
-        }
+        } catch (e: Exception) { Log.d(TAG, "歌词落盘失败: ${e.message}") }
     }
 
     fun delete(displayName: String) {

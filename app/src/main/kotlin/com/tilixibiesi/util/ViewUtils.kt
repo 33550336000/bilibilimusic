@@ -88,7 +88,9 @@ object ViewUtils {
             val position = positionProvider()
             val parent = view.parent
             if (position >= 0 && parent is ListView) {
-                parent.onItemLongClickListener?.onItemLongClick(parent, view, position, view.id.toLong())
+                parent.onItemLongClickListener?.onItemLongClick(
+                    parent, view, position, parent.getItemIdAtPosition(position)
+                )
             }
         }
 
@@ -128,11 +130,14 @@ object ViewUtils {
                         .setDuration(duration)
                         .start()
                     if (!isSwiped && !isLongPressed) {
-                        v.performClick()
+                        // 只走 ListView 的 itemClick 路径，避免 performClick + performItemClick
+                        // 双触发导致点击被处理两次（表现为点击动画抖动、长按菜单与点击同时响应）
                         val position = positionProvider()
-                        val parent = v.parent
-                        if (position >= 0 && parent is ListView) {
-                            parent.performItemClick(v, position, v.id.toLong())
+                        val listView = v.parent as? ListView
+                        if (position >= 0 && listView != null) {
+                            listView.performItemClick(v, position, listView.getItemIdAtPosition(position))
+                        } else {
+                            v.performClick()
                         }
                     }
                 }

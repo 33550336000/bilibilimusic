@@ -19,6 +19,14 @@ import kotlin.math.abs
 class ClickFxOverlay(context: Context) : WebView(context) {
 
     private val handler = Handler(Looper.getMainLooper())
+
+    /** 复用缓冲区与 StringBuilder，避免每次触摸都新建 14B ByteBuffer + 拼接 JS 字符串。 */
+    private val pointerBuffer = ByteBuffer.allocate(14).order(ByteOrder.LITTLE_ENDIAN)
+    private val jsBuilder = StringBuilder(256)
+
+    /** markReady 的延时任务句柄，用于取消重复投递。 */
+    private var markReadyRunnable: Runnable? = null
+
     private var ready = false
     private var lastPostMs = 0L
     private var lastX = -1
@@ -54,7 +62,14 @@ class ClickFxOverlay(context: Context) : WebView(context) {
             useWideViewPort = false
             loadWithOverviewMode = false
         }
-        webViewClient = android.webkit.WebViewClient()
+        webViewClient = object : android.webkit.WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                markReadyRunnable?.let { handler.removeCallbacks(it) }
+                markReadyRunnable = null
+                markReady()
+            }
+        }
     }
 
     fun syncBounds() {
@@ -73,7 +88,12 @@ class ClickFxOverlay(context: Context) : WebView(context) {
             return
         }
         loadUrl("file://" + file.absolutePath)
-        handler.postDelayed({ markReady() }, 600)
+        // onPageFinished 不一定触发（WebView 复用时会跳过），所以保留一个兜底定时器；
+        // 但记录句柄，重复 load 时先取消，避免叠加多个 markReady。
+        markReadyRunnable?.let { handler.removeCallbacks(it) }
+        val r = Runnable { markReady() }
+        markReadyRunnable = r
+        handler.postDelayed(r, READY_FALLBACK_MS)
     }
 
     fun loadAgain() {
@@ -85,6 +105,7 @@ class ClickFxOverlay(context: Context) : WebView(context) {
     }
 
     private fun markReady() {
+        if (ready) return
         ready = true
         val dpr = resources.displayMetrics.density
         val js = "(function(){try{" +
@@ -126,20 +147,23 @@ class ClickFxOverlay(context: Context) : WebView(context) {
     }
 
     private fun postPointer(pointerId: Int, x: Int, y: Int, pressed: Boolean) {
-        val buf = ByteBuffer.allocate(14).order(ByteOrder.LITTLE_ENDIAN)
+        val buf = pointerBuffer
+        buf.clear()
         buf.put(0x02.toByte())
         buf.putInt(pointerId)
         buf.putInt(x)
         buf.putInt(y)
         buf.put(if (pressed) 1 else 0)
         val b64 = Base64.encodeToString(buf.array(), Base64.NO_WRAP)
-        val js = "(function(){try{var raw=atob('" + b64 + "');" +
-            "var b=new Uint8Array(raw.length);" +
-            "for(var i=0;i<raw.length;i++)b[i]=raw.charCodeAt(i);" +
-            "window.postMessage({type:'__MIRAAPI_INPUT__'," +
-            "id:(window.__MIRAAPI_ELEMENT_ID__||1),device:'touch',payload:b.buffer},'*');" +
-            "}catch(e){}})();"
-        evaluateJavascript(js, null)
+        val js = jsBuilder
+        js.setLength(0)
+        js.append("(function(){try{var raw=atob('").append(b64).append("');")
+            .append("var b=new Uint8Array(raw.length);")
+            .append("for(var i=0;i<raw.length;i++)b[i]=raw.charCodeAt(i);")
+            .append("window.postMessage({type:'__MIRAAPI_INPUT__',")
+            .append("id:(window.__MIRAAPI_ELEMENT_ID__||1),device:'touch',payload:b.buffer},'*');")
+            .append("}catch(e){}})();")
+        evaluateJavascript(js.toString(), null)
     }
 
     fun pause() {
@@ -182,10 +206,16 @@ class ClickFxOverlay(context: Context) : WebView(context) {
 
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
+        markReadyRunnable?.let { handler.removeCallbacks(it) }
+        markReadyRunnable = null
+        handler.removeCallbacksAndMessages(null)
         destroy()
     }
 
     companion object {
         private const val FRAME_INTERVAL_MS = 16L
+
+        /** onPageFinished 未触发时的兜底延时。 */
+        private const val READY_FALLBACK_MS = 600L
     }
 }

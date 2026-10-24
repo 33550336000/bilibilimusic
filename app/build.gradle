@@ -101,9 +101,9 @@ project.afterEvaluate {
                     new File(destDir, destFileName).toPath(),
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING
                 )
-                println "\033[32mAPK 已复制到: ${destDir.absolutePath}/${destFileName}"
+                println "\033[32mAPK 已复制到: ${destDir.absolutePath}/${destFileName}\033[0m"
             } else {
-                println "\033[30未找到 APK 文件: ${apkSource.absolutePath}任务失败。"
+                println "\033[31m未找到 APK 文件: ${apkSource.absolutePath} 任务失败。\033[0m"
             }
         }
     }

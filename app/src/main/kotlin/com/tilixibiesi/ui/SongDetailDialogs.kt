@@ -8,6 +8,7 @@ import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.util.ToastUtils
 
 import android.app.AlertDialog
+import android.app.Activity
 import android.content.Context
 
 class SongDetailDialogs(
@@ -16,6 +17,12 @@ class SongDetailDialogs(
 ) {
 
     private var currentDialog: AlertDialog? = null
+
+    /** 异步读取完成后，宿主的 Activity 可能已经销毁，此时弹窗会抛 BadTokenException。 */
+    private fun canShowDialog(): Boolean {
+        val activity = context as? Activity ?: return true
+        return !activity.isDestroyed && !activity.isFinishing
+    }
 
     fun showDetailDialog() {
         showSongList()
@@ -27,11 +34,17 @@ class SongDetailDialogs(
     }
 
     private fun showSongList() {
-        val all = PlaybackStatsManager.loadPlaybackDetails()
-        if (all.isEmpty()) {
-            ToastUtils.show(context, LanguageUtils.getString(context, R.string.detail_no_record))
-            return
+        PlaybackStatsManager.loadPlaybackDetailsAsync { all ->
+            if (!canShowDialog()) return@loadPlaybackDetailsAsync
+            if (all.isEmpty()) {
+                ToastUtils.show(context, LanguageUtils.getString(context, R.string.detail_no_record))
+                return@loadPlaybackDetailsAsync
+            }
+            showSongListLoaded(all)
         }
+    }
+
+    private fun showSongListLoaded(all: Map<String, Map<String, Long>>) {
         val currentPlaying = MusicPlayerService.currentPlayingName
         val rawNames = all.keys.sortedWith(
             compareByDescending<String> { DataFileUtils.getDisplayName(it) == currentPlaying }
@@ -56,13 +69,19 @@ class SongDetailDialogs(
     }
 
     private fun showDailyDetail(rawName: String) {
-        val dateMap = PlaybackStatsManager.loadSongDetails(rawName)
-        if (dateMap.isNullOrEmpty()) {
-            ToastUtils.show(context, LanguageUtils.getString(context, R.string.song_no_record))
-            return
+        PlaybackStatsManager.loadSongDetailsAsync(rawName) { dateMap ->
+            if (!canShowDialog()) return@loadSongDetailsAsync
+            if (dateMap.isEmpty()) {
+                ToastUtils.show(context, LanguageUtils.getString(context, R.string.song_no_record))
+                return@loadSongDetailsAsync
+            }
+            showDailyDetailLoaded(rawName, dateMap)
         }
+    }
+
+    private fun showDailyDetailLoaded(rawName: String, dateMap: Map<String, Long>) {
         val items = dateMap.keys.sortedDescending().map { date ->
-            "$date  ${PlaybackStatsManager.formatDuration(dateMap[date]!!, context)}"
+            "$date  ${PlaybackStatsManager.formatDuration(dateMap.getValue(date), context)}"
         }.toTypedArray()
 
         currentDialog?.dismiss()

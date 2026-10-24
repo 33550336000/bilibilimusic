@@ -1,4 +1,6 @@
 package com.tilixibiesi.data
+
+import android.util.Log
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.util.AppExecutors
 
@@ -8,6 +10,8 @@ import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
 object SpUtils {
+
+    private const val TAG = "SpUtils"
     private const val PREFS_NAME = "MusicPlayerPrefs"
     private const val KEY_MUSIC_LIST = "music_list"
     private const val KEY_CURRENT_MUSIC_NAME = "current_music_name"
@@ -62,7 +66,9 @@ object SpUtils {
                 jsonArray.put(json)
             }
             getSp(context).edit().putString(KEY_MUSIC_LIST, jsonArray.toString()).apply()
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            Log.d(TAG, "保存歌曲列表失败: ${e.message}")
+        }
     }
 
     fun getMusicList(context: Context): List<MusicBean> {
@@ -79,7 +85,9 @@ object SpUtils {
                 bean.isPlaying = json.getBoolean("isPlaying")
                 list.add(bean)
             }
-        } catch (e: Exception) { e.printStackTrace() }
+        } catch (e: Exception) {
+            Log.d(TAG, "读取歌曲列表失败: ${e.message}")
+        }
         return list
     }
 

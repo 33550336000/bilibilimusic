@@ -21,6 +21,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
+import android.os.SystemClock
+import android.util.Log
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -38,7 +40,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
 ) : LinearLayout(context, attrs, defStyleAttr) {
 
     companion object {
+        private const val TAG = "LiquidGlassLayout"
+
         private const val DOWNSCALE = 3
+
+        private const val SAMPLE_COLS = 12
+        private const val SAMPLE_ROWS = 12
 
         private const val CORNER_DP = 26f
         private const val BEVEL_DP = 18f
@@ -259,6 +266,27 @@ half4 main(float2 fragCoord) {
     private var captureCanvas: Canvas? = null
     private var lastSignature = Int.MIN_VALUE
     private var lastPreDrawSignature = Int.MIN_VALUE
+
+    /** 每次真正重绘 backdrop 时自增，用于判断 RenderNode 的录制缓存是否失效。 */
+    private var backdropGeneration = 0
+
+
+    /** 采样用的行缓冲，避免每次捕获都新建数组。 */
+    private var lumaRows: IntArray? = null
+
+    /** 光斑渐变缓存，避免每帧新建 LinearGradient。 */
+    private var specGradient: LinearGradient? = null
+    private var specGradientKey = 0L
+
+    private var shaderNodeW = -1
+    private var shaderNodeH = -1
+    private var shaderNodeBw = -1
+    private var shaderNodeBh = -1
+    private var shaderNodeGeneration = -1
+
+    private var blurNodeGeneration = -1
+    private var blurNodeW = -1
+    private var blurNodeH = -1
 
     private var shader: RuntimeShader? = null
     private var shaderBroken = false
@@ -486,11 +514,23 @@ half4 main(float2 fragCoord) {
         val bh = bmp.height
         recordBlurNode(bmp, bw, bh)
 
-        shaderNode.setPosition(0, 0, width, height)
-        val nc = shaderNode.beginRecording(width, height)
-        nc.scale(width.toFloat() / bw, height.toFloat() / bh)
-        nc.drawRenderNode(blurNode)
-        shaderNode.endRecording()
+        // shaderNode 的记录内容只依赖尺寸和 backdrop 代次，同样做缓存
+        val reuseShaderNode = shaderNodeW == width && shaderNodeH == height &&
+            shaderNodeBw == bw && shaderNodeBh == bh &&
+            shaderNodeGeneration == backdropGeneration &&
+            shaderNode.hasDisplayList()
+        if (!reuseShaderNode) {
+            shaderNode.setPosition(0, 0, width, height)
+            val nc = shaderNode.beginRecording(width, height)
+            nc.scale(width.toFloat() / bw, height.toFloat() / bh)
+            nc.drawRenderNode(blurNode)
+            shaderNode.endRecording()
+            shaderNodeW = width
+            shaderNodeH = height
+            shaderNodeBw = bw
+            shaderNodeBh = bh
+            shaderNodeGeneration = backdropGeneration
+        }
         shaderNode.setRenderEffect(ensureShaderEffect(s))
 
         val save = canvas.save()
@@ -529,16 +569,26 @@ half4 main(float2 fragCoord) {
 
     private fun recordBlurNode(bmp: Bitmap, bw: Int, bh: Int) {
         val radius = blurRadiusDp * density / DOWNSCALE
-        blurNode.setPosition(0, 0, bw, bh)
-        val bc = blurNode.beginRecording(bw, bh)
-        blurRect.set(0f, 0f, bw.toFloat(), bh.toFloat())
-        bc.drawBitmap(bmp, null, blurRect, bitmapPaint)
-        blurNode.endRecording()
+        // 只在尺寸 / 内容代次 / 半径变化时重录 display list，
+        // 静止画面下每帧的 beginRecording+endRecording 是可以完全省掉的
+        val reused = blurNodeW == bw && blurNodeH == bh &&
+            blurNodeGeneration == backdropGeneration && blurEffectRadius == radius &&
+            blurNode.hasDisplayList()
+        if (!reused) {
+            blurNode.setPosition(0, 0, bw, bh)
+            val bc = blurNode.beginRecording(bw, bh)
+            blurRect.set(0f, 0f, bw.toFloat(), bh.toFloat())
+            bc.drawBitmap(bmp, null, blurRect, bitmapPaint)
+            blurNode.endRecording()
+            blurNodeW = bw
+            blurNodeH = bh
+            blurNodeGeneration = backdropGeneration
+        }
         if (blurEffect == null || blurEffectRadius != radius) {
             blurEffect = RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
             blurEffectRadius = radius
         }
-        blurNode.setRenderEffect(blurEffect)
+        if (!reused) blurNode.setRenderEffect(blurEffect)
     }
 
     private fun drawFallback(canvas: Canvas, bmp: Bitmap) {
@@ -563,15 +613,20 @@ half4 main(float2 fragCoord) {
 
         val cx = width * (0.5f + tiltX * 0.42f)
         val cy = height * (0.35f + tiltY * 0.30f)
-        specPaint.reset()
-        specPaint.isAntiAlias = true
-        specPaint.shader = LinearGradient(
-            cx - width * 0.55f, cy - height,
-            cx + width * 0.55f, cy + height,
-            intArrayOf(Color.TRANSPARENT, 0x24FFFFFF, Color.TRANSPARENT),
-            floatArrayOf(0f, 0.5f, 1f),
-            Shader.TileMode.CLAMP
-        )
+        // 光斑位置只随倾斜角变化，用整数化后的 key 命中缓存，避免每帧新建 Shader
+        val key = (cx.toInt().toLong() shl 32) or (cy.toInt().toLong() and 0xFFFFFFFFL)
+        val gradient = specGradient
+        if (gradient == null || specGradientKey != key) {
+            specGradient = LinearGradient(
+                cx - width * 0.55f, cy - height,
+                cx + width * 0.55f, cy + height,
+                intArrayOf(Color.TRANSPARENT, 0x24FFFFFF, Color.TRANSPARENT),
+                floatArrayOf(0f, 0.5f, 1f),
+                Shader.TileMode.CLAMP
+            )
+            specGradientKey = key
+        }
+        specPaint.shader = specGradient
         canvas.drawRect(boundsF, specPaint)
 
         canvas.restoreToCount(save)
@@ -584,6 +639,12 @@ half4 main(float2 fragCoord) {
 
         val signature = backdropSignature(src)
         if (signature == lastSignature) return backdrop
+
+        // 注意：这里不能做节流。
+        // 玻璃的效果是"实时采样背景"，backdrop 必须与当前滚动偏移严格同步；
+        // 一旦跳过某一帧返回旧快照，玻璃里显示的就是上一个滚动位置的画面，
+        // 滚动时表现为内容不在正确位置、整体颤抖。性能靠捕获本身的开销控制，
+        // 而不是靠跳帧（下方 RenderNode 缓存已覆盖静止场景）。
 
         val bw = (width / DOWNSCALE).coerceAtLeast(8)
         val bh = (height / DOWNSCALE).coerceAtLeast(4)
@@ -615,6 +676,7 @@ half4 main(float2 fragCoord) {
             c.restoreToCount(saveCount)
         }
         lastSignature = signature
+        backdropGeneration++
         sampleAdaptiveLuma(bmp, signature)
         return bmp
     }
@@ -624,17 +686,29 @@ half4 main(float2 fragCoord) {
         adaptSampledSignature = signature
         if (bmp.isRecycled || bmp.width <= 0 || bmp.height <= 0) return
 
-        val cx = 12
-        val cy = 12
-        val stepX = (bmp.width / cx).coerceAtLeast(1)
-        val stepY = (bmp.height / cy).coerceAtLeast(1)
+        val w = bmp.width
+        val h = bmp.height
+        val stepX = (w / SAMPLE_COLS).coerceAtLeast(1)
+        val stepY = (h / SAMPLE_ROWS).coerceAtLeast(1)
+
+        // 只拷需要采样的那几行：12 次 getPixels，而不是 144 次 getPixel 逐像素 JNI，
+        // 也不会像整块 getPixels 那样为几万个像素做一次多余的大块拷贝。
+        var row = lumaRows
+        if (row == null || row.size < w) {
+            row = IntArray(w)
+            lumaRows = row
+        }
         var sum = 0f
         var weight = 0f
         var y = stepY / 2
-        while (y < bmp.height) {
+        while (y < h) {
+            val read = runCatching { bmp.getPixels(row, 0, w, 0, y, w, 1) }
+                .onFailure { Log.d(TAG, "backdrop 行采样失败: ${it.message}") }
+                .isSuccess
+            if (!read) return
             var x = stepX / 2
-            while (x < bmp.width) {
-                val argb = bmp.getPixel(x, y)
+            while (x < w) {
+                val argb = row[x]
                 val a = (argb ushr 24) and 0xFF
                 if (a > 8) {
                     val r = (argb ushr 16) and 0xFF

@@ -1,10 +1,14 @@
 package com.tilixibiesi.data
 
+import android.util.Log
+
 import android.content.Context
 import com.tilixibiesi.R
 import java.io.FileWriter
 
 object FootprintUtils {
+
+    private const val TAG = "FootprintUtils"
     private const val BASE_DIR_REL = "system/axeron/long/Android/Appdata"
     private const val PLAYLIST_FOOTPRINT_FILE_REL = "$BASE_DIR_REL/Playlist List Footprints.txt"
 
@@ -18,8 +22,7 @@ object FootprintUtils {
         ensureDir()
         try {
             FileWriter(StoragePaths.resolveWrite(relativePath), true).use { it.append("$line\n") }
-        } catch (_: Exception) {
-        }
+        } catch (e: Exception) { Log.d(TAG, "写入足迹失败: ${e.message}") }
     }
 
     private fun readFootprint(context: Context, relativePath: String): String {
@@ -35,8 +38,7 @@ object FootprintUtils {
     private fun clearFootprint(relativePath: String) {
         try {
             StoragePaths.resolveRead(relativePath).delete()
-        } catch (_: Exception) {
-        }
+        } catch (e: Exception) { Log.d(TAG, "清除足迹失败: ${e.message}") }
     }
 
     private fun ensureDir() {

@@ -1,5 +1,7 @@
 package com.tilixibiesi.util
 
+import android.util.Log
+
 import com.tilixibiesi.bili.BiliApiHelper
 import com.tilixibiesi.bili.BiliCoverLoader
 import com.tilixibiesi.bili.BiliSearchHelper
@@ -20,6 +22,8 @@ import java.net.URL
 class CacheManager {
 
     companion object {
+        private const val TAG = "CacheManager"
+
         private const val BILI_DIR_NAME = "bilibili"
 
         private const val QUALITY_INDEX_FILE = "quality_index.json"
@@ -108,15 +112,23 @@ class CacheManager {
                     return@execute
                 }
 
-                val tempFile = File(dir, finalFile.name + ".tmp")
+                // 临时文件带唯一后缀，避免同名歌曲并发下载时互相覆盖
+                val tempFile = File(dir, finalFile.name + "." + System.nanoTime() + ".tmp")
                 val ok = downloadToFile(context, audioUrl, tempFile, notifyId, notifyName)
                 if (!ok) {
                     tempFile.delete()
                     DownloadNotifier.cancel(context, notifyId)
                     return@execute
                 }
-                if (finalFile.exists()) finalFile.delete()
-                if (tempFile.renameTo(finalFile)) {
+                // 先把旧文件挪开而不是直接删，rename 失败还能恢复
+                val backup = if (finalFile.exists()) File(dir, finalFile.name + ".bak") else null
+                backup?.let { b ->
+                    if (b.exists()) b.delete()
+                    finalFile.renameTo(b)
+                }
+                val renamed = tempFile.renameTo(finalFile)
+                if (renamed) {
+                    backup?.delete()
                     if (isBili) writeQuality(finalFile, qualityId)
                     musicBean.localPath = finalFile.absolutePath
                     DownloadNotifier.finish(
@@ -126,12 +138,14 @@ class CacheManager {
                         finalFile.name
                     )
                 } else {
+                    Log.d(TAG, "缓存文件重命名失败，恢复旧文件")
                     tempFile.delete()
+                    backup?.let { b -> if (b.exists()) b.renameTo(finalFile) }
                     DownloadNotifier.cancel(context, notifyId)
                 }
                 downloadCoverIfNeeded(musicBean)
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.d(TAG, "缓存下载失败: ${e.message}")
                 DownloadNotifier.cancel(context, notifyId)
             } finally {
                 synchronized(downloadingKeys) {
@@ -196,7 +210,7 @@ class CacheManager {
             }
             true
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "音频下载失败: ${e.message}")
             false
         } finally {
             runCatching { conn?.disconnect() }
@@ -241,7 +255,13 @@ class CacheManager {
         }
         if (ok && tempFile.length() > 0) {
             if (target.exists()) target.delete()
-            if (!tempFile.renameTo(target)) tempFile.delete()
+            if (tempFile.renameTo(target)) {
+                // 封面目录新增了文件，让 BiliCoverLoader 的目录索引失效，
+                // 否则本进程内后续查找会一直命中旧的（不含新封面的）快照
+                BiliCoverLoader.invalidateCoverIndex()
+            } else {
+                tempFile.delete()
+            }
         } else {
             tempFile.delete()
         }
@@ -259,10 +279,12 @@ class CacheManager {
     fun removeOutdatedBiliCache(musicBean: MusicBean, qualityId: Int): Boolean {
         val file = findAudioFile(baseNameOf(musicBean)) ?: return false
         if (!isBiliAudioFile(file)) return false
-        val recorded = readQualityIndex()[file.name] ?: return false
-        if (recorded == qualityId) return false
-        if (!file.delete()) return false
-        writeQualityIndex(readQualityIndex().toMutableMap().apply { remove(file.name) })
+        synchronized(qualityIndexLock) {
+            val recorded = readQualityIndex()[file.name] ?: return false
+            if (recorded == qualityId) return false
+            if (!file.delete()) return false
+            writeQualityIndexLocked(readQualityIndex().toMutableMap().apply { remove(file.name) })
+        }
         return true
     }
 
@@ -284,23 +306,23 @@ class CacheManager {
     }
 
     private fun writeQuality(file: File, qualityId: Int) {
-        val map = synchronized(qualityIndexLock) {
-            readQualityIndex().toMutableMap().apply { put(file.name, qualityId) }
+        // 读-改-写放在同一个临界区，避免两首歌并发写索引时互相覆盖
+        synchronized(qualityIndexLock) {
+            val map = readQualityIndex().toMutableMap()
+            map[file.name] = qualityId
+            writeQualityIndexLocked(map)
         }
-        writeQualityIndex(map)
     }
 
-    private fun writeQualityIndex(map: Map<String, Int>) {
-        synchronized(qualityIndexLock) {
-            try {
-                val indexFile = File(AppPaths.biliAudioCacheDir(), QUALITY_INDEX_FILE)
-                indexFile.parentFile?.mkdirs()
-                val obj = JSONObject()
-                map.forEach { (name, id) -> obj.put(name, id) }
-                AtomicFileWriter.writeText(indexFile, obj.toString())
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+    private fun writeQualityIndexLocked(map: Map<String, Int>) {
+        try {
+            val indexFile = File(AppPaths.biliAudioCacheDir(), QUALITY_INDEX_FILE)
+            indexFile.parentFile?.mkdirs()
+            val obj = JSONObject()
+            map.forEach { (name, id) -> obj.put(name, id) }
+            AtomicFileWriter.writeText(indexFile, obj.toString())
+        } catch (e: Exception) {
+            Log.d(TAG, "音质索引写入失败: ${e.message}")
         }
     }
 
