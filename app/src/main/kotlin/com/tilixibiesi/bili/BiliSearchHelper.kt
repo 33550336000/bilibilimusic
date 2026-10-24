@@ -62,12 +62,6 @@ object BiliSearchHelper {
         }
     }
 
-    /**
-     * 按可用音质解析音频地址。
-     *
-     * 返回结果已按「所选音质优先、不可用则用更高品质兜底」的顺序排好，
-     * 调用方取第一个即可，剩下的可作为失败重试的备用地址。
-     */
     fun getAudioUrlsByQuality(
         bvid: String,
         cookie: String = "",
@@ -94,7 +88,6 @@ object BiliSearchHelper {
                     ?.optJSONArray("audio")
                 if (audios == null) emptyList()
                 else {
-                    // id -> 地址（同一音质可能有多条备用地址，取第一条可用即可）
                     val byId = LinkedHashMap<Int, String>()
                     for (i in 0 until audios.length()) {
                         val a = audios.getJSONObject(i)
@@ -112,7 +105,6 @@ object BiliSearchHelper {
         }
         if (dashUrls.isNotEmpty()) return dashUrls.distinct()
 
-        // 没有 DASH 音频时退回 durl（老视频/番剧），此时不存在音质选择
         return try {
             val json = HttpUtils.get(
                 "https://api.bilibili.com/x/player/playurl" +
@@ -145,7 +137,6 @@ object BiliSearchHelper {
     fun getPreferredAudioUrl(bvid: String, cookie: String = ""): String? =
         getAudioUrls(bvid, cookie).firstOrNull()
 
-    /** 按设置中的音质取首选地址。 */
     fun getPreferredAudioUrl(bvid: String, cookie: String, preferredId: Int): String? =
         getAudioUrlsByQuality(bvid, cookie, preferredId).firstOrNull()
 
@@ -161,7 +152,6 @@ object BiliSearchHelper {
             val json = HttpUtils.getWithRetry(url, headers)
             val obj = JSONObject(json)
             val code = obj.optInt("code", -1)
-            // 登录凭证失效：统一交给 BiliLoginHelper 弹登录页
             BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) {
                 return SearchResult(emptyList(), false, code)

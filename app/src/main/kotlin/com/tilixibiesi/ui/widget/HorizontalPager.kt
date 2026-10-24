@@ -195,14 +195,6 @@ class HorizontalPager @JvmOverloads constructor(
     private var isDragging = false
     private var dragRejected = false
 
-    /**
-     * 按下时是否落在「不该被翻页抢走」的控件上（SeekBar / 可横向滚动区域）。
-     *
-     * 必须在 ACTION_DOWN 就定下来并一直沿用，不能在 MOVE 时用手指当前位置重新判定：
-     * 进度条只有 18dp 左右高，横向拖动时手指几乎不可能绝对水平，
-     * 稍微上下漂移就会让 MOVE 时的命中检测落空，于是翻页把进度条的拖动抢走，
-     * 用户就会觉得「进度条拖不动 / 缩放动画像是失灵了」。
-     */
     private var downOnBlockedTarget = false
     private var lastMotionX = 0f
     private var lastMotionY = 0f
@@ -213,21 +205,14 @@ class HorizontalPager @JvmOverloads constructor(
     private var pendingPage: Int? = null
     private var pendingClearTemporary: Int? = null
 
-    /**
-     * 本帧的 scroller 是否已经推进过。
-     *
-     * 每次遍历开始的前置回调里清掉，之后这一帧无论被绘制多少次都只推进一次。
-     */
     private var advancedThisFrame = false
 
-    /** 每次遍历开始前清掉帧标记并把滚动推进一次，保证本帧绘制时 scrollX 已经定稿。 */
     private val frameStartWatcher = android.view.ViewTreeObserver.OnPreDrawListener {
         advancedThisFrame = false
         advanceScrollForFrame()
         true
     }
 
-    /** 预测性返回跟手滑动期间为 true：此时 scrollX 可以停在任何位置，不被布局复位。 */
     private var previewing = false
     private var pendingClearRunnable: Runnable? = null
     private val hitRect = Rect()
@@ -274,10 +259,6 @@ class HorizontalPager @JvmOverloads constructor(
             addView(v, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
             added = true
         }
-        // 新页必须当帧就量好、摆到自己的槽位上。
-        // 之前只在布局流程里才补这一步，而滚动停下是从 computeScroll() 里 settleFinished()
-        // 进来的，那时不在布局流程里：新加的页测出来是 0x0，接着被画到 (0,0)，
-        // 画面就撕成两半 —— 松手落页那一下的错位正是这里。
         if (added) {
             val wSpec = MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY)
             val hSpec = MeasureSpec.makeMeasureSpec(
@@ -387,19 +368,8 @@ class HorizontalPager @JvmOverloads constructor(
 
 
     override fun computeScroll() {
-        // 推进 scrollX 被挪到每次遍历的前置回调里（见 advanceScrollForFrame），
-        // 这里什么都不做。View 的软件绘制路径会在绘制中途无条件调用 computeScroll()，
-        // 玻璃抓背景时子树又会在软件画布上重画一遍，等于给了滚动一个「插进绘制中间」的机会：
-        // 抓图发生在它之前，屏幕上画出在它之后，玻璃就永远差一帧位移。
-        // 拖动时 scrollX 在绘制开始前就定了，所以只有松手交给 scroller 之后才看得出来。
     }
 
-    /**
-     * 把这一帧的滚动推进一次，并且放在任何绘制之前。
-     *
-     * 只剩「推进 scrollX」和「落页」两件事：它们只改状态，不碰画布，
-     * 前置回调里做掉，之后整帧的绘制——包括玻璃抓背景那次重画——读到的都是同一个 scrollX。
-     */
     private fun advanceScrollForFrame() {
         if (advancedThisFrame) return
         advancedThisFrame = true
@@ -452,7 +422,6 @@ class HorizontalPager @JvmOverloads constructor(
         val target = position.coerceIn(0, lastIndex())
         if (target == currentPage && scrollState == SCROLL_STATE_IDLE) {
             previewing = false
-            // 预览可能把内容滑走了一半，落回当前页的合法位置
             if (pageWidthPx > 0) {
                 val aligned = slotOf(currentPage).coerceAtLeast(0) * pageWidthPx
                 if (aligned != scrollX) scrollTo(aligned, scrollY)
@@ -487,12 +456,6 @@ class HorizontalPager @JvmOverloads constructor(
     }
 
 
-    /**
-     * 指定页面对齐时的 scrollX；页面不可用或尚未布局时返回 null。
-     *
-     * 顺带确保该页已创建：预测性返回要滑过去时，目标页可能还没被 [ensurePages]
-     * 实例化过（只在当前页前后一格创建），不提前创建就会滑出一片空白。
-     */
     fun pageScrollX(page: Int): Int? {
         if (pageWidthPx <= 0) return null
         ensureOrder()
@@ -502,10 +465,6 @@ class HorizontalPager @JvmOverloads constructor(
         return slot * pageWidthPx
     }
 
-    /**
-     * 预测性返回跟手预览：直接改 scrollX，不经过 scroller，也不改 currentPage。
-     * 抬手时由调用方决定是 [setCurrentPage] 还是 [animateScrollBackTo]。
-     */
     fun previewScrollTo(x: Int) {
         if (pageWidthPx <= 0) return
         previewing = true
@@ -515,7 +474,6 @@ class HorizontalPager @JvmOverloads constructor(
         invalidate()
     }
 
-    /** 预览被取消时平滑滚回原位置。 */
     fun animateScrollBackTo(x: Int) {
         if (pageWidthPx <= 0) return
         if (x == scrollX) {
@@ -645,20 +603,12 @@ class HorizontalPager @JvmOverloads constructor(
         downY = ev.y
         lastMotionX = ev.x
         lastMotionY = ev.y
-        // 按下这一刻就决定本次手势归谁：落在进度条等控件上就不再翻页
         downOnBlockedTarget = isDragBlockedAtDown(ev.rawX, ev.rawY, ev.x, ev.y)
         activePointerId = ev.getPointerId(0)
         velocityTracker?.recycle()
         velocityTracker = VelocityTracker.obtain().also { it.addMovement(ev) }
     }
 
-    /**
-     * 按下时的归属判定。
-     *
-     * 此刻还不知道拖动方向，所以对「可横向滚动」的子控件两个方向都要试一次，
-     * 否则 `dx == 0` 会让任何可横向滚动的子控件都被误判为不可滚动，
-     * 从而被翻页抢走手势。
-     */
     private fun isDragBlockedAtDown(rawX: Float, rawY: Float, localX: Float, localY: Float): Boolean {
         if (dragGuard?.invoke(rawX, rawY) == true) return true
         for (i in childCount - 1 downTo 0) {
@@ -771,9 +721,6 @@ class HorizontalPager @JvmOverloads constructor(
     private fun hitSeekBar(view: View, x: Int, y: Int): Boolean {
         if (view is SeekBar) {
             if (!view.getGlobalVisibleRect(hitRect)) return false
-            // 这些进度条大多只有 18dp 高，远低于 48dp 的推荐触摸尺寸。
-            // 只纵向放宽一个 touchSlop，让「按得稍偏一点」仍算按在进度条上；
-            // 不横向放宽，避免占掉进度条两端外侧本来属于翻页的区域。
             hitRect.inset(0, -touchSlop)
             return hitRect.contains(x, y)
         }

@@ -32,12 +32,6 @@ object DataFileUtils {
 
     private val renameMap = mutableMapOf<String, String>()
 
-    /**
-     * 重命名映射的「文件名视角」索引：键是把原始名称净化成文件名后的形式。
-     *
-     * 缓存文件名会做非法字符净化（`/` → `_`）并去掉扩展名，
-     * 从磁盘反查显示名时只能拿到净化后的名字，因此这里额外建一份索引。
-     */
     private val renameMapByFileName = mutableMapOf<String, String>()
 
     fun initRenameMap() {
@@ -67,18 +61,9 @@ object DataFileUtils {
         }
     }
 
-    /** 名称 → 文件名索引键：去扩展名 + 净化成实际文件名。 */
     private fun fileNameKey(name: String): String =
         AppPaths.sanitizeName(stripAudioExtension(name))
 
-    /**
-     * 取显示名称：先套重命名映射，再退回去掉音频扩展名的名称。
-     *
-     * 重命名映射的键是「实际名称」，本地音乐的键带扩展名（`xx.mp3`），
-     * B 站曲目的键是原始标题（不带扩展名）。传入的名称既可能来自
-     * 内存里的 `musicName`，也可能来自磁盘上的缓存文件名（已净化、无扩展名），
-     * 因此依次尝试：原名 → 去扩展名 → 文件名索引。
-     */
     fun getDisplayName(rawName: String?): String {
         if (rawName == null) return ""
         renameMap[rawName]?.let { return it }
@@ -88,13 +73,6 @@ object DataFileUtils {
         return stripped
     }
 
-    /**
-     * 只去掉音频扩展名，不套用重命名映射。
-     *
-     * 曲目实际名称与显示名称是两回事：`musicName` 存实际名称，
-     * [getDisplayName] 才负责套上重命名。缓存文件名必须按实际名称落盘，
-     * 否则每次重命名都会算出新文件名，播放时被当成新曲目重新下载一份。
-     */
     fun stripAudioExtension(rawName: String?): String {
         if (rawName == null) return ""
         val dot = rawName.lastIndexOf('.')
@@ -346,42 +324,28 @@ object DataFileUtils {
         saveBlockedWords(words)
     }
 
-    /**
-     * 该曲目是否命中屏蔽词。
-     *
-     * 判定依据是曲目标题（[MusicBean.musicName]，即原始名），
-     * 对本地音乐与 B 站音乐一视同仁，因此 B 站曲目同样会被屏蔽。
-     */
     fun isBlocked(bean: MusicBean, blockedWords: Set<String>): Boolean {
         if (blockedWords.isEmpty()) return false
         return blockedWords.any { word -> bean.musicName.contains(word, ignoreCase = true) }
     }
 
-    /** 该曲目是否命中屏蔽词（内部读取屏蔽词文件）。 */
     fun isBlocked(bean: MusicBean): Boolean = isBlocked(bean, loadBlockedWords())
 
-    /** 过滤掉命中屏蔽词的曲目。 */
     fun filterBlocked(list: List<MusicBean>, blockedWords: Set<String>): List<MusicBean> {
         if (blockedWords.isEmpty()) return list
         return list.filterNot { isBlocked(it, blockedWords) }
     }
 
-    /** 原地过滤掉命中屏蔽词的曲目。 */
     fun removeBlocked(list: MutableList<MusicBean>, blockedWords: Set<String>) {
         if (blockedWords.isEmpty()) return
         list.removeAll { isBlocked(it, blockedWords) }
     }
 
-    /** 原地剔除已删除名单里的曲目。 */
     fun removeDeleted(list: MutableList<MusicBean>, deletedNames: Set<String>) {
         if (deletedNames.isEmpty()) return
         list.removeAll { deletedNames.contains(it.musicName) }
     }
 
-    /**
-     * 原地应用「已删除名单 + 屏蔽词」两层可见性过滤，
-     * 等价于各调用点原先各自手写的那两段（读一次两个名单，各过滤一遍）。
-     */
     fun removeInvisible(list: MutableList<MusicBean>) {
         removeDeleted(list, loadDeletedMusicNames())
         removeBlocked(list, loadBlockedWords())

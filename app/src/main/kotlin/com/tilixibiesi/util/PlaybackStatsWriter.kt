@@ -7,10 +7,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 播放时长写入器。按天分片，分片文件名即日期（`yyyy-MM-dd.json`），
- * 文件内部只保存「歌曲原始名 -> 秒数」，不再写入日期。
- */
 class PlaybackStatsWriter(private val detailDirPath: String) {
 
     private companion object {

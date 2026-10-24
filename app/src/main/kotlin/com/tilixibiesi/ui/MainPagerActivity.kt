@@ -45,15 +45,8 @@ class MainPagerActivity : BaseActivity(), PageHost {
     }
 
     private lateinit var pager: HorizontalPager
-    /** 背景层与翻页控件共用同一层：背景不随页面滑动，各页根布局保持透明。 */
     private lateinit var contentLayer: FrameLayout
 
-    /**
-     * 只承载全局背景的那一层，位于翻页控件之下。
-     *
-     * 设置页卡片做液态玻璃时拿它当折射源：卡片自己也在页面里，
-     * 若以翻页控件为源，捕获背景时会把卡片本身画进去。
-     */
     lateinit var backgroundLayer: FrameLayout
         private set
     private lateinit var pages: Array<BasePage>
@@ -63,12 +56,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
     private var videoFullscreen = false
     private var playerBarInset = 0
 
-    /**
-     * 悬浮控制栏当前占用的高度（含外边距）；不可见时为 0。
-     *
-     * 页面里那些「浮在最上层、不参与页面内边距」的控件（比如搜索按钮）
-     * 需要靠它把自己抬到栏的上沿之上，否则会被栏压住。
-     */
     val floatingPlayerBarInset: Int get() = playerBarInset
     private var fxOverlay: ClickFxOverlay? = null
 
@@ -94,7 +81,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
         }
         rootView = root
 
-        // 背景铺在这一层，翻页控件是它的子 View：翻页只滑页面，背景原地不动。
         contentLayer = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -132,13 +118,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
         contentLayer.addView(backgroundLayer)
         contentLayer.addView(pager)
         root.addView(contentLayer)
-        // 悬浮播放控制栏与翻页控件平级：跟着窗口，不跟着页面滑动
         floatingPlayerBar = layoutInflater.inflate(R.layout.layout_floating_player, root, false)
         (floatingPlayerBar as? LiquidGlassLayout)?.apply {
             backdropSource = contentLayer
             glassEnabled = SpUtils.getLiquidGlassEnabled(this@MainPagerActivity)
-            // 悬浮控制栏整体是一块操作区，按下去该有玻璃的按压反馈：
-            // 玻璃从内部亮起，里面的按钮再叠一层缩放，合起来就是 iOS 的手感
             pressEnabled = true
         }
         floatingPlayerBar.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
@@ -162,18 +145,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
         primeBackAnimation()
     }
 
-    /**
-     * 冷启动后让窗口补一次 pause→resume。
-     *
-     * 系统的返回动画控制器要等窗口完成一次真正的生命周期往返才会接管它；
-     * 在那之前注册的返回回调虽然收得到，但 progress 恒为 0、touchX 也不更新，
-     * 表现为「能返回却没有跟手预演」——这正是「离开主活动再回来才生效」的原因。
-     *
-     * 这里拉起一个全透明、无转场的空 Activity 并让它立刻结束，
-     * 借这一次往返把窗口预热好，用户看不到任何中间态。
-     */
     private fun primeBackAnimation() {
-        // 跟手进度只有 API 34+ 才有，低版本这次往返没有任何收益，不必多拉起一个 Activity
         if (Build.VERSION.SDK_INT < 34) return
         window.decorView.post {
             startActivity(Intent(this, BackGesturePrimerActivity::class.java))
@@ -239,10 +211,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
         }
     }
 
-    /**
-     * 悬浮栏压在所有页面之上，把它的高度（含外边距）补成每个页面根布局的下内边距，
-     * 页面内容就停在栏的上沿，四个页面都不用各自处理。
-     */
     private fun applyPlayerBarInset() {
         val inset = if (floatingPlayerBar.visibility == View.VISIBLE) {
             val margin = (floatingPlayerBar.layoutParams as? ViewGroup.MarginLayoutParams)
@@ -255,18 +223,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
         playerBarInset = inset
         pages.forEach { page ->
             page.pageView?.let { applyPlayerBarInsetTo(it) }
-            // 浮在页面之上、不吃内边距的控件（搜索按钮）要跟着栏的高度重新定位
             (page as? SongsPage)?.repositionSearchButton()
         }
     }
 
-    /**
-     * 把悬浮栏占的高度让给页面里那个可滚动容器，而不是页面根。
-     *
-     * 打在页面根上的话，根的子 View 都是 match_parent，可用高度会被直接扣掉一截，
-     * 内容就在悬浮栏上沿被「截断」。打在列表/ScrollView 上并关掉 clipToPadding，
-     * 内容仍能滚到悬浮栏底下，只是最后一屏会留出这段空白，滚到底不会压住悬浮栏。
-     */
     private fun applyPlayerBarInsetTo(pageRoot: View) {
         val scrollable = findScrollContainer(pageRoot) ?: pageRoot
         if (scrollable.paddingBottom == playerBarInset) return
@@ -276,11 +236,9 @@ class MainPagerActivity : BaseActivity(), PageHost {
             scrollable.paddingRight,
             playerBarInset
         )
-        // clipToPadding 是 ViewGroup 的属性（ScrollView / ListView 都有）
         if (scrollable !== pageRoot) (scrollable as? ViewGroup)?.clipToPadding = false
     }
 
-    /** 深度优先找页面里第一个可滚动容器（列表或 ScrollView）。 */
     private fun findScrollContainer(root: View): View? {
         if (root is android.widget.AbsListView || root is android.widget.ScrollView) return root
         if (root !is ViewGroup) return null
@@ -290,18 +248,15 @@ class MainPagerActivity : BaseActivity(), PageHost {
         return null
     }
 
-    /** 背后内容动过（翻页、返回预览、页面切换）时，让玻璃立刻重新捕获。 */
     fun invalidateGlassBackdrop() {
         (floatingPlayerBar as? LiquidGlassLayout)?.refreshBackdrop()
     }
 
-    /** 设置页切换液态玻璃后，让悬浮栏立刻按新设置重绘。 */
     fun refreshFloatingPlayerBar() {
         (floatingPlayerBar as? LiquidGlassLayout)?.glassEnabled =
             SpUtils.getLiquidGlassEnabled(this)
     }
 
-    /** 播放状态驱动的显隐；全屏视频期间另行压制，退出全屏自动恢复。 */
     fun setFloatingPlayerBarVisible(visible: Boolean) {
         playerBarWanted = visible
         updateFloatingPlayerBar()
@@ -348,15 +303,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
     }
 
 
-    /**
-     * 全局背景只铺一层：放在翻页控件下面，翻页时页面滑过去，背景原地不动。
-     * 各页面根布局因此都是透明的，不再各自贴一张首尾接不上的图。
-     */
     private fun applyBackground() {
         BackgroundHelper.applyBackground(this, backgroundLayer, SpUtils.getBackgroundAlpha(this))
     }
 
-    /** 设置页改了背景图或透明度后立刻重铺，并让液态玻璃重新捕获。 */
     fun refreshBackground() {
         applyBackground()
         invalidateGlassBackdrop()
@@ -369,20 +319,15 @@ class MainPagerActivity : BaseActivity(), PageHost {
         BackgroundHelper.setActive(backgroundLayer, true)
         pages.getOrNull(currentPosition)?.takeIf { it.created }?.onResume()
         applyClickFxOverlay()
-        // 整个生命周期只真正注册一次：重复注册会重置系统的返回动画状态。
-        // 「当前页要不要预演」放在回调内部判断，而不是靠反复注销/注册切换。
         PredictiveBack.register(
             this,
             PredictiveBack.TAG_PAGER,
             onInvoke = {
-                // 登录覆盖层在最上层，先关它
                 if (BiliLoginHelper.handleBackPressed()) return@register
                 if (handleBackPressed()) return@register
                 if (currentPosition == PAGE_SONGS) {
-                    // 停在歌曲页：返回就是退出应用
                     finish()
                 } else {
-                    // 预演已经把内容滑到一半，返回被别的层消费了就滑回去
                     pager.pageScrollX(currentPosition)?.let { pager.animateScrollBackTo(it) }
                 }
             },
@@ -398,13 +343,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
         super.onPause()
     }
 
-    /**
-     * 跟手预演：从当前页滑向歌曲页。
-     *
-     * 翻页控件里本来就并排着歌曲页，滑过去就露出了它；用缩放/淡出只会露出
-     * 窗口底色（黑色），看不出「回到哪一页」。
-     * 与 BaseActivity 注册的返回回调共用同一次注册，避免两个回调互相顶掉。
-     */
     private fun onBackProgressPreview(progress: Float) {
         if (currentPosition == PAGE_SONGS) return
         val from = pager.pageScrollX(currentPosition) ?: return
@@ -442,14 +380,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         pages.forEach { if (it.created) it.onConfigurationChanged(newConfig) }
-        // 清单里声明了 configChanges=orientation|screenSize，转屏不重建 Activity，
-        // 页面视图树是 onCreate 那一刻按竖屏宽度建好的，之后没人重新量过：
-        // 设置页的卡片就停在旧宽度上，内容被拉伸、卡片互相重叠。
-        //
-        // 这里必须用 forceLayout() 而不是 requestLayout()。requestLayout() 的传递依赖
-        // 父级认为「尺寸可能变了」，而整条父链的测量规格仍来自旧的窗口尺寸；两者在
-        // 同一次遍历里又会被合并成一个请求，最终什么都没变。forceLayout() 直接置位
-        // PFLAG_FORCE_LAYOUT，让这棵子树在下一趟遍历里无条件重新测量，不看父级脸色。
         rootView.forceLayout()
         contentLayer.forceLayout()
         pager.forceLayout()
@@ -461,16 +391,9 @@ class MainPagerActivity : BaseActivity(), PageHost {
                 requestGlassReset(view)
             }
         }
-        // 让位内边距要等悬浮栏按新宽度量完才有正确高度：
-        // post 有可能赶在布局完成之前，这里挂一次性回调等到真正量完。
         awaitPlayerBarLayout()
     }
 
-    /**
-     * 等悬浮栏下一次布局完成后再重算让位内边距，只跑一次。
-     *
-     * 转屏后立即读 height 拿到的是旧值，按它算出来的内边距会把页面内容压在栏下面。
-     */
     private fun awaitPlayerBarLayout() {
         floatingPlayerBar.addOnLayoutChangeListener(
             object : View.OnLayoutChangeListener {
@@ -487,10 +410,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
         )
     }
 
-    /**
-     * 页面里嵌着的玻璃（设置页卡片等）也要丢掉按旧尺寸缓存的背景位图和圆角路径，
-     * 并请求重新布局：转屏后宽度变了，它们必须按新宽度重新摆放。
-     */
     private fun requestGlassReset(root: View) {
         if (root is LiquidGlassLayout) root.invalidateBackdrop()
         if (root !is ViewGroup) return
@@ -500,20 +419,11 @@ class MainPagerActivity : BaseActivity(), PageHost {
     @Deprecated("Deprecated in Java")
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        // 登录覆盖层在最上层，返回键先关它
         if (BiliLoginHelper.handleBackPressed()) return
         if (handleBackPressed()) return
         super.onBackPressed()
     }
 
-    /**
-     * 三层返回逻辑：播放页浮层 → 页内返回 → 非主页回主页。
-     *
-     * 抽出来是为了让 [onBackPressed]（旧路径）和预测性返回回调（新路径）共用，
-     * targetSdk >= 36 后系统只走后者。
-     *
-     * @return true 表示已消费，不需要再退出 Activity
-     */
     private fun handleBackPressed(): Boolean {
         if ((pages.getOrNull(PAGE_SONGS) as? SongsPage)?.handleNowPlayingBack() == true) return true
         val page = pages.getOrNull(currentPosition)

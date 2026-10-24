@@ -32,21 +32,8 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-/**
- * B 站登录与「登录态失效」的统一入口。
- *
- * 以前登录 WebView 只存在于搜索页，长按 B 站按钮才能唤出；现在把三件事统一收在这里：
- *
- * 1. [ensureLoggedIn] / [showLogin]：在任何界面弹出同一个全屏登录覆盖层，
- *    登录成功后提取 SESSDATA / bili_jct 等写入本地 Cookie 文件；
- * 2. [handleApiCode] / [isAuthInvalid]：所有使用 Cookie 的接口只要返回 -101，
- *    统一走 [requestRelogin] 弹出登录页，不再各处重复判断；
- * 3. [flushPendingRequest]：请求发生时没有前台界面（如后台播放服务），
- *    先记下来，等界面回到前台再弹。
- */
 object BiliLoginHelper {
 
-    /** B 站「账号未登录 / 登录凭证已失效」的返回码。 */
     const val CODE_NOT_LOGIN = -101
 
     private const val LOGIN_URL = "https://passport.bilibili.com/login"
@@ -61,7 +48,6 @@ object BiliLoginHelper {
 
     private var activityRef: Activity? = null
 
-    /** 登录成功后要接着执行的动作（例如用户点了下载但当时还没登录）。 */
     private var onLoginSuccess: (() -> Unit)? = null
 
     @Volatile
@@ -73,31 +59,17 @@ object BiliLoginHelper {
     @Volatile
     private var storedCookieChecked = false
 
-    /** 当前是否正展示登录页。 */
     val isShowing: Boolean
         get() = webView != null
 
-    /** B 站接口返回码是否表示「未登录」。 */
     fun isAuthInvalid(code: Int): Boolean = code == CODE_NOT_LOGIN
 
-    /**
-     * 所有使用 Cookie 的接口统一的失效判定。
-     *
-     * 只有「本次请求确实带了 Cookie」且返回 [CODE_NOT_LOGIN] 时才触发重新登录：
-     * 不带 Cookie 的匿名请求拿到 -101 属于正常情况（用户没开完整源），不该弹登录页。
-     *
-     * @return true 表示登录态已失效、调用方应放弃本次结果
-     */
     fun handleApiCode(code: Int, cookie: String, activity: Activity? = null): Boolean {
         if (cookie.isEmpty() || !isAuthInvalid(code)) return false
         requestRelogin(activity)
         return true
     }
 
-    /**
-     * 启动时校验一次本地保存的 Cookie（每个进程只校验一次）。
-     * 之后中途失效由各接口的 [handleApiCode] 兜住。
-     */
     fun verifyStoredCookie(activity: Activity?) {
         if (storedCookieChecked) return
         val target = activity ?: ActivityTracker.current() ?: return
@@ -110,16 +82,13 @@ object BiliLoginHelper {
         }
     }
 
-    /** 登录态失效时的统一处理：提示 + 弹登录页。 */
     fun requestRelogin(activity: Activity? = null) {
         mainHandler.post {
             val target = activity ?: ActivityTracker.current()
             if (target == null || target.isFinishing) {
-                // 没有可见界面（例如后台播放服务）：先记下请求，等界面回到前台再弹
                 reloginRequested = true
                 return@post
             }
-            // 已经有登录页在前台（例如用户正在别的页面登录），不再重复弹
             if (isShowing || activityRef != null) return@post
             reloginRequested = false
             onLoginSuccess = null
@@ -132,24 +101,16 @@ object BiliLoginHelper {
         }
     }
 
-    /**
-     * 弹登录页但不提示（用于用户主动触发的流程）。
-     */
     private fun showLoginSilently(activity: Activity) {
         if (isShowing || activityRef != null) return
         showLogin(activity)
     }
-    /** 界面回到前台时调用：补弹之前在后台错过的登录请求。 */
     fun flushPendingRequest(activity: Activity) {
         if (!reloginRequested || isShowing) return
         reloginRequested = false
         showLogin(activity)
     }
 
-    /**
-     * 需要凭据的动作入口：已有 Cookie 就直接执行；没有就先登录，登录成功后再执行。
-     * 必须在主线程调用。
-     */
     fun ensureLoggedIn(activity: Activity?, onReady: () -> Unit) {
         val target = activity ?: ActivityTracker.current()
         if (target == null || target.isFinishing) return
@@ -162,7 +123,6 @@ object BiliLoginHelper {
         showLoginSilently(target)
     }
 
-    /** 弹出全屏登录覆盖层；已经有登录页时直接返回。 */
     fun showLogin(activity: Activity) {
         if (isShowing) return
         val root = activity.window.decorView as? ViewGroup ?: return
@@ -233,17 +193,11 @@ object BiliLoginHelper {
         WindowUtils.setFullScreen(activity)
     }
 
-    /**
-     * 关闭登录页。
-     *
-     * @param extract 是否在关闭前再尝试提取一次 Cookie（用户手动关闭时为 true）
-     */
     fun closeLogin(extract: Boolean) {
         if (extract) extractCookie()
         teardown()
     }
 
-    /** Activity 销毁时兜底清理，避免 WebView 泄漏。 */
     fun onActivityDestroyed(activity: Activity) {
         if (activityRef !== activity) return
         teardown()
@@ -305,7 +259,6 @@ object BiliLoginHelper {
             override fun onPageFinished(view: WebView?, url: String?) {
                 progress.visibility = View.GONE
                 extractCookie()
-                // 部分机型登录成功后不会跳转、只刷新页面：主动确认一次登录态
                 if (!loggedInThisSession) verifyLoggedIn()
             }
 
@@ -359,7 +312,6 @@ object BiliLoginHelper {
         }, 400)
     }
 
-    /** 只取登录必需且稳定的字段，避免把无关 Cookie 一起写进文件。 */
     private fun readWebViewCookie(): String {
         val raw = runCatching {
             CookieManager.getInstance().getCookie(COOKIE_QUERY_URL) ?: ""
@@ -377,7 +329,6 @@ object BiliLoginHelper {
         }
     }
 
-    /** 调用 nav 接口，返回 B 站返回码；请求失败返回 -1。 */
     fun navCode(cookie: String): Int {
         if (cookie.isEmpty()) return -1
         return try {
@@ -401,16 +352,10 @@ object BiliLoginHelper {
     private fun extractValue(cookieString: String, key: String): String? =
         Regex("$key=([^;]*)").find(cookieString)?.groupValues?.get(1)?.trim()
 
-    /** 由 BaseActivity 在 onResume 时调用：补弹后台错过的登录请求。 */
     fun onActivityResumed(activity: Activity) {
         if (!isShowing) flushPendingRequest(activity)
     }
 
-    /**
-     * 返回键：登录页正在展示时先关闭它。
-     *
-     * @return true 表示已消费本次返回键
-     */
     fun handleBackPressed(): Boolean {
         if (!isShowing) return false
         closeLogin(extract = true)

@@ -40,20 +40,12 @@ object SettingsStore {
         }
     }
 
-    /**
-     * 把字符串集合存成 JSON 数组。
-     *
-     * 不用 `JSONObject.put(key, Collection)` 直接塞，是因为读回来时
-     * 它可能被解析成 JSONArray 也可能被当成普通对象，这里统一成数组格式，
-     * 读的时候只用走一条分支。
-     */
     private fun putStringSet(json: JSONObject, key: String, values: Set<String>) {
         val arr = org.json.JSONArray()
         values.forEach { arr.put(it) }
         json.put(key, arr)
     }
 
-    /** 读回 [putStringSet] 写下的数组；格式不对就返回 null，交给调用方跳过。 */
     private fun getStringSet(json: JSONObject, key: String): Set<String>? {
         return runCatching {
             val arr = json.getJSONArray(key)
@@ -86,10 +78,6 @@ object SettingsStore {
             json.put("video_notify_progress", SpUtils.isVideoNotifyProgressEnabled(context))
             json.put("language", LanguageUtils.getLanguage(context))
 
-            // ---- 以下为后补的「界面与功能」开关 ----
-            // 之前只存了字体/背景/弹窗这些外观项，底栏、玻璃、点击特效、
-            // 主页两个按钮、完整B站源、播放模式都不在默认设置里，
-            // 导致「保存为默认设置」并不能真的把整个界面还原。
             json.put("bottom_nav", SpUtils.getBottomNavEnabled(context))
             json.put("liquid_glass", SpUtils.getLiquidGlassEnabled(context))
             json.put("liquid_glass_cards", SpUtils.getLiquidGlassCardsEnabled(context))
@@ -99,15 +87,9 @@ object SettingsStore {
             json.put("full_bili_source", SpUtils.isFullBiliSource(context))
             json.put("danmaku", SpUtils.isDanmakuEnabled(context))
             json.put("play_mode", SpUtils.getPlayMode(context))
-            // 搜索按钮位置是「摆放」而不是「开关」，恢复默认时也应回到原位
             json.put("search_btn_x", SpUtils.getSearchButtonX(context).toDouble())
             json.put("search_btn_y", SpUtils.getSearchButtonY(context).toDouble())
-            // 折叠状态属于界面布局，一并保存，换机/恢复后卡片开合保持一致
             putStringSet(json, "collapsed_sections", SpUtils.getCollapsedSections(context))
-
-            // 有意不保存的两项：
-            //   storage_root —— 目标机上的路径不一定存在，恢复后可能直接不可写
-            //   bili_cookie  —— 登录凭证，跟随账号而非外观偏好
 
             val file = settingsFile()
             file.parentFile?.mkdirs()
@@ -118,27 +100,11 @@ object SettingsStore {
         }
     }
 
-    /**
-     * 从 `Settings.json` 恢复设置。
-     *
-     * 内部会读磁盘，**不要从主线程直接调用**；异步版本见 [loadFromFileAsync]。
-     * 这里保留同步语义供启动期（[com.tilixibiesi.MyApplication]）等本就
-     * 在后台线程、或必须拿到结果再继续的调用方使用。
-     */
     fun loadFromFile(context: Context): Boolean {
         val json = readSettingsJson() ?: return false
         return applyJson(context, json)
     }
 
-    /**
-     * [loadFromFile] 的异步版本：读盘放到 IO 线程，解析结果回到主线程再写入
-     * SharedPreferences 并处理语言切换。
-     *
-     * 必须切回主线程的两个原因：
-     * 1. `LanguageUtils.setAppLanguage` 会重建 Activity，强依赖主线程；
-     * 2. `SpUtils` 的读写本身是 `apply()`，但设置页随后会立刻读回这些值刷 UI，
-     *    在主线程应用能保证「回调返回时设置已生效」的调用方预期。
-     */
     fun loadFromFileAsync(context: Context, onDone: ((Boolean) -> Unit)? = null) {
         val appContext = context.applicationContext ?: context
         AppExecutors.io.execute {
@@ -151,7 +117,6 @@ object SettingsStore {
         }
     }
 
-    /** 读盘 + 解析，只在 IO 线程调用。返回 null 表示文件缺失或内容损坏。 */
     private fun readSettingsJson(): JSONObject? {
         val file = settingsFile()
         if (!file.exists()) return null
@@ -162,7 +127,6 @@ object SettingsStore {
         }
     }
 
-    /** 把已解析的设置写入 SharedPreferences，只在主线程调用。 */
     private fun applyJson(context: Context, json: JSONObject): Boolean {
         return try {
             if (json.has("font_color")) SpUtils.saveFontColor(context, json.getString("font_color"))
@@ -181,9 +145,6 @@ object SettingsStore {
             if (json.has("show_today_duration")) SpUtils.setShowTodayDurationEnabled(context, json.getBoolean("show_today_duration"))
             if (json.has("video_notify_progress")) SpUtils.setVideoNotifyProgressEnabled(context, json.getBoolean("video_notify_progress"))
 
-            // ---- 后补的「界面与功能」开关，与 saveToFile 一一对应 ----
-            // 老版本的 Settings.json 里没有这些键，用 has() 守卫会自动跳过，
-            // 因此旧存档仍然能正常加载，不会把现有设置误清空。
             if (json.has("bottom_nav")) SpUtils.setBottomNavEnabled(context, json.getBoolean("bottom_nav"))
             if (json.has("liquid_glass")) SpUtils.setLiquidGlassEnabled(context, json.getBoolean("liquid_glass"))
             if (json.has("liquid_glass_cards")) SpUtils.setLiquidGlassCardsEnabled(context, json.getBoolean("liquid_glass_cards"))
@@ -211,8 +172,6 @@ object SettingsStore {
                     if (activity != null) {
                         LanguageUtils.setAppLanguage(activity, savedLang)
                     } else {
-                        // 启动时还没有 Activity，先只保存语言：
-                        // 首个 Activity 的 attachBaseContext 会据此套用，无需重建
                         LanguageUtils.saveLanguage(context, savedLang)
                     }
                 }

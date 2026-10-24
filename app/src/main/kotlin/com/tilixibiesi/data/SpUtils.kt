@@ -43,13 +43,6 @@ object SpUtils {
     const val AUDIO_FOCUS_FULL_EXCLUSIVE = 1
     const val AUDIO_FOCUS_TRANSIENT = 2
 
-    /**
-     * 全局字体颜色的唯一默认值。
-     *
-     * 三处默认值（本处读取兜底、恢复默认设置、strings 里的 default_font_color）
-     * 以前各不相同，容易出现「没设置过」和「恢复默认」得到不同颜色的情况，
-     * 现在统一以本常量为准。
-     */
     const val DEFAULT_FONT_COLOR = "#1A1B21"
 
     private fun getSp(context: Context): SharedPreferences =
@@ -132,12 +125,6 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_BOTTOM_NAV_ENABLED, enabled).apply()
     }
 
-    /**
-     * 悬浮控制栏是否用液态玻璃。
-     *
-     * 用户没设置过时按系统能力给默认值：折射着色器（AGSL RuntimeShader）要 API 33 才有，
-     * 33+ 默认打开，低版本保持关闭，避免默认值把不可用的效果当成「已开启」。
-     */
     fun getLiquidGlassEnabled(context: Context): Boolean {
         val sp = getSp(context)
         if (!sp.contains(KEY_LIQUID_GLASS_ENABLED)) return Build.VERSION.SDK_INT >= 33
@@ -147,14 +134,6 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_LIQUID_GLASS_ENABLED, enabled).apply()
     }
 
-    /**
-     * 设置页的卡片是否用液态玻璃。
-     *
-     * 与控制栏分开：控制栏常驻在所有页面，卡片只在设置页出现，
-     * 「控制栏玻璃、卡片白底」是很正常的组合，不该被同一个开关绑死。
-     * 老版本只存了 [KEY_LIQUID_GLASS_ENABLED]，这里只在迁移前兜底跟随，
-     * 启动时 [migrateLiquidGlassCardsSetting] 会把值固化下来，之后互不影响。
-     */
     fun getLiquidGlassCardsEnabled(context: Context): Boolean {
         val sp = getSp(context)
         if (!sp.contains(KEY_LIQUID_GLASS_CARDS_ENABLED)) return getLiquidGlassEnabled(context)
@@ -164,12 +143,6 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_LIQUID_GLASS_CARDS_ENABLED, enabled).apply()
     }
 
-    /**
-     * 把老版本「一个开关同时管控制栏和卡片」的值迁移成卡片自己的值。
-     *
-     * 只在应用启动、且卡片开关还没有存过时执行一次。不做这一步的话，卡片会一直
-     * 跟随控制栏：关掉控制栏玻璃还是会把卡片一起关掉，正是要拆开的那件事。
-     */
     fun migrateLiquidGlassCardsSetting(context: Context) {
         val sp = getSp(context)
         if (sp.contains(KEY_LIQUID_GLASS_CARDS_ENABLED)) return
@@ -178,7 +151,6 @@ object SpUtils {
             .apply()
     }
 
-    /** 主页面歌曲列表每行右侧的「+（加入歌单）」按钮是否显示。 */
     fun isMainAddButtonVisible(context: Context): Boolean =
         getSp(context).getBoolean(KEY_MAIN_ADD_BUTTON_VISIBLE, true)
 
@@ -186,7 +158,6 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_MAIN_ADD_BUTTON_VISIBLE, visible).apply()
     }
 
-    /** 主页面歌曲列表每行右侧的「×（删除）」按钮是否显示。 */
     fun isMainDeleteButtonVisible(context: Context): Boolean =
         getSp(context).getBoolean(KEY_MAIN_DELETE_BUTTON_VISIBLE, true)
 
@@ -270,27 +241,16 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_FULL_BILI_SOURCE, enabled).apply()
     }
 
-    /**
-     * B 站音乐播放音质（存 [com.tilixibiesi.bili.BiliAudioQuality.id]）。
-     * 未设置时返回 0，由 BiliAudioQuality 回退为默认的最低音质。
-     */
     fun getBiliAudioQuality(context: Context): Int =
         getSp(context).getInt(KEY_BILI_AUDIO_QUALITY, 0)
     fun saveBiliAudioQuality(context: Context, qualityId: Int) {
         getSp(context).edit().putInt(KEY_BILI_AUDIO_QUALITY, qualityId).apply()
     }
 
-    /**
-     * 读取 B 站登录 Cookie。
-     *
-     * Cookie 现在保存在文件里（见 [BiliCookieStore]），每次使用都从本地文件加载；
-     * 这里保留原方法名只是为了不打扰调用方。
-     */
     fun getBiliCookie(context: Context): String = BiliCookieStore.get(context)
 
     fun saveBiliCookie(context: Context, cookie: String) = BiliCookieStore.save(context, cookie)
 
-    /** 旧版本把 Cookie 存在 SharedPreferences 里，仅用于一次性迁移。 */
     internal fun readLegacyBiliCookie(context: Context): String =
         getSp(context).getString(KEY_BILI_COOKIE, "") ?: ""
 

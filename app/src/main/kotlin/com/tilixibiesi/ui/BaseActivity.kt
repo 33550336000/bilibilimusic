@@ -93,9 +93,7 @@ open class BaseActivity : Activity() {
     override fun onResume() {
         super.onResume()
         ActivityTracker.onResumed(this)
-        // 后台期间错过的「登录失效」请求，回到前台后补弹登录页
         BiliLoginHelper.onActivityResumed(this)
-        // 启动时校验一次本地保存的登录 Cookie（每个进程只校验一次）
         BiliLoginHelper.verifyStoredCookie(this)
         val currentLang = LanguageUtils.getEffectiveLanguage(applicationContext)
         if (currentLang != lastLanguageCode) {
@@ -110,20 +108,9 @@ open class BaseActivity : Activity() {
         setupBottomNav()
     }
 
-    /**
-     * 刻意不在这里统一注册返回回调。
-     *
-     * 注册了 `PRIORITY_DEFAULT` 的 [android.window.OnBackInvokedCallback] 之后，
-     * 系统自己的预测动画（跨 Activity、回到桌面）就不播了。绝大多数界面（歌单详情、
-     * 选歌页）根本不需要拦截返回，交给系统才是对的；只有确实要拦的地方
-     * （播放页浮层、全屏视频、登录页、主页翻页）才各自按需注册。
-     *
-     * API 33 以下系统仍直接调 [onBackPressed]，所以下面那个重写要保留。
-     */
     @Deprecated("Deprecated in Java")
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
-        // 登录覆盖层在最上层，返回键先关它
         if (BiliLoginHelper.handleBackPressed()) return
         super.onBackPressed()
     }

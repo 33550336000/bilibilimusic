@@ -15,14 +15,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import kotlin.random.Random
 
-/*
- * 设置页里「发送自定义通知」这条独立功能链。
- *
- * 它只依赖页面提供的字体颜色与统一样式的对话框，与设置项的读写没有交集，
- * 从 SettingsPage 里拆出来可以避免主文件继续膨胀。
- */
-
-/** 弹出「发送通知」的输入框对话框。 */
 internal fun SettingsPage.showSendNotificationDialog() {
     val page = this
     val layout = LinearLayout(page).apply {
@@ -67,7 +59,6 @@ internal fun SettingsPage.showSendNotificationDialog() {
     )
 }
 
-/** 真正发出通知；id 随机是为了让多条通知并存，仅避开常驻的媒体通知 id。 */
 internal fun SettingsPage.sendCustomNotification(title: String, content: String) {
     val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     nm.createNotificationChannel(

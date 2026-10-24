@@ -99,8 +99,6 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
     private var currentBvid: String? = null
     private var isExpectedPrepare = false
     private var progressSaveRunnable: Runnable? = null
-    // 周期落盘间隔。暂停、退出、切集、拖动进度条等关键时刻另有强制落盘，
-    // 因此这里可以放宽，减少写盘次数（10 分钟视频约 300 次，而非 1200 次）。
     private val progressSaveInterval = 2000L
     private val playRequestId = AtomicInteger(0)
     private var longPressTriggered = false
@@ -243,7 +241,6 @@ companion object {
                 seekBar?.let {
                     val pos = it.progress
                     mediaPlayer?.seekTo(pos)
-                    // 拖动结束后立刻记住新位置，避免期间退出丢失
                     currentBvid?.let { bvid -> saveProgress(bvid, pos) }
                     flushProgress(sync = true)
                 }
@@ -349,13 +346,6 @@ fun close() {
     currentVideoTitle = ""
     currentVideoAuthor = ""
     currentBvid = null
-    // 退出全屏时把方向交还给系统自动旋转。
-    //
-    // 以前这里强设 PORTRAIT，用户开着自动旋转也会被硬掰回竖屏；
-    // 后来那套「旋转按钮 + 强制横屏」已经整个移除，本 App 不再主动改方向。
-    // 保留这行 UNSPECIFIED 是为了抹掉可能存在的历史锁定值
-    // （例如旧版本退出时把 requestedOrientation 留在了横屏），
-    // 否则整个 App 会一直锁死在那一次设定上。
     activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     synchronized(BiliVideoPlayer::class.java) {
         val current = currentPlayingInstance?.get()
@@ -479,7 +469,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
                     }
                     updateSeekPreview(finalPos, duration)
                     danmakuView?.seek(finalPos.toLong())
-                    // 手势快进结束后立刻记住新位置
                     currentBvid?.let { bvid -> saveProgress(bvid, finalPos) }
                     flushProgress(sync = true)
                 }
@@ -806,7 +795,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
             btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
             stopProgressUpdater()
             danmakuView?.setPaused(true)
-            // 暂停时进度必须落盘，否则退到后台被回收会丢失
             saveCurrentProgress()
             flushProgress(sync = true)
         } else {
@@ -937,7 +925,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         VideoProgressStore.put(activity, bvid, position)
     }
 
-    /** 立即把内存中的进度落盘；[sync] 为 true 时额外 fsync，用于不可丢失的时机。 */
     private fun flushProgress(sync: Boolean) {
         AppExecutors.io.execute {
             runCatching { VideoProgressStore.flush(activity, sync) }
@@ -970,7 +957,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         }
     }
 
-    /** 记录当前进度并立刻落盘，用于退到后台等可能被系统回收的时机。 */
     fun saveCurrentProgressNow() {
         saveCurrentProgress()
         flushProgress(sync = true)
@@ -1188,7 +1174,6 @@ private fun setPlaybackSpeed(speed: Float) {
                 mediaPlayer?.start()
                 attachVideoNotification()
                 danmakuView?.seek(0L)
-                // 播完后从头循环，清掉进度记录，避免下次打开又跳回结尾
                 currentBvid?.let { bvid ->
                     VideoProgressStore.remove(activity, bvid)
                     flushProgress(sync = false)

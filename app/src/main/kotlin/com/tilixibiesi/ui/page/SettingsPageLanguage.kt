@@ -8,13 +8,6 @@ import com.tilixibiesi.util.ToastUtils
 
 import android.app.AlertDialog
 
-/*
- * 设置页里的语言切换流程：选择语言、按需下载语言包、切换后重建界面。
- *
- * 拆出来的原因与通知那条链相同——它只依赖页面提供的对话框工厂，
- * 与其它设置项没有共享状态。
- */
-
 internal fun SettingsPage.showLanguageDialog() {
     val page = this
     val languages = LanguageUtils.getSupportedLanguages(page)
@@ -63,14 +56,12 @@ internal fun SettingsPage.showLanguageDialog() {
     )
 }
 
-/** 下载语言包并切换；失败时只提示，不改变当前语言。 */
 internal fun SettingsPage.downloadAndApplyLanguage(code: String) {
     val page = this
     ToastUtils.show(page, LanguageUtils.getString(page, R.string.language_downloading))
     AppExecutors.io.execute {
         val ok = LanguageUtils.downloadLanguage(page, code)
         page.runOnUiThread {
-            // 下载期间页面可能已经销毁（例如用户返回）
             if (page.activity.isDestroyed) return@runOnUiThread
             if (ok) {
                 SettingsStore.saveLanguage(code)

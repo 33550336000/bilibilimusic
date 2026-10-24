@@ -61,7 +61,6 @@ object BiliDownloadManager {
             .create()
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         dialog.show()
-        // 下载弹窗可能长时间停留，旋转后必须跟着新宽度走，否则会溢出或过窄
         DialogHelper.applyAdaptiveWidth(dialog, context, 0.85f)
         return Pair(dialog, progressBar)
     }

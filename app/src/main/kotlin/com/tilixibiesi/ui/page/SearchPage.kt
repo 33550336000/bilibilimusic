@@ -170,10 +170,6 @@ class SearchPage(base: Context) : BasePage(base) {
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.shutdown()
     }
 
-    /**
-     * 全屏播放时返回只会退出全屏，行为确定，适合让系统做预测性预演：
-     * 右滑跟手时视频会跟着缩回小窗（progress 越大越接近关闭态）。
-     */
     private fun registerVideoPredictiveBack() {
         PredictiveBack.register(
             activity,
@@ -196,7 +192,6 @@ class SearchPage(base: Context) : BasePage(base) {
         )
     }
 
-    /** 关掉全屏播放器并复位跟手动画留下的缩放/透明度。 */
     private fun closeFullscreenVideo() {
         findViewById<View>(R.id.layout_fullscreen_video)?.apply {
             scaleX = 1f
@@ -347,8 +342,6 @@ class SearchPage(base: Context) : BasePage(base) {
                 }
             }
         }
-        // 「加入历史」按钮原来要往左让出方向切换按钮的宽度；
-        // 方向按钮已移除，这里恢复成常规右对齐边距，否则它右侧会空出一块。
         val addBtnParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
             setMargins(16, 16, 16, 16)
         }
@@ -543,7 +536,6 @@ class SearchPage(base: Context) : BasePage(base) {
             .replace(Regex("\\.(mp3|flac|wav|aac|ogg|wma|m4a|opus)$"), "")
     }
 
-    /** 统一取用本地文件中的登录 Cookie；未开启完整源时返回空串（走匿名搜索）。 */
     private fun biliCookie(): String =
         if (SpUtils.isFullBiliSource(this)) SpUtils.getBiliCookie(this) else ""
 
@@ -569,7 +561,6 @@ class SearchPage(base: Context) : BasePage(base) {
                 if (id != biliSearchRequestId.get()) return@post
                 hideSearchingHint()
 
-                // -101 已由 BiliLoginHelper 统一处理（弹登录页），这里只需放弃本次结果
                 if (BiliLoginHelper.isAuthInvalid(result.errorCode)) {
                     isLoadingMore = false
                     return@post
@@ -578,7 +569,6 @@ class SearchPage(base: Context) : BasePage(base) {
                 val videos = result.videos
                 val hasMore = result.hasMore
 
-                // B 站搜索结果同样受屏蔽词过滤（按标题匹配）
                 val visibleVideos = filterBlockedVideos(videos)
 
                 if (page == 1) {
@@ -597,7 +587,6 @@ class SearchPage(base: Context) : BasePage(base) {
         }
     }
 
-    /** 过滤掉标题命中屏蔽词的 B 站搜索结果。 */
     private fun filterBlockedVideos(videos: List<BiliVideo>): List<BiliVideo> {
         val blockedWords = DataFileUtils.loadBlockedWords()
         if (blockedWords.isEmpty()) return videos
@@ -635,7 +624,6 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun showDownloadQualityDialog(video: BiliVideo) {
-        // 下载需要登录凭证：没有就先弹登录页，登录成功后再继续
         BiliLoginHelper.ensureLoggedIn(activity) {
             doShowDownloadQualityDialog(video, SpUtils.getBiliCookie(this))
         }

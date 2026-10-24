@@ -45,7 +45,6 @@ class SelectMusicActivity : BaseActivity() {
         btnConfirm = findViewById(R.id.btn_confirm)
         etSearch = findViewById(R.id.et_search)
 
-        // 左上角取消 / 右上角确定 / 搜索框文字跟随全局字体颜色
         val fontColor = FontUtils.color(this)
         btnCancel.setTextColor(fontColor)
         btnConfirm.setTextColor(fontColor)
@@ -107,10 +106,6 @@ class SelectMusicActivity : BaseActivity() {
         super.onDestroy()
     }
 
-    /**
-     * 可勾选的曲目来源：本地音乐 + B 站历史（B 站曲目排在最前），
-     * 与主页面歌曲列表保持一致，并按删除记录 / 屏蔽词过滤。
-     */
     private fun loadSelectableMusic(): MutableList<MusicBean> {
         val local = DataFileUtils.loadMusicList().toMutableList()
 

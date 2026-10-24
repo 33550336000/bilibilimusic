@@ -23,9 +23,7 @@ class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         StoragePaths.init(this)
-        // 老版本只有一个液态玻璃开关：先把当前值固化到「卡片」开关上，之后两者各管各的
         SpUtils.migrateLiquidGlassCardsSetting(this)
-        // 进入应用即恢复本地已有设置，不再等到打开设置页面才加载
         loadLocalSettings()
         LanguageUtils.refreshLanguageMap(this)
         LanguageUtils.checkCurrentLanguageOnStartup(this)

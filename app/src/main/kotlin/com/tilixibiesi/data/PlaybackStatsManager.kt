@@ -149,7 +149,6 @@ object PlaybackStatsManager {
         }
     }
 
-    /** 分片文件名即日期（`yyyy-MM-dd.json`），日期不存在文件内部。 */
     private fun dateOf(fileName: String): String? {
         val date = fileName.removeSuffix(".json")
         return date.takeIf { DATE_PATTERN.matches(it) }

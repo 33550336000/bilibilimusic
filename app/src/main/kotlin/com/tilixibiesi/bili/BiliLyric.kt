@@ -15,7 +15,6 @@ data class BiliLyric(
 
         SUBTITLE,
 
-        /** 来自本地 `cache/Lyric/` 的歌词文件。 */
         LOCAL
     }
 

@@ -17,7 +17,6 @@ object BiliLyricHelper {
         "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     )
 
-    /** 带登录 Cookie 的请求头；未登录时退化为匿名请求。 */
     private fun headersWithCookie(cookie: String): Map<String, String> =
         if (cookie.isEmpty()) baseHeaders else baseHeaders + ("Cookie" to cookie)
 

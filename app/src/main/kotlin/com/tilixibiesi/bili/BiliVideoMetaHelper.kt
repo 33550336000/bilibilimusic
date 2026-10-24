@@ -16,7 +16,6 @@ object BiliVideoMetaHelper {
 
     private val cache = java.util.concurrent.ConcurrentHashMap<String, Meta>()
 
-    /** [onDone] 一律在主线程回调，调用方常直接写 View。 */
     fun fetch(bvid: String, onDone: (Meta?) -> Unit) {
         if (bvid.isEmpty()) {
             mainHandler.post { onDone(null) }
