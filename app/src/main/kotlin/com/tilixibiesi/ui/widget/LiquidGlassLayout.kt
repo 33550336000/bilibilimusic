@@ -1,5 +1,7 @@
 package com.tilixibiesi.ui.widget
 
+import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -20,9 +22,12 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.util.AttributeSet
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.LinearLayout
 import kotlin.math.abs
 
@@ -57,6 +62,23 @@ class LiquidGlassLayout @JvmOverloads constructor(
         private const val TILT_DEADZONE = 0.02f
 
         /**
+         * 按压动画时长。
+         *
+         * iOS 的手感是「按下去几乎瞬间亮、松手略慢回落」。按下 90ms 够快，
+         * 快到不会让人觉得卡；回落 160ms 有明显阻尼，像材质在回弹。
+         */
+        private const val PRESS_IN_MS = 90L
+        private const val PRESS_OUT_MS = 160L
+
+        /**
+         * 背景亮度低通系数。
+         *
+         * 抓图是每帧都可能重来的，亮度必须平滑跟随；0.35 既跟得上换页，
+         * 又不会因为背景里飘过一片深色内容就把整块玻璃的膜厚跳变。
+         */
+        private const val ADAPT_LOWPASS = 0.35f
+
+        /**
          * 抓图进行中的层数。
          *
          * 抓图是把来源子树整棵在软件画布上重画一遍，而本类通常就长在那棵子树里
@@ -78,8 +100,12 @@ class LiquidGlassLayout @JvmOverloads constructor(
         /**
          * 折射着色器，输入 uBackdrop = 模糊后的背景。
          *
-         * iOS 那套液态玻璃靠三件事撑起来：极薄的白膜、贴着边缘的一圈受光棱线、
-         * 边缘处明显的透镜折射。这里按这个顺序做，并且不做任何暗边。
+         * iOS 那套液态玻璃靠四件事撑起来：极薄的白膜、贴着边缘的一圈受光棱线、
+         * 边缘处明显的透镜折射，以及「玻璃是活的」——按下时从内部发亮并瞬时鼓起。
+         * 这里按这个顺序做，并且不做任何暗边。
+         *
+         * uAdapt 是背景平均亮度（0=全黑,1=全白）：白膜厚度随它反向变化，
+         * 亮底上更薄、暗底上更厚，否则亮底会把玻璃整块吃掉、暗底又看不出轮廓。
          */
         val AGSL = """
 uniform shader uBackdrop;
@@ -87,6 +113,8 @@ uniform float2 uSize;
 uniform float uCorner;
 uniform float uBevel;
 uniform float2 uTilt;
+uniform float uPress;
+uniform float uAdapt;
 
 // 圆角矩形符号距离场
 float sdRoundBox(float2 p, float2 b, float r) {
@@ -116,6 +144,9 @@ half4 main(float2 fragCoord) {
 
     // ---- 2. 倒角高度场（半圆剖面）----
     float bevel = max(uBevel, 1.0);
+    // 按下时玻璃「鼓起来」：倒角变窄但更陡，于是边缘更亮、折射带更集中。
+    // 这是 iOS 按压反馈里读起来最像「玻璃被压弯」的那一部分。
+    bevel *= mix(1.0, 0.72, uPress);
     float inward = clamp((-d) / bevel, 0.0, 1.0);
     float edge = 1.0 - inward;
     float h = sqrt(max(0.0, 1.0 - edge * edge));
@@ -130,15 +161,35 @@ half4 main(float2 fragCoord) {
     float k = 1.0 - eta * eta * (1.0 - cosi * cosi);
     float3 T = k < 0.0 ? reflect(I, N) : eta * I + (eta * cosi - sqrt(k)) * N;
 
-    // ---- 5. 折射采样：越靠边偏折越大，形成边缘透镜 ----
+    // ---- 5. 折射采样：位移贴图式的「先收缩、再边缘外扩」----
+    //
+    // iOS 的做法不是把整块画面均匀往外推，而是用一张二维位移贴图：
+    // 先把玻璃内部的内容整体收缩，再让最外沿一圈向外拉伸，两者在中间平滑接上。
+    // 这样画面在玻璃里是连续接上的，没有一圈被硬拽出来的环带。
+    //
+    // 这里分两部分叠加：
+    //   a) 全局收缩   —— 让整块玻璃里的内容略微变小，制造「画面被吞进玻璃里」的厚度感
+    //   b) 边缘外扩   —— 只在最外一圈生效（edge^3），是真正的透镜弯光
+    // 两者用同一个 dir（折射方向），因此过渡是连续的。
     float2 dir = T.xy / max(abs(T.z), 0.20);
-    float strength = bevel * 0.34 * edge * edge * edge;
-    float2 base = p + dir * strength;
+
+    // a) 全局收缩：以中心为原点朝内收，proportional 让各方向收缩量一致，
+    //    不会在长条形的控制栏上被拉成椭圆（这一步就是「统一缩放因子」的等价物）。
+    float shrinkBase = bevel * mix(0.055, 0.075, uPress);
+    float2 centered = (p - halfSize) / halfSize;   // -1..1
+    float2 shrinkVec = -centered * shrinkBase;
+
+    // b) 边缘外扩：只有最外沿真的弯光
+    float strength = bevel * mix(0.34, 0.52, uPress) * edge * edge * edge;
+
+    float2 base = p + shrinkVec + dir * strength;
 
     // ---- 6. 轻微色散：三通道错开一点，边缘才像真的玻璃 ----
-    half4 sR = uBackdrop.eval(clampSample(base + dir * (strength * 0.10)));
+    // 色散强度也跟折射同步放大，否则按压时只有明暗变化、没有光学变化
+    float disp = strength * mix(0.10, 0.16, uPress);
+    half4 sR = uBackdrop.eval(clampSample(base + dir * disp));
     half4 sG = uBackdrop.eval(clampSample(base));
-    half4 sB = uBackdrop.eval(clampSample(base - dir * (strength * 0.10)));
+    half4 sB = uBackdrop.eval(clampSample(base - dir * disp));
 
     // 输入是预乘 alpha 的：位图没覆盖到的地方是 (0,0,0,0)，直接用会发黑。
     // 补一层浅色，等价于「这里确实没有内容」时的底色 —— 既不发黑也不留纯白块。
@@ -159,24 +210,63 @@ half4 main(float2 fragCoord) {
 
     // ---- 9. 白膜：整块只蒙极薄一层，越靠边略厚 ----
     // 之前 0.045~0.16 铺在整块上，卡片就已经偏白了；这里压到 0.02~0.075。
-    col = mix(col, float3(1.0), mix(0.02, 0.075, smoothstep(0.72, 1.0, edge)));
+    // 再按背景亮度自适应：亮底（uAdapt→1）压薄，暗底（uAdapt→0）加厚。
+    // 不这么做的话，浅色壁纸上玻璃会整块泛白、深色壁纸上又完全看不出边界。
+    float filmScale = mix(1.55, 0.55, uAdapt);
+    float film = mix(0.02, 0.075, smoothstep(0.72, 1.0, edge)) * filmScale;
+    // 按下时白膜略增：玻璃被「点亮」了一点点，但幅度必须小，否则会读成变白
+    film *= mix(1.0, 1.35, uPress);
+    col = mix(col, float3(1.0), clamp(film, 0.0, 1.0));
 
     // ---- 10. 边缘受光：只有贴近棱线的一圈，不做整块泛白 ----
-    // edge 是以 uBevel(18dp) 为宽度的归一化量，smoothstep 的区间必须贴着 1.0 收窄，
-    // 否则这圈高光会摊成 55px 宽的白晕，整块玻璃看着就是一层白雾。
-    // 边缘光也按「像素级」宽度另算（rim），与倒角尺度解耦。
+    //
+    // 真实玻璃的棱线不是「一圈均匀的白」，而是随受光方向有强弱：光从左上来，
+    // 左上和中上的棱最亮，右下最暗。iOS 那圈高光就是有明显方向感的。
+    // 这里用两层：
+    //   rim  —— 极细的一道外层亮线（像素级宽度，与倒角尺度解耦）
+    //   fres —— 菲涅尔衰减，让棱线不必靠加粗也能被看见
     float rimW = clamp(2.0 / max(bevel, 1.0), 0.0, 0.12);
     float rim = smoothstep(1.0 - rimW * 3.0, 1.0, edge);
     float fres = pow(1.0 - clamp(dot(N, float3(0.0, 0.0, 1.0)), 0.0, 1.0), 3.0);
-    float topBias = mix(0.85, 1.20, 1.0 - clamp(p.y / uSize.y, 0.0, 1.0));
-    col += float3(fres * 0.16 * topBias);
+
+    // 受光方向：光源取左上方（与倾斜高光同一套世界假设），
+    // 用它在边缘法线上的投影做方向加权，右下自然压暗。
+    float2 lightDir = normalize(float2(-0.55, -0.83));
+    float facing = clamp(dot(n, lightDir), -1.0, 1.0);
+    // 从 0.35 到 1.0：背光侧不完全消失，否则转角处会出现突变
+    float dirWeight = mix(0.35, 1.0, (facing + 1.0) * 0.5);
+
+    // 顶部本身就更容易接光，保留一点垂直偏置（但不做整块渐变，那会读成塑料膜）
+    float topBias = mix(0.90, 1.15, 1.0 - clamp(p.y / uSize.y, 0.0, 1.0));
+    // 边缘受光同样要压暗底、提亮底：暗底上弱一点免得太跳，亮底上强一点才有轮廓
+    float rimScale = mix(1.15, 0.85, uAdapt) * mix(1.0, 1.5, uPress)
+        * topBias * dirWeight;
+    col += float3(fres * 0.16 * rimScale);
     // 最外沿一道细棱线：只占最外一小圈
-    col += float3(rim * 0.30 * topBias);
+    col += float3(rim * 0.30 * rimScale);
 
     // ---- 11. 倾斜高光：跟陀螺仪走，幅度压得很低 ----
     float2 hl = float2(uSize.x * (0.5 + uTilt.x * 0.30), uSize.y * (0.30 + uTilt.y * 0.22));
     float hd = length((p - hl) / float2(uSize.x * 0.55, uSize.y * 1.10));
     col += float3(smoothstep(0.85, 0.0, hd) * 0.035);
+
+    // ---- 11b. 按压内部发光 ----
+    //
+    // iOS 按下时玻璃是「从内部亮起来」的：不是外面罩一层白，而是材质本身被点亮。
+    // 所以这里用两层叠加：一层是柔和的内部辉光（几乎铺满、中心稍弱），
+    // 一层是贴着边缘更亮的一圈。
+    //
+    // 写成无分支形式（乘 uPress）而不是 if：片元着色器里 uPress 是逐像素一致的，
+    // 但分支在部分 GPU 上仍会打断向量化；这里本来就是 0 时结果为 0，不必用 if。
+    // 中心故意压得比边缘暗，避免整块读成一个白块。
+    float2 c = (p - halfSize) / halfSize;
+    float core = 1.0 - smoothstep(0.0, 1.25, length(c));
+    // 亮底上要更克制，否则浅色壁纸按下时会糊成一片白
+    float glowGain = mix(0.085, 0.045, uAdapt) * uPress;
+    col += float3(core * glowGain);
+    // 贴边的一圈额外提亮：读起来像光从玻璃边缘透进来
+    float edgeGlow = smoothstep(0.55, 1.0, edge) * uPress;
+    col += float3(edgeGlow * 0.10 * mix(1.0, 0.7, uAdapt));
 
     // ---- 12. 顶沿亮边：只留顶部一条窄亮面，整块斜纹会读成塑料膜，去掉 ----
     float topRim = (1.0 - smoothstep(0.0, 0.045, p.y / uSize.y)) * smoothstep(0.0, 0.30, inward);
@@ -185,7 +275,8 @@ half4 main(float2 fragCoord) {
     // ---- 13. 细颗粒：打散模糊后的塑料感 ----
     float2 gp = p * 1.35;
     float grain = fract(sin(dot(gp, float2(12.9898, 78.233))) * 43758.5453) - 0.5;
-    col += float3(grain * 0.016);
+    // 按压时颗粒略减：材质被「点亮」后应该更干净，颗粒感会削弱玻璃感
+    col += float3(grain * 0.016 * mix(1.0, 0.6, uPress));
 
     col *= 0.99;
 
@@ -320,6 +411,8 @@ half4 main(float2 fragCoord) {
     private var effectBevel = Float.NaN
     private var effectTiltX = Float.NaN
     private var effectTiltY = Float.NaN
+    private var effectPress = Float.NaN
+    private var effectAdapt = Float.NaN
 
     private val blurNode = RenderNode("liquidGlassBlur")
     private val shaderNode = RenderNode("liquidGlassShader")
@@ -331,6 +424,29 @@ half4 main(float2 fragCoord) {
     private var tiltX = 0f
     private var tiltY = 0f
     private var sensorManager: SensorManager? = null
+
+    /**
+     * 按压强度 0~1。
+     *
+     * iOS 的玻璃被按下时是「从内部亮起来 + 瞬时鼓起」，松手回弹。
+     * 这里用 Animator 驱动，按下 90ms 升到 1、松开 160ms 回落，
+     * 回升比下降慢一点，读起来更像有阻尼的材质而不是开关。
+     */
+    private var press = 0f
+    private var pressAnimator: ValueAnimator? = null
+
+    /** 是否响应按压。卡片这类不可点的容器应当关掉，免得滑动时误触发。 */
+    var pressEnabled: Boolean = true
+
+    /**
+     * 背景平均亮度 0~1，用于白膜厚度自适应。
+     *
+     * 从已经抓好的 [backdrop] 位图里抽样统计，不额外读屏幕像素。
+     * 做成低通滤波：背景一换（翻页、换壁纸）不会突然跳一个亮度。
+     */
+    private var adaptLuma = 0.5f
+    private var adaptPending = false
+    private var adaptSampledSignature = Int.MIN_VALUE
 
     private val tiltListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
@@ -396,6 +512,11 @@ half4 main(float2 fragCoord) {
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
         sensorManager?.unregisterListener(tiltListener)
+        // 按压动画在窗口分离后仍会跑完，
+        // 期间的 invalidate 会打在一个已经不再绘制的 View 上，先停掉更干净。
+        pressAnimator?.cancel()
+        pressAnimator = null
+        press = 0f
         detachWatcher()
         backdrop = null
         captureCanvas = null
@@ -552,6 +673,8 @@ half4 main(float2 fragCoord) {
         s.setFloatUniform("uCorner", cornerPx)
         s.setFloatUniform("uBevel", bevelPx)
         s.setFloatUniform("uTilt", tiltX, tiltY)
+        s.setFloatUniform("uPress", press)
+        s.setFloatUniform("uAdapt", adaptLuma)
 
         val bw = bmp.width
         val bh = bmp.height
@@ -589,7 +712,11 @@ half4 main(float2 fragCoord) {
             effectCorner == cornerPx &&
             effectBevel == bevelPx &&
             effectTiltX == tiltX &&
-            effectTiltY == tiltY
+            effectTiltY == tiltY &&
+            // 按压与自适应亮度也是会被拷贝走的 uniform，必须一起比。
+            // 漏掉它们的话，按压动画和背景亮度变化都不会真正画出来。
+            effectPress == press &&
+            effectAdapt == adaptLuma
         ) {
             return cached
         }
@@ -601,6 +728,8 @@ half4 main(float2 fragCoord) {
         effectBevel = bevelPx
         effectTiltX = tiltX
         effectTiltY = tiltY
+        effectPress = press
+        effectAdapt = adaptLuma
         return rebuilt
     }
 
@@ -716,7 +845,53 @@ half4 main(float2 fragCoord) {
         }
         // 成败都记签名：永久抛异常的子树立重复抓图只会每帧白烧一次
         lastSignature = signature
+        sampleAdaptiveLuma(bmp, signature)
         return bmp
+    }
+
+    /**
+     * 从刚抓好的背景位图里抽样估一个平均亮度，供白膜自适应。
+     *
+     * 不额外读屏幕像素：位图本来就是这块玻璃背后那块区域，直接拿来算最省。
+     * 采样步长按位图尺寸自适应，总量恒定在一个很小的量级（约 12x12 个点），
+     * 拖动/滚动时每帧都会走到这里，不能变成一次全图遍历。
+     *
+     * 用 0.35 的低通系数：换页、换壁纸时亮度是渐变的，不会突然跳一下。
+     */
+    private fun sampleAdaptiveLuma(bmp: Bitmap, signature: Int) {
+        if (signature == adaptSampledSignature) return
+        adaptSampledSignature = signature
+        if (bmp.isRecycled || bmp.width <= 0 || bmp.height <= 0) return
+
+        val cx = 12
+        val cy = 12
+        val stepX = (bmp.width / cx).coerceAtLeast(1)
+        val stepY = (bmp.height / cy).coerceAtLeast(1)
+        var sum = 0f
+        var weight = 0f
+        var y = stepY / 2
+        while (y < bmp.height) {
+            var x = stepX / 2
+            while (x < bmp.width) {
+                val argb = bmp.getPixel(x, y)
+                val a = (argb ushr 24) and 0xFF
+                if (a > 8) {
+                    // 与着色器里的 luma 用同一组系数，判断口径一致
+                    val r = (argb ushr 16) and 0xFF
+                    val g = (argb ushr 8) and 0xFF
+                    val b = argb and 0xFF
+                    val luma = (0.2126f * r + 0.7152f * g + 0.0722f * b) / 255f
+                    // 半透明像素按 alpha 加权：透出来的底色本身就是背景的一部分
+                    sum += luma * a
+                    weight += a
+                }
+                x += stepX
+            }
+            y += stepY
+        }
+        if (weight <= 0f) return
+        val measured = (sum / weight).coerceIn(0f, 1f)
+        adaptLuma += (measured - adaptLuma) * ADAPT_LOWPASS
     }
 
     // ---------- 着色器 ----------
@@ -734,6 +909,69 @@ half4 main(float2 fragCoord) {
     }
 
     // ---------- 交互 ----------
+
+    /**
+     * 按压反馈：只观察不拦截。
+     *
+     * 返回 false 让事件继续下发给孩子（玻璃栏里都是按钮，拦住就没法点了）。
+     * 这里只关心「手指按下 / 抬起 / 划出」，用来驱动 [press]。
+     * 用 ACTION_MASK 兼容多指：第二根手指按下不该把状态刷回去。
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        trackPress(event)
+        return super.onTouchEvent(event)
+    }
+
+    /**
+     * 真正决定发光时机的是这个分发入口。
+     *
+     * 玻璃容器本身通常不可点击（子 View 才可点），此时 onTouchEvent 根本不会来，
+     * 所以必须在 dispatchTouchEvent 里观察。看过之后原样交给 super，
+     * 触摸语义与改动前完全一致。
+     */
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        trackPress(event)
+        return super.dispatchTouchEvent(event)
+    }
+
+    private fun trackPress(event: MotionEvent) {
+        if (!pressEnabled || !glassEnabled) return
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> animatePress(1f, PRESS_IN_MS, null)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                animatePress(0f, PRESS_OUT_MS, DecelerateInterpolator())
+            MotionEvent.ACTION_MOVE -> {
+                // 手指划出玻璃范围时提前收掉高光，避免「按着别处这里还亮着」
+                val inside = event.x >= 0 && event.y >= 0 &&
+                    event.x <= width && event.y <= height
+                if (!inside && press > 0f) animatePress(0f, PRESS_OUT_MS, DecelerateInterpolator())
+            }
+        }
+    }
+
+    private fun animatePress(target: Float, durationMs: Long, easing: android.animation.TimeInterpolator?) {
+        if (press == target) return
+        pressAnimator?.cancel()
+        if (shaderEffect == null && !shaderSupported) {
+            // 没有着色器时按压没有视觉效果，直接落值，省掉一次无谓的动画
+            press = target
+            return
+        }
+        pressAnimator = ValueAnimator.ofFloat(press, target).apply {
+            duration = durationMs
+            // 按下用 OvershootInterpolator 制造一点「弹」的手感，
+            // 但它会让进度冲过 1.0，uPress 必须钳回 0..1，否则着色器里
+            // 白膜/辉光会短暂超量，看起来像闪了一下白光。
+            interpolator = easing ?: OvershootInterpolator(1.6f)
+            addUpdateListener {
+                press = (it.animatedValue as Float).coerceIn(0f, 1f)
+                // 按压会改 uniform，而 uniform 变了要重建 RenderEffect，这里必须走重绘
+                invalidate()
+            }
+            start()
+        }
+    }
 
     private fun updateTiltSensor() {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager

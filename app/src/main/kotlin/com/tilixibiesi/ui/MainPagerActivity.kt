@@ -137,6 +137,9 @@ class MainPagerActivity : BaseActivity(), PageHost {
         (floatingPlayerBar as? LiquidGlassLayout)?.apply {
             backdropSource = contentLayer
             glassEnabled = SpUtils.getLiquidGlassEnabled(this@MainPagerActivity)
+            // 悬浮控制栏整体是一块操作区，按下去该有玻璃的按压反馈：
+            // 玻璃从内部亮起，里面的按钮再叠一层缩放，合起来就是 iOS 的手感
+            pressEnabled = true
         }
         floatingPlayerBar.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             applyPlayerBarInset()

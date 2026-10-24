@@ -5,7 +5,6 @@ import com.tilixibiesi.data.SettingsStore
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.data.FootprintUtils
 import com.tilixibiesi.data.LanguageUtils
-import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.ui.widget.HsvColorPicker
@@ -20,9 +19,6 @@ import com.tilixibiesi.service.VideoPlaybackService
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -33,15 +29,11 @@ import android.text.TextWatcher
 import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
-import java.io.*
-import kotlin.random.Random
 import java.util.Locale
 import android.graphics.Typeface
 
 class SettingsPage(base: Context) : BasePage(base) {
     companion object {
-        private const val REQUEST_PICK_DEFAULT_BG = 1005
-
         /** 与 card_background_semi 的 32dp 圆角对齐，切换玻璃时视觉不跳。 */
         private const val CARD_CORNER_DP = 32f
         private const val CARD_BLUR_DP = 5f
@@ -58,18 +50,13 @@ class SettingsPage(base: Context) : BasePage(base) {
 
     private lateinit var btnAutoCache: Button
     private lateinit var etFontColor: EditText
-    private lateinit var labelFontColor: TextView
     private lateinit var sbFontSize: SeekBar
     private lateinit var tvFontSizePreview: TextView
     private lateinit var etFontSizeInput: EditText
-    private lateinit var labelFontSize: TextView
     private lateinit var sbBackgroundAlpha: SeekBar
     private lateinit var tvAlphaValue: TextView
-    private lateinit var btnSelectDefaultBackground: Button
     private lateinit var btnRestoreDefault: Button
     private lateinit var rootView: View
-    private lateinit var btnBlockedWords: Button
-    private lateinit var sbFontColorHue: SeekBar
     private lateinit var tvFontColorPreview: TextView
     private lateinit var fontColorPicker: HsvColorPicker
     private lateinit var dialogBgColorPicker: HsvColorPicker
@@ -134,6 +121,9 @@ class SettingsPage(base: Context) : BasePage(base) {
             card.background = null
             card.solidWhenDisabled = false
             card.tiltEnabled = false
+            // 卡片在 ScrollView 里：手指按下去多半是要滑动，不是要按这张卡。
+            // 开着按压会在每次滑动时先亮一下再灭，读起来像误触。
+            card.pressEnabled = false
             card.cornerRadiusDp = CARD_CORNER_DP
             card.blurRadiusDp = CARD_BLUR_DP
             card.backdropSource = host.backgroundLayer
@@ -166,14 +156,14 @@ class SettingsPage(base: Context) : BasePage(base) {
     private fun initFontSection() {
         val containerFontColor = findViewById<FrameLayout>(R.id.container_font_color)!!
         etFontColor = findViewById<EditText>(R.id.et_font_color)!!
-        labelFontColor = findViewById<TextView>(R.id.label_font_color)!!
+        val labelFontColor = findViewById<TextView>(R.id.label_font_color)!!
         setupFloatingLabel(containerFontColor, labelFontColor, etFontColor)
         val containerFontSize = findViewById<FrameLayout>(R.id.container_font_size)!!
         etFontSizeInput = findViewById<EditText>(R.id.et_font_size_input)!!
-        labelFontSize = findViewById<TextView>(R.id.label_font_size)!!
+        val labelFontSize = findViewById<TextView>(R.id.label_font_size)!!
         setupFloatingLabel(containerFontSize, labelFontSize, etFontSizeInput)
 
-        sbFontColorHue = findViewById<SeekBar>(R.id.sb_font_color_hue)!!
+        val sbFontColorHue = findViewById<SeekBar>(R.id.sb_font_color_hue)!!
         tvFontColorPreview = findViewById<TextView>(R.id.tv_font_color_preview)!!
         fontColorPicker = HsvColorPicker(
             sbFontColorHue,
@@ -209,11 +199,11 @@ class SettingsPage(base: Context) : BasePage(base) {
         tvFontSizePreview = findViewById<TextView>(R.id.tv_font_size_preview)!!
         sbBackgroundAlpha = findViewById<SeekBar>(R.id.sb_background_alpha)!!
         tvAlphaValue = findViewById<TextView>(R.id.tv_alpha_value)!!
-        btnSelectDefaultBackground = findViewById<Button>(R.id.btn_select_default_background)!!
+        findViewById<Button>(R.id.btn_select_default_background)!!.setOnClickListener { pickDefaultBackground() }
         btnRestoreDefault = findViewById<Button>(R.id.btn_restore_default)!!
         btnAdjustSearchButton = findViewById<Button>(R.id.btn_adjust_search_button)!!
         btnSearchBtnStyle = findViewById<Button>(R.id.btn_search_btn_style)!!
-        btnBlockedWords = findViewById<Button>(R.id.btn_blocked_words)!!
+        findViewById<Button>(R.id.btn_blocked_words)!!.setOnClickListener { storageDialogs.showBlockedWordsManager() }
     }
 
     private fun initDefaultSettingsSection() {
@@ -245,9 +235,16 @@ class SettingsPage(base: Context) : BasePage(base) {
                             LanguageUtils.getString(this@SettingsPage, R.string.btn_auto_load_default_off)
 
                         if (!current) {
-                            SettingsStore.loadFromFile(this)
-                            applySettingsToUI()
-                            applyBackground()
+                            SettingsStore.loadFromFileAsync(this@SettingsPage) {
+                                // 加载设置可能触发语言切换并重建 Activity，
+                                // 那时本页所属的 Activity 已销毁，再刷 UI 没有意义
+                                if (activity.isDestroyed || pageView == null) return@loadFromFileAsync
+                                applySettingsToUI()
+                                // 同上：applySettingsToUI 会把「调整搜索按钮」点亮，
+                                // 收起的卡片里不该出现它，这里补一次折叠状态
+                                reapplyCollapsedSections()
+                                applyBackground()
+                            }
                         }
 
                         ToastUtils.show(this@SettingsPage, 
@@ -380,6 +377,8 @@ class SettingsPage(base: Context) : BasePage(base) {
                 LanguageUtils.getString(this@SettingsPage, R.string.toast_liquid_glass_disabled)
             else
                 LanguageUtils.getString(this@SettingsPage, R.string.toast_liquid_glass_enabled)
+            // showMaterialDialog 内部已经 create().show()，这里不能再套一层，
+            // 否则同一个 builder 会被弹两次（曾经就是这个按钮一次弹两个框）。
             showMaterialDialog(
                 AlertDialog.Builder(this)
                     .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.dialog_title_liquid_glass))
@@ -394,7 +393,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                         ToastUtils.show(this@SettingsPage, message)
                     }
                     .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
-                    .also { showMaterialDialog(it) }
             )
         }
 
@@ -546,10 +544,8 @@ class SettingsPage(base: Context) : BasePage(base) {
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
         })
 
-        btnSelectDefaultBackground.setOnClickListener { pickDefaultBackground() }
 
         btnRestoreDefault.setOnClickListener { restoreDefaultSettings() }
-        btnBlockedWords.setOnClickListener { storageDialogs.showBlockedWordsManager() }
         findViewById<Button>(R.id.btn_switch_language)!!.setOnClickListener {
             showLanguageDialog()
         }
@@ -623,242 +619,19 @@ class SettingsPage(base: Context) : BasePage(base) {
         }
     }
 
-    private fun setupCollapsibleSections() {
-        val collapseConfigs = listOf(
-            R.id.title_section_display to R.id.btn_collapse_display,
-            R.id.title_section_background to R.id.btn_collapse_background,
-            R.id.title_section_music to R.id.btn_collapse_music,
-            R.id.title_section_ui_nav to R.id.btn_collapse_ui_nav,
-            R.id.title_section_tools to R.id.btn_collapse_tools,
-            R.id.title_section_other to R.id.btn_collapse_other
-        )
-
-        val collapsedSet = SpUtils.getCollapsedSections(this).toMutableSet()
-        val collapseButtons = mutableListOf<Button>()
-
-        for ((cardId, buttonId) in collapseConfigs) {
-            val card = findViewById<LinearLayout>(cardId) ?: continue
-            val button = findViewById<Button>(buttonId) ?: continue
-            val key = cardId.toString()
-
-            button.text = LanguageUtils.getString(this@SettingsPage, R.string.btn_collapse)
-
-            if (key in collapsedSet) {
-                for (i in 1 until card.childCount) {
-                    card.getChildAt(i).visibility = View.GONE
-                }
-                button.text = LanguageUtils.getString(this@SettingsPage, R.string.btn_restore_section)
-            }
-
-            button.setOnClickListener {
-                val collapsed = button.text.toString() == LanguageUtils.getString(this@SettingsPage, R.string.btn_collapse)
-                if (collapsed) {
-                    for (i in 1 until card.childCount) {
-                        card.getChildAt(i).visibility = View.GONE
-                    }
-                    button.text = LanguageUtils.getString(this@SettingsPage, R.string.btn_restore_section)
-                    collapsedSet.add(key)
-                } else {
-                    for (i in 1 until card.childCount) {
-                        val child = card.getChildAt(i)
-                        if (child.id == R.id.btn_adjust_search_button) {
-                            child.visibility =
-                                if (SpUtils.getSearchMode(this)) View.GONE else View.VISIBLE
-                        } else {
-                            child.visibility = View.VISIBLE
-                        }
-                    }
-                    button.text = LanguageUtils.getString(this@SettingsPage, R.string.btn_collapse)
-                    collapsedSet.remove(key)
-                }
-                SpUtils.setCollapsedSections(this, collapsedSet)
-            }
-            collapseButtons.add(button)
-        }
-    }
-    private fun updateBottomNavButtonText() {
-        findViewById<Button>(R.id.btn_bottom_nav)?.text =
-            if (SpUtils.getBottomNavEnabled(this))
-                LanguageUtils.getString(this@SettingsPage, R.string.btn_bottom_nav_on)
-            else
-                LanguageUtils.getString(this@SettingsPage, R.string.btn_bottom_nav_off)
-    }
-
-    private fun updateLiquidGlassButtonText() {
-        findViewById<Button>(R.id.btn_liquid_glass)?.text = LanguageUtils.getString(
-            this@SettingsPage,
-            if (SpUtils.getLiquidGlassEnabled(this)) R.string.btn_liquid_glass_on
-            else R.string.btn_liquid_glass_off
-        )
-    }
-
-    private fun updateClickFxButtonText() {
-        findViewById<Button>(R.id.btn_toggle_click_fx)?.text = LanguageUtils.getString(
-            this@SettingsPage, R.string.btn_toggle_click_fx,
-            if (SpUtils.getClickFxEnabled(this))
-                LanguageUtils.getString(this@SettingsPage, R.string.state_on)
-            else
-                LanguageUtils.getString(this@SettingsPage, R.string.state_off)
-        )
-    }
-
-    private fun updateAutoCacheButtonText() {
-        if (::btnAutoCache.isInitialized) {
-            btnAutoCache.text = if (SpUtils.isAutoCacheEnabled(this))
-                LanguageUtils.getString(this@SettingsPage, R.string.btn_auto_cache_on)
-            else
-                LanguageUtils.getString(this@SettingsPage, R.string.btn_auto_cache_off)
-        }
-    }
-
-    /**
-     * 「界面与导航」里只切换显示状态的按钮。
-     *
-     * 点一下弹确认框，确认后写入设置、刷新按钮文字，再回调让界面立刻生效；
-     * 与底栏、控制栏那些开关保持同一套交互，避免误触。参数全是资源 id 与读写闭包，
-     * 三个按钮共用一份逻辑。
-     */
-    private fun setupToggleButton(
-        buttonId: Int,
-        titleRes: Int,
-        onLabelRes: Int,
-        offLabelRes: Int,
-        onMessageRes: Int,
-        offMessageRes: Int,
-        enabledToastRes: Int,
-        disabledToastRes: Int,
-        isEnabled: () -> Boolean,
-        setEnabled: (Boolean) -> Unit,
-        onChanged: () -> Unit = {}
-    ) {
-        val button = findViewById<Button>(buttonId) ?: return
-
-        fun refreshLabel() {
-            button.text = LanguageUtils.getString(
-                this,
-                if (isEnabled()) onLabelRes else offLabelRes
-            )
-        }
-        refreshLabel()
-
-        button.setOnClickListener {
-            val current = isEnabled()
-            showMaterialDialog(
-                AlertDialog.Builder(this)
-                    .setTitle(LanguageUtils.getString(this, titleRes))
-                    .setMessage(getString(if (current) offMessageRes else onMessageRes))
-                    .setPositiveButton(LanguageUtils.getString(this, R.string.btn_ok)) { _, _ ->
-                        setEnabled(!current)
-                        refreshLabel()
-                        onChanged()
-                        ToastUtils.show(
-                            this,
-                            LanguageUtils.getString(
-                                this,
-                                if (current) disabledToastRes else enabledToastRes
-                            )
-                        )
-                    }
-                    .setNegativeButton(LanguageUtils.getString(this, R.string.btn_cancel), null)
-            )
-        }
-    }
-
-    private fun setupFloatingLabel(container: FrameLayout, label: TextView, editText: EditText) {
-        val density = resources.displayMetrics.density
-        val floatOffset = -12 * density
-        val accentColor = Color.parseColor("#99002BFF")
-        val normalColor = Color.parseColor("#888888")
-
-        fun update(animate: Boolean = true) {
-            val shouldFloat = editText.hasFocus() || editText.text.isNotEmpty()
-            val targetY = if (shouldFloat) floatOffset else 0f
-            val targetScale = if (shouldFloat) 0.8f else 1f
-            val targetColor = if (shouldFloat) accentColor else normalColor
-
-            if (animate) {
-                label.animate().translationY(targetY).scaleX(targetScale).scaleY(targetScale)
-                    .setDuration(200).start()
-            } else {
-                label.translationY = targetY
-                label.scaleX = targetScale
-                label.scaleY = targetScale
-            }
-            label.setTextColor(targetColor)
-        }
-
-        editText.onFocusChangeListener = View.OnFocusChangeListener { _, _ -> update() }
-        editText.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) { update() }
-        })
-        update(animate = false)
-    }
-
-    private fun applyBackground() {
+    internal fun applyBackground() {
         (activity as? MainPagerActivity)?.refreshBackground()
     }
 
-    private fun showLanguageDialog() {
-        val languages = LanguageUtils.getSupportedLanguages(this)
-        val currentLang = LanguageUtils.getLanguage(this)
-        val names = languages.map { it.second }.toTypedArray()
-        var checkedIndex = languages.indexOfFirst { it.first == currentLang }
-        if (checkedIndex < 0) checkedIndex = 0
-
-        AlertDialog.Builder(this)
-            .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.setting_language))
-            .setSingleChoiceItems(names, checkedIndex) { dialog, which ->
-                val selectedCode = languages[which].first
-                dialog.dismiss()
-                if (selectedCode == LanguageUtils.FOLLOW_SYSTEM || selectedCode == LanguageUtils.BUILTIN_LANG) {
-                    SettingsStore.saveLanguage(selectedCode)
-                    LanguageUtils.setAppLanguage(activity, selectedCode)
-                    return@setSingleChoiceItems
-                }
-                if (!LanguageUtils.isLanguageInstalled(this, selectedCode)) {
-                    showMaterialDialog(
-                        AlertDialog.Builder(this)
-                            .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.language_not_installed_title))
-                            .setMessage(LanguageUtils.getString(this@SettingsPage, R.string.language_not_installed_msg, languages[which].second))
-                            .setPositiveButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_ok)) { _, _ ->
-                                downloadAndApplyLanguage(selectedCode)
-                            }
-                            .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
-                    )
-                } else if (LanguageUtils.needsUpdate(this, selectedCode)) {
-                    showMaterialDialog(
-                        AlertDialog.Builder(this)
-                            .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.language_update_title))
-                            .setMessage(LanguageUtils.getString(this@SettingsPage, R.string.language_update_msg, languages[which].second))
-                            .setPositiveButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_ok)) { _, _ ->
-                                downloadAndApplyLanguage(selectedCode)
-                            }
-                            .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
-                    )
-                } else {
-                    SettingsStore.saveLanguage(selectedCode)
-                    LanguageUtils.setAppLanguage(activity, selectedCode)
-                }
-            }
-            .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
-            .also { showMaterialDialog(it) }
+    /** 包装字体色同步标记，避免拆出去的文件直接摸私有字段却漏掉复位。 */
+    internal fun beginFontColorSync() {
+        etFontColorSyncing = true
     }
 
-    private fun downloadAndApplyLanguage(code: String) {
-        ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.language_downloading))
-        AppExecutors.io.execute {
-            val ok = LanguageUtils.downloadLanguage(this, code)
-            runOnUiThread {
-                if (ok) {
-                    SettingsStore.saveLanguage(code)
-                    LanguageUtils.setAppLanguage(activity, code)
-                } else {
-                    ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.language_download_failed))
-                }
-            }
-        }    }
+    internal fun endFontColorSync() {
+        etFontColorSyncing = false
+    }
+
     /**
      * 应用一个已确定的字体颜色：刷新预览/输入框、保存设置。
      *
@@ -878,223 +651,55 @@ class SettingsPage(base: Context) : BasePage(base) {
         SpUtils.saveFontColor(this@SettingsPage, hex)
     }
 
-    private fun applySettingsToUI() {
-        val fontColor = SpUtils.getFontColor(this)
-        etFontColorSyncing = true
-        etFontColor.setText(fontColor)
-        try {
-            val colorInt = Color.parseColor(fontColor)
-            etFontColor.setTextColor(colorInt)
-            // 三个滑块一起回填，黑/白/灰也能正确落到对应位置
-            fontColorPicker.setColor(colorInt)
-            tvFontColorPreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_color, fontColor)
-        } catch (e: Exception) {
-            val fallback = Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-            etFontColor.setTextColor(fallback)
-            fontColorPicker.setColor(fallback)
-            tvFontColorPreview.text = LanguageUtils.getString(
-                this@SettingsPage, R.string.current_color, SpUtils.DEFAULT_FONT_COLOR
-            )
-        }
-        etFontColorSyncing = false
-
-        val fontSize = SpUtils.getFontSize(this)
-        sbFontSize.progress = fontSize
-        etFontSizeInput.setText(String.format(Locale.getDefault(), "%d", fontSize))
-        tvFontSizePreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_font_size, fontSize)
-        tvFontSizePreview.textSize = fontSize.toFloat()
-
-        val alpha = SpUtils.getBackgroundAlpha(this)
-        sbBackgroundAlpha.progress = alpha
-        tvAlphaValue.text = LanguageUtils.getString(this@SettingsPage, R.string.current_brightness, alpha)
-
-        findViewById<Button>(R.id.btn_volume_key_switch)!!.text =
-            if (SpUtils.getVolumeKeySwitch(this))
-                LanguageUtils.getString(this@SettingsPage, R.string.btn_volume_key_switch_on)
-            else
-                LanguageUtils.getString(this@SettingsPage, R.string.btn_volume_key_switch_off)
-        findViewById<Button>(R.id.btn_toggle_search_mode)!!.text =
-            if (SpUtils.getSearchMode(this))
-                LanguageUtils.getString(this@SettingsPage, R.string.btn_toggle_search_page)
-            else
-                LanguageUtils.getString(this@SettingsPage, R.string.btn_toggle_search_button)
-        btnAdjustSearchButton.visibility =
-            if (SpUtils.getSearchMode(this)) View.GONE else View.VISIBLE
-
-        val modeText = when (SpUtils.getAudioFocusMode(this)) {
-            SpUtils.AUDIO_FOCUS_CALL_LEVEL -> LanguageUtils.getString(this@SettingsPage, R.string.play_mode_exclusive_strong)
-            SpUtils.AUDIO_FOCUS_FULL_EXCLUSIVE -> LanguageUtils.getString(this@SettingsPage, R.string.play_mode_full_medium)
-            SpUtils.AUDIO_FOCUS_TRANSIENT -> LanguageUtils.getString(this@SettingsPage, R.string.play_mode_transient_weak)
-            else -> LanguageUtils.getString(this@SettingsPage, R.string.play_mode_default)
-        }
-        findViewById<Button>(R.id.btn_switch_play_mode)!!.text =
-            LanguageUtils.getString(this@SettingsPage, R.string.btn_play_mode_format, modeText)
-
-        updateSearchBtnStyleButtonText()
-
-        val dialogBgColor = SpUtils.getDialogBgColor(this)
-        try {
-            val color = Color.parseColor(dialogBgColor)
-            dialogBgColorPicker.setColor(color)
-            findViewById<TextView>(R.id.tv_dialog_bg_preview)!!.text =
-                LanguageUtils.getString(this@SettingsPage, R.string.current_color, dialogBgColor)
-            findViewById<View>(R.id.view_dialog_bg_sample)!!.setBackgroundColor(color)
-        } catch (_: Exception) {
-        }
-
-        val dialogFontColor = SpUtils.getDialogFontColor(this)
-        if (dialogFontColor.isEmpty()) {
-            val globalColor = FontUtils.color(this)
-            dialogFontColorPicker.setColor(globalColor)
-            findViewById<TextView>(R.id.tv_dialog_font_preview)!!.text =
-                LanguageUtils.getString(this@SettingsPage, R.string.current_dialog_font_global_format, SpUtils.getFontColor(this))
-            findViewById<View>(R.id.view_dialog_font_sample)!!.setBackgroundColor(globalColor)
-        } else {
-            try {
-                val color = Color.parseColor(dialogFontColor)
-                dialogFontColorPicker.setColor(color)
-                findViewById<TextView>(R.id.tv_dialog_font_preview)!!.text =
-                    LanguageUtils.getString(this@SettingsPage, R.string.current_color, dialogFontColor)
-                findViewById<View>(R.id.view_dialog_font_sample)!!.setBackgroundColor(color)
-            } catch (_: Exception) {
-            }
-        }
-
-        val dialogAlpha = SpUtils.getDialogAlpha(this)
-        findViewById<SeekBar>(R.id.sb_dialog_alpha)!!.progress = dialogAlpha
-        findViewById<TextView>(R.id.tv_dialog_alpha_preview)!!.text =
-            LanguageUtils.getString(this@SettingsPage, R.string.current_alpha, dialogAlpha)
-
-        updateAutoCacheButtonText()
-        updateBottomNavButtonText()
-        updateClickFxButtonText()
-        findViewById<Button>(R.id.btn_full_bili_source)?.let {
-            toggleDialogs.updateFullBiliSourceButtonText(it)
-        }
-        findViewById<Button>(R.id.btn_bili_audio_quality)?.let {
-            toggleDialogs.updateBiliAudioQualityButtonText(it)
-        }
-    }
-
     private fun loadCurrentSettings() {
         if (SpUtils.isAutoLoadDefaultEnabled(this)) {
-            SettingsStore.loadFromFile(this)
+            // 读盘放后台，回到主线程后再刷 UI，避免创建设置页时阻塞主线程
+            SettingsStore.loadFromFileAsync(this) {
+                applySettingsToUI()
+                // applySettingsToUI 会无条件设置「调整搜索按钮」的可见性，
+                // 而本回调可能晚于 setupCollapsibleSections 执行，
+                // 届时会把已收起的卡片里那个按钮重新点亮。这里补一次折叠状态。
+                reapplyCollapsedSections()
+            }
+        } else {
+            applySettingsToUI()
         }
-        applySettingsToUI()
     }
 
-    private fun updateSearchBtnStyleButtonText() {
+    internal fun updateSearchBtnStyleButtonText() {
         btnSearchBtnStyle.text = if (SpUtils.isSearchBtnTransparentStyle(this))
             LanguageUtils.getString(this@SettingsPage, R.string.btn_search_style_restore)
         else
             LanguageUtils.getString(this@SettingsPage, R.string.btn_search_style_transparent)
     }
-    private fun pickDefaultBackground() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "*/*"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("image/*", "video/*"))
-            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, false)
-        }
-        try {
-            startActivityForResult(intent, REQUEST_PICK_DEFAULT_BG)
-        } catch (e: android.content.ActivityNotFoundException) {
-            ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_no_file_picker))
-        }
+
+    /** 供拆出去的扩展文件刷新「完整B站源」按钮文案。 */
+    internal fun refreshFullBiliSourceLabel(btn: Button) {
+        toggleDialogs.updateFullBiliSourceButtonText(btn)
     }
 
-    private fun restoreDefaultSettings() {
-        AlertDialog.Builder(this)
-            .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.dialog_title_restore_default))
-            .setMessage(LanguageUtils.getString(this@SettingsPage, R.string.dialog_msg_restore_default))
-            .setPositiveButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_ok)) { _, _ ->
-                val defaultBg = SpUtils.getDefaultBackgroundPath(this)
-                SpUtils.clearAll(this)
-                if (defaultBg.isNotEmpty()) SpUtils.saveDefaultBackgroundPath(this, defaultBg)
-
-                // B 站登录 Cookie 存在文件里（Appdata/cookie/），恢复默认设置不会清除，
-                // 否则用户会被强制退出登录，需要重新扫码/登录一次
-
-                SettingsStore.deleteSettingsFile()
-
-                SpUtils.saveBackgroundAlpha(this, 100)
-                sbBackgroundAlpha.progress = 100
-                tvAlphaValue.text = LanguageUtils.getString(this@SettingsPage, R.string.current_brightness, 100)
-
-                etFontColorSyncing = true
-                etFontColor.setText(SpUtils.DEFAULT_FONT_COLOR)
-                etFontColorSyncing = false
-                SpUtils.saveFontColor(this, SpUtils.DEFAULT_FONT_COLOR)
-                try {
-                    val defaultColor = Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
-                    etFontColor.setTextColor(defaultColor)
-                    fontColorPicker.setColor(defaultColor)
-                } catch (_: Exception) {
-                }
-                tvFontColorPreview.text = LanguageUtils.getString(
-                    this@SettingsPage, R.string.current_color, SpUtils.DEFAULT_FONT_COLOR
-                )
-
-                sbFontSize.progress = 15
-                SpUtils.saveFontSize(this, 15)
-                etFontSizeInput.setText(String.format(Locale.getDefault(), "%d", 15))
-                tvFontSizePreview.text = LanguageUtils.getString(this@SettingsPage, R.string.current_font_size, 15)
-                tvFontSizePreview.textSize = 15f
-
-                findViewById<Button>(R.id.btn_volume_key_switch)!!.text =
-                    LanguageUtils.getString(this@SettingsPage, R.string.btn_volume_key_switch_off)
-                findViewById<Button>(R.id.btn_toggle_search_mode)!!.text =
-                    LanguageUtils.getString(this@SettingsPage, R.string.btn_toggle_search_page)
-                findViewById<Button>(R.id.btn_switch_play_mode)!!.text =
-                    LanguageUtils.getString(this@SettingsPage, R.string.btn_play_mode_format, LanguageUtils.getString(this@SettingsPage, R.string.play_mode_exclusive_strong))
-                updateSearchBtnStyleButtonText()
-                findViewById<Button>(R.id.btn_video_notify_progress)?.text =
-                    LanguageUtils.getString(this@SettingsPage, R.string.btn_video_notify_progress_on)
-                // 恢复默认会把「完整B站源」开关重置为关（登录凭证仍保留在本地文件里）
-                findViewById<Button>(R.id.btn_full_bili_source)?.let {
-                    toggleDialogs.updateFullBiliSourceButtonText(it)
-                }
-                // 播放音质同样回到默认的最低音质，并让当前曲目按新音质重载
-                findViewById<Button>(R.id.btn_bili_audio_quality)?.let {
-                    toggleDialogs.updateBiliAudioQualityButtonText(it)
-                }
-                MusicPlayerService.refreshAudioQuality(this)
-
-                SpUtils.saveDialogBgColor(this, "#FFFFFF")
-                SpUtils.saveDialogFontColor(this, "")
-                SpUtils.saveDialogAlpha(this, 100)
-
-                val white = Color.WHITE
-                dialogBgColorPicker.setColor(white)
-                findViewById<TextView>(R.id.tv_dialog_bg_preview)!!.text =
-                    LanguageUtils.getString(this@SettingsPage, R.string.current_color, "#FFFFFF")
-                findViewById<View>(R.id.view_dialog_bg_sample)!!.setBackgroundColor(white)
-
-                // 弹窗字体默认「跟随全局」，因此滑块回填到全局字体色
-                val globalFontColor = FontUtils.color(this)
-                dialogFontColorPicker.setColor(globalFontColor)
-                findViewById<TextView>(R.id.tv_dialog_font_preview)!!.text =
-                    LanguageUtils.getString(
-                        this@SettingsPage,
-                        R.string.current_dialog_font_global_format,
-                        SpUtils.getFontColor(this)
-                    )
-                findViewById<View>(R.id.view_dialog_font_sample)!!.setBackgroundColor(globalFontColor)
-
-                findViewById<SeekBar>(R.id.sb_dialog_alpha)!!.progress = 100
-                findViewById<TextView>(R.id.tv_dialog_alpha_preview)!!.text =
-                    LanguageUtils.getString(this@SettingsPage, R.string.current_alpha, 100)
-
-                applyBackground()
-                ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_settings_restored))
-            }
-            .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
-            .also { showMaterialDialog(it) }
+    /** 供拆出去的扩展文件刷新「播放音质」按钮文案。 */
+    internal fun refreshBiliAudioQualityLabel(btn: Button) {
+        toggleDialogs.updateBiliAudioQualityButtonText(btn)
     }
 
-    private fun showMaterialDialog(builder: AlertDialog.Builder): AlertDialog {
-            return DialogHelper.createStyledDialog(activity, builder, boldItalicAllViews = true)
-        }
+    // 取色器是页内私有控件，拆出去的文件通过这三个桥接方法回填颜色
+    internal fun applyFontColorToPicker(color: Int) {
+        fontColorPicker.setColor(color)
+    }
+
+    internal fun applyDialogBgColorToPicker(color: Int) {
+        dialogBgColorPicker.setColor(color)
+    }
+
+    internal fun applyDialogFontColorToPicker(color: Int) {
+        dialogFontColorPicker.setColor(color)
+    }
+
+    /** 统一风格的对话框；拆到 SettingsPageNotification 的扩展函数也会用到。 */
+    internal fun showMaterialDialog(builder: AlertDialog.Builder): AlertDialog {
+        return DialogHelper.createStyledDialog(activity, builder, boldItalicAllViews = true)
+    }
 
     private val toggleDialogs by lazy {
         SettingsToggleDialogs(
@@ -1113,89 +718,17 @@ class SettingsPage(base: Context) : BasePage(base) {
         StorageDialogs(this, layoutInflater, userFontColor) { showMaterialDialog(it) }
     }
 
-    private val userFontColor: Int
-            get() = FontUtils.color(this)
+    /** 当前生效的字体颜色；设置页自身与拆出去的扩展文件共用。 */
+    internal val userFontColor: Int
+        get() = FontUtils.color(this)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (resultCode != Activity.RESULT_OK || data == null) return
-
-        when (requestCode) {
-            REQUEST_PICK_DEFAULT_BG -> {
-                val uri = data.data ?: return
-                val newPath = SettingsStore.copyDefaultBackground(this, uri)
-                if (newPath != null) {
-                    SpUtils.saveDefaultBackgroundPath(this, newPath)
-                    applyBackground()
-                    ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_default_bg_set))
-                }
-            }
-        }
+        // 选择默认背景的处理链已拆到 SettingsPageActions.kt
+        if (handlePickDefaultBackgroundResult(requestCode, resultCode, data)) return
     }
 
-    private fun showSendNotificationDialog() {
-        val layout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(32, 16, 32, 0)
-            background = null
-        }
-        val etTitle = EditText(this).apply {
-            hint = LanguageUtils.getString(this@SettingsPage, R.string.hint_notification_title)
-            setTextColor(userFontColor)
-            setHintTextColor(Color.GRAY)
-            background = resources.getDrawable(R.drawable.edittext_bg, null)
-            setPadding(12, 12, 12, 12)
-        }
-        val etContent = EditText(this).apply {
-            hint = LanguageUtils.getString(this@SettingsPage, R.string.hint_notification_content)
-            setTextColor(userFontColor)
-            setHintTextColor(Color.GRAY)
-            minLines = 3
-            gravity = Gravity.TOP
-            background = resources.getDrawable(R.drawable.edittext_bg, null)
-            setPadding(12, 12, 12, 12)
-        }
-        layout.addView(etTitle)
-        layout.addView(etContent)
-
-        showMaterialDialog(
-            AlertDialog.Builder(this)
-                .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.dialog_title_send_notification))
-                .setView(layout)
-                .setPositiveButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_ok)) { _, _ ->
-                    val title = etTitle.text.toString().trim()
-                        .ifEmpty { LanguageUtils.getString(this@SettingsPage, R.string.notification_default_title) }
-                    val content = etContent.text.toString().trim()
-                    if (content.isEmpty()) ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_content_empty))
-                    else sendCustomNotification(title, content)
-                }
-                .setNegativeButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_cancel), null)
-        )
-    }
     private fun applyBoldItalicGlobally() {
         val typeface = Typeface.defaultFromStyle(Typeface.BOLD_ITALIC)
         DialogHelper.setTypefaceRecursive(pageView!!, typeface)
     }
-    private fun sendCustomNotification(title: String, content: String) {
-        val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        nm.createNotificationChannel(
-            NotificationChannel(
-                "custom_user_channel",
-                LanguageUtils.getString(this@SettingsPage, R.string.notification_default_title),
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-        )
-        val builder: Notification.Builder = Notification.Builder(this, "custom_user_channel")
-        var id: Int
-        do {
-            id = Random.nextInt(Int.MAX_VALUE)
-        } while (id == 1001)
-        builder
-            .setContentTitle(title)
-            .setContentText(content)
-            .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setAutoCancel(true)
-        nm.notify(id, builder.build())
-        ToastUtils.show(this@SettingsPage, LanguageUtils.getString(this@SettingsPage, R.string.toast_notification_sent))
-    }
-
     override fun onBackPressed(): Boolean = false
 }

@@ -347,20 +347,12 @@ class SearchPage(base: Context) : BasePage(base) {
                 }
             }
         }
+        // 「加入历史」按钮原来要往左让出方向切换按钮的宽度；
+        // 方向按钮已移除，这里恢复成常规右对齐边距，否则它右侧会空出一块。
         val addBtnParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-            val rotationBtnWidth = (48 * resources.displayMetrics.density).toInt()
-            setMargins(16, 16, rotationBtnWidth + 16, 16)
+            setMargins(16, 16, 16, 16)
         }
         layout.addView(btnAddToHistory, addBtnParams)
-
-        val orientationBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_menu_crop)
-            background = null
-            setBackgroundColor(Color.TRANSPARENT)
-            visibility = View.VISIBLE
-        }
-        val oriParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply { setMargins(16, 16, 16, 16) }
-        layout.addView(orientationBtn, oriParams)
 
         danmakuView = findViewById<DanmakuView>(R.id.danmaku_view)!!
 
@@ -413,7 +405,7 @@ class SearchPage(base: Context) : BasePage(base) {
                 }
             }
             initialize(
-                layout, vv, closeBtn, titleTv, playPauseBtn, seekBar, timeTv, orientationBtn,
+                layout, vv, closeBtn, titleTv, playPauseBtn, seekBar, timeTv,
                 btnAddToHistory, danmakuView, danmakuBtn,
                 findViewById(R.id.layout_switch_preview),
                 findViewById(R.id.iv_switch_cover),

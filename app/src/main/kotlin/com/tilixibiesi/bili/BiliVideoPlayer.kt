@@ -62,7 +62,6 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
     private lateinit var btnPlayPause: ImageButton
     private lateinit var seekBar: SeekBar
     private lateinit var tvTime: TextView
-    private lateinit var btnOrientation: ImageButton
     private var btnAddToHistory: ImageButton? = null
     private var btnDanmakuToggle: ImageButton? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -105,7 +104,6 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
     private val progressSaveInterval = 2000L
     private val playRequestId = AtomicInteger(0)
     private var longPressTriggered = false
-    private var isForcedLandscape = false
     private var mediaPlayer: MediaPlayer? = null
     private var surface: Surface? = null
     private var videoWidth: Int = 0
@@ -171,7 +169,6 @@ companion object {
         playPauseBtn: ImageButton,
         progressBar: SeekBar,
         timeTv: TextView,
-        orientationBtn: ImageButton,
         addToHistoryBtn: ImageButton? = null,
         danmaku: DanmakuView? = null,
         danmakuToggleBtn: ImageButton? = null,
@@ -188,7 +185,6 @@ companion object {
         btnPlayPause = playPauseBtn
         seekBar = progressBar
         tvTime = timeTv
-        btnOrientation = orientationBtn
         btnAddToHistory = addToHistoryBtn
         danmakuView = danmaku
         btnDanmakuToggle = danmakuToggleBtn
@@ -215,8 +211,6 @@ companion object {
         btnClose.setBackgroundColor(Color.TRANSPARENT)
         btnPlayPause.background = null
         btnPlayPause.setBackgroundColor(Color.TRANSPARENT)
-        btnOrientation.background = null
-        btnOrientation.setBackgroundColor(Color.TRANSPARENT)
 
         layoutFullscreen.isClickable = true
         layoutFullscreen.isFocusable = true
@@ -228,9 +222,6 @@ companion object {
         }
         btnPlayPause.setOnClickListener {
             togglePlayPause()
-        }
-        btnOrientation.setOnClickListener {
-            toggleLandscape()
         }
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -358,8 +349,14 @@ fun close() {
     currentVideoTitle = ""
     currentVideoAuthor = ""
     currentBvid = null
-    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-    isForcedLandscape = false
+    // 退出全屏时把方向交还给系统自动旋转。
+    //
+    // 以前这里强设 PORTRAIT，用户开着自动旋转也会被硬掰回竖屏；
+    // 后来那套「旋转按钮 + 强制横屏」已经整个移除，本 App 不再主动改方向。
+    // 保留这行 UNSPECIFIED 是为了抹掉可能存在的历史锁定值
+    // （例如旧版本退出时把 requestedOrientation 留在了横屏），
+    // 否则整个 App 会一直锁死在那一次设定上。
+    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     synchronized(BiliVideoPlayer::class.java) {
         val current = currentPlayingInstance?.get()
         if (current === this) {
@@ -989,7 +986,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         btnPlayPause.visibility = View.VISIBLE
         seekBar.visibility = View.VISIBLE
         tvTime.visibility = View.VISIBLE
-        btnOrientation.visibility = View.VISIBLE
         btnAddToHistory?.visibility = View.VISIBLE
         btnDanmakuToggle?.visibility = View.VISIBLE
         isControlsVisible = true
@@ -1001,7 +997,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         btnPlayPause.visibility = View.GONE
         seekBar.visibility = View.GONE
         tvTime.visibility = View.GONE
-        btnOrientation.visibility = View.GONE
         btnAddToHistory?.visibility = View.GONE
         btnDanmakuToggle?.visibility = View.GONE
         isControlsVisible = false
@@ -1053,15 +1048,6 @@ private fun setPlaybackSpeed(speed: Float) {
         stopProgressSaver()
     }
 
-private fun toggleLandscape() {
-    isForcedLandscape = !isForcedLandscape
-    activity.requestedOrientation = if (isForcedLandscape) {
-        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-    } else {
-        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-    }
-}
-
     private fun releaseMediaPlayer() {
         mediaPlayer?.apply {
             if (isPlaying) stop()
@@ -1100,7 +1086,7 @@ private fun toggleLandscape() {
     private fun isTouchOnControl(ev: MotionEvent): Boolean {
         val rawX = ev.rawX.toInt()
         val rawY = ev.rawY.toInt()
-        val controls = mutableListOf<View>(btnClose, btnPlayPause, btnOrientation, seekBar)
+        val controls = mutableListOf<View>(btnClose, btnPlayPause, seekBar)
         btnAddToHistory?.let { controls.add(it) }
         btnDanmakuToggle?.let { controls.add(it) }
         for (c in controls) {
