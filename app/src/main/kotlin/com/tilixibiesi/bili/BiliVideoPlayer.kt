@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.lang.ref.WeakReference
 import java.util.Locale
 import android.annotation.SuppressLint
+import android.util.Log
 class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackController.Target {
 
     interface Callback {
@@ -135,6 +136,7 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
     private var currentVideoAuthor: String = ""
 
 companion object {
+    private const val TAG = "BiliVideoPlayer"
     private const val GESTURE_NONE = 0
     private const val GESTURE_SEEK = 1
     private const val GESTURE_VERTICAL = 2
@@ -1010,7 +1012,12 @@ private fun setPlaybackSpeed(speed: Float) {
         startDanmakuSync()
         progressUpdater = object : Runnable {
             override fun run() {
-                val mp = mediaPlayer ?: return
+                val mp = mediaPlayer
+                if (mp == null) {
+                    // 播放器暂时为空不代表播放结束，仍然续上轮询链，避免进度永久停在旧值
+                    handler.postDelayed(this, 500)
+                    return
+                }
                 if (mp.isPlaying && !isUserSeeking && seekCompleted && !isSeekingByGesture) {
                     syncDanmakuToPosition(mp.currentPosition)
                     seekBar.progress = mp.currentPosition
@@ -1035,13 +1042,21 @@ private fun setPlaybackSpeed(speed: Float) {
     }
 
     private fun releaseMediaPlayer() {
-        mediaPlayer?.apply {
-            if (isPlaying) stop()
-            setSurface(null)
-            reset()
-            release()
-        }
+        // MediaPlayer 处于 error 态时 isPlaying()/stop() 会抛 IllegalStateException，
+        // 而错误回调恰恰会把播放器推进 error 态，所以整段必须包起来。
+        val mp = mediaPlayer
         mediaPlayer = null
+        if (mp != null) {
+            runCatching {
+                if (mp.isPlaying) mp.stop()
+            }.onFailure { Log.d(TAG, "释放前 stop 失败: ${it.message}") }
+            runCatching { mp.setSurface(null) }
+                .onFailure { Log.d(TAG, "释放前 setSurface 失败: ${it.message}") }
+            runCatching { mp.reset() }
+                .onFailure { Log.d(TAG, "释放前 reset 失败: ${it.message}") }
+            runCatching { mp.release() }
+                .onFailure { Log.d(TAG, "release 失败: ${it.message}") }
+        }
     }
 
     private fun resetDanmakuState() {

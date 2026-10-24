@@ -1,5 +1,7 @@
 package com.tilixibiesi.data
 
+import android.util.Log
+
 import android.app.Application
 import android.content.Context
 import android.os.Handler
@@ -9,6 +11,8 @@ import java.io.File
 import java.nio.file.Files
 
 object WebViewMetricsCleaner {
+
+    private const val TAG = "WebViewMetricsCleaner"
 
     private const val DIR = "app_webview"
 
@@ -153,8 +157,7 @@ object WebViewMetricsCleaner {
             runCatching<Unit> {
                 app.cacheDir.listFiles()?.forEach { it.deleteRecursively() }
             }
-        } catch (_: Exception) {
-        }
+        } catch (e: Exception) { Log.d(TAG, "清理缓存目录失败: ${e.message}") }
     }
 }
 

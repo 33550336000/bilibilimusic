@@ -1,5 +1,7 @@
 package com.tilixibiesi.data
 
+import android.util.Log
+
 import com.tilixibiesi.R
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.AtomicFileWriter
@@ -17,6 +19,8 @@ import java.io.File
 import java.io.FileOutputStream
 
 object SettingsStore {
+
+    private const val TAG = "SettingsStore"
 
     private const val SETTINGS_JSON_PATH_REL = "system/Settings.json"
 
@@ -36,8 +40,7 @@ object SettingsStore {
                 json.put("language", langCode)
                 AtomicFileWriter.writeText(file, json.toString())
             }
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) { Log.d(TAG, "保存语言设置失败") }
     }
 
     private fun putStringSet(json: JSONObject, key: String, values: Set<String>) {
@@ -203,7 +206,7 @@ object SettingsStore {
             }
             destFile.absolutePath
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "复制默认背景失败: ${e.message}")
             null
         }
     }
@@ -220,8 +223,7 @@ object SettingsStore {
                         }
                     }
                 }
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) { Log.d(TAG, "应用设置项失败，已跳过该字段") }
 
         try {
             val mime = context.contentResolver.getType(srcUri)
@@ -229,8 +231,7 @@ object SettingsStore {
                 val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
                 if (!ext.isNullOrEmpty()) return ext.lowercase()
             }
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) { Log.d(TAG, "读取 MIME 扩展名失败") }
 
         return "img"
     }

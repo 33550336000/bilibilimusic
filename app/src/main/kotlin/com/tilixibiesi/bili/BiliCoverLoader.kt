@@ -10,6 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.util.LruCache
 import android.widget.ImageView
 
@@ -20,13 +21,28 @@ import java.net.URL
 
 object BiliCoverLoader {
 
-    private const val MAX_DECODE_DIMENSION = 2560
+    private const val TAG = "BiliCoverLoader"
 
-    private val cache = object : LruCache<String, Bitmap>(24 * 1024) {
+    /** 解码上限：封面显示尺寸在 1080p 屏上不超过 1080px，2560 会白白多占 5 倍内存。 */
+    private const val MAX_DECODE_DIMENSION = 1280
+
+    /** 缓存额度 = 运行时最大内存的 1/16，且不小于 8MB、不大于 32MB（单位 KB）。 */
+    private val CACHE_BUDGET_KB: Int = run {
+        val maxKb = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+        (maxKb / 16).coerceIn(8 * 1024, 32 * 1024)
+    }
+
+    private val cache = object : LruCache<String, Bitmap>(CACHE_BUDGET_KB) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
     }
 
-    private val failed = HashSet<String>()
+    /** 失败集合上限，避免长期运行后无限增长。 */
+    private const val MAX_FAILED = 256
+
+    private val failed = object : LinkedHashMap<String, Boolean>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean =
+            size > MAX_FAILED
+    }
 
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
@@ -44,8 +60,15 @@ object BiliCoverLoader {
             return
         }
         imageView.setImageDrawable(null)
+        if (isFailed(url)) return
         AppExecutors.io.execute {
-            val bitmap = runCatching { download(url) }.getOrNull() ?: return@execute
+            val bitmap = runCatching { download(url) }
+                .onFailure { Log.d(TAG, "封面下载失败 $url: ${it.message}") }
+                .getOrNull()
+            if (bitmap == null) {
+                markFailed(url)
+                return@execute
+            }
             cache.put(url, bitmap)
             mainHandler.post {
                 if (imageView.tag == url) imageView.setImageBitmap(bitmap)
@@ -125,10 +148,10 @@ object BiliCoverLoader {
         return CacheManager.findAudioFile(CacheManager.baseNameOf(bean)) != null
     }
 
-    private fun isFailed(url: String): Boolean = synchronized(failed) { failed.contains(url) }
+    private fun isFailed(url: String): Boolean = synchronized(failed) { failed.containsKey(url) }
 
     private fun markFailed(url: String) {
-        synchronized(failed) { failed.add(url) }
+        synchronized(failed) { failed[url] = true }
     }
 
     fun highestQualityUrl(original: String): String {
@@ -151,10 +174,19 @@ object BiliCoverLoader {
         val file = localCoverFile(displayName)
         if (!file.isFile || file.length() <= 0) return null
         return try {
-            BitmapFactory.decodeFile(file.absolutePath)
-        } catch (_: Exception) {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            var sample = 1
+            var longest = maxOf(bounds.outWidth, bounds.outHeight)
+            while (longest / sample > MAX_DECODE_DIMENSION) sample *= 2
+            BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply {
+                inSampleSize = sample
+            })
+        } catch (e: Exception) {
+            Log.d(TAG, "本地封面解码失败 $displayName: ${e.message}")
             null
-        } catch (_: OutOfMemoryError) {
+        } catch (e: OutOfMemoryError) {
+            Log.d(TAG, "本地封面解码 OOM $displayName: ${e.message}")
             null
         }
     }
@@ -162,14 +194,28 @@ object BiliCoverLoader {
     fun localCoverFile(displayName: String): File =
         File(AppPaths.biliCoverDir(), localCoverName(displayName))
 
+    /** 目录扫描结果缓存：列表滚动时 localCoverName 会被高频调用，每次都 listFiles 是明显的 IO 浪费。 */
+    private var coverIndex: Map<String, String>? = null
+
+    fun invalidateCoverIndex() {
+        coverIndex = null
+    }
+
     fun localCoverName(displayName: String): String {
-        val dir = AppPaths.biliCoverDir()
         val base = AppPaths.sanitizeName(displayName)
-        if (dir.isDirectory) {
-            dir.listFiles()?.firstOrNull { it.isFile && it.name.substringBeforeLast('.') == base }
-                ?.let { return it.name }
+        val index = coverIndex ?: buildCoverIndex().also { coverIndex = it }
+        return index[base] ?: "$base.jpg"
+    }
+
+    private fun buildCoverIndex(): Map<String, String> {
+        val dir = AppPaths.biliCoverDir()
+        if (!dir.isDirectory) return emptyMap()
+        val files = dir.listFiles() ?: return emptyMap()
+        val map = HashMap<String, String>(files.size)
+        files.forEach { file ->
+            if (file.isFile) map.putIfAbsent(file.name.substringBeforeLast('.'), file.name)
         }
-        return "$base.jpg"
+        return map
     }
 
     private fun download(url: String): Bitmap? {

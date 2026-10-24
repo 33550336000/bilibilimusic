@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -34,6 +35,8 @@ import java.net.URL
 
 object BiliLoginHelper {
 
+    private const val TAG = "BiliLoginHelper"
+
     const val CODE_NOT_LOGIN = -101
 
     private const val LOGIN_URL = "https://passport.bilibili.com/login"
@@ -58,6 +61,9 @@ object BiliLoginHelper {
 
     @Volatile
     private var storedCookieChecked = false
+
+    @Volatile
+    private var cookieCheckInFlight = false
 
     val isShowing: Boolean
         get() = webView != null
@@ -287,13 +293,29 @@ object BiliLoginHelper {
         }
     }
 
+    /**
+     * 校验并落地 Cookie。
+     * 该方法会被 onPageFinished / closeLogin 这两个**主线程**回调触发，
+     * 所以网络校验必须挪到 IO 线程——否则每次页面跳转都会阻塞 UI 最多 8 秒。
+     */
     private fun extractCookie() {
-        if (loggedInThisSession) return
+        if (loggedInThisSession || cookieCheckInFlight) return
         val activity = activityRef ?: return
         val cookie = readWebViewCookie()
         if (cookie.isEmpty()) return
-        if (navCode(cookie) != 0) return
-        finishLogin(activity, cookie)
+        cookieCheckInFlight = true
+        AppExecutors.io.execute {
+            val code = navCode(cookie)
+            cookieCheckInFlight = false
+            if (code != 0) {
+                Log.d(TAG, "Cookie 校验未通过: code=$code")
+                return@execute
+            }
+            mainHandler.post {
+                // 期间用户可能已关闭登录窗
+                if (activityRef === activity) finishLogin(activity, cookie)
+            }
+        }
     }
 
     private fun finishLogin(activity: Activity, cookie: String) {

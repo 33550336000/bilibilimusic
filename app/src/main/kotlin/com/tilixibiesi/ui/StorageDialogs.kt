@@ -102,6 +102,7 @@ class StorageDialogs(
                         file.delete()
                         BiliLyricStore.delete(actualName)
                         BiliCoverLoader.localCoverFile(actualName).delete()
+                        BiliCoverLoader.invalidateCoverIndex()
                         files.removeAt(pos)
                         adapter.notifyDataSetChanged()
                         if (files.isEmpty()) {

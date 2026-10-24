@@ -1,4 +1,6 @@
 package com.tilixibiesi.data
+
+import android.util.Log
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.model.PlaylistBean
 import com.tilixibiesi.R
@@ -14,6 +16,8 @@ import org.json.JSONObject
 import java.io.*
 
 object DataFileUtils {
+
+    private const val TAG = "DataFileUtils"
     private val AUDIO_SUFFIXES: Set<String> = hashSetOf(
         ".mp3", ".wav", ".flac", ".aac", ".ogg", ".m4a", ".opus", ".wma"
     )
@@ -57,7 +61,7 @@ object DataFileUtils {
                     }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "初始化重命名映射失败: ${e.message}")
         }
     }
 
@@ -90,7 +94,7 @@ object DataFileUtils {
             if (!dir.exists()) dir.mkdirs()
             writeRenameFile()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "保存重命名映射失败: ${e.message}")
         }
     }
 
@@ -103,7 +107,7 @@ object DataFileUtils {
                 if (!dir.exists()) dir.mkdirs()
                 writeRenameFile()
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.d(TAG, "读取重命名映射失败: ${e.message}")
             }
         }
         return removed
@@ -127,7 +131,7 @@ object DataFileUtils {
                     .forEach { deleted.add(it) }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "读取删除名单失败: ${e.message}")
         }
         return deleted
     }
@@ -140,7 +144,7 @@ object DataFileUtils {
                 writer.write("$musicName\n")
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "写入删除名单失败: ${e.message}")
         }
     }
 
@@ -176,7 +180,7 @@ object DataFileUtils {
             }
             AtomicFileWriter.writeText(relWrite(MUSIC_FILE_REL), arr.toString())
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "保存歌曲列表失败: ${e.message}")
         }
     }
 
@@ -191,7 +195,7 @@ object DataFileUtils {
                 list.add(jsonToMusicBean(arr.getJSONObject(i)))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "读取歌曲列表失败: ${e.message}")
         }
         return list
     }
@@ -206,7 +210,7 @@ object DataFileUtils {
             }
             AtomicFileWriter.writeText(relWrite(PLAYLIST_FILE_REL), arr.toString())
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "保存歌单失败: ${e.message}")
         }
     }
 
@@ -239,7 +243,7 @@ object DataFileUtils {
                 list.add(jsonToPlaylist(plObj))
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "读取歌单失败: ${e.message}")
         }
         return list
     }
@@ -295,7 +299,7 @@ object DataFileUtils {
                     .forEach { words.add(it) }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "读取屏蔽词失败: ${e.message}")
         }
         return words
     }
@@ -308,7 +312,7 @@ object DataFileUtils {
             words.forEach { sb.append(it).append('\n') }
             AtomicFileWriter.writeText(relWrite(BLOCKED_WORDS_FILE_REL), sb.toString())
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "保存屏蔽词失败: ${e.message}")
         }
     }
 

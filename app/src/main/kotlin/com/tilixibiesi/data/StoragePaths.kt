@@ -1,9 +1,13 @@
 package com.tilixibiesi.data
 
+import android.util.Log
+
 import android.content.Context
 import java.io.File
 
 object StoragePaths {
+
+    private const val TAG = "StoragePaths"
     const val EXTRA_STORAGE_ROOT = "storage_root"
 
     const val EXTRA_COPY_FROM = "copy_from"
@@ -28,6 +32,13 @@ object StoragePaths {
 
     fun resolveWrite(relativePath: String): File = File(currentRoot, relativePath)
 
+    /**
+     * 切换存储根目录。
+     *
+     * 旧实现在复制失败时静默继续，然后无条件删除源目录——等于数据丢失。
+     * 现在要求：复制过程中出现的任何失败都中止迁移、保留源目录；
+     * 只有确认目标端文件数与源端一致后才删除源。
+     */
     @Synchronized
     fun applyNewRoot(context: Context, newRoot: String): Boolean {
         val normalized = normalizeRoot(newRoot) ?: return false
@@ -37,20 +48,41 @@ object StoragePaths {
         val to = File(normalized)
 
         if (from.exists()) {
-            try {
+            val copied = try {
                 copyRecursivelyNoOverwrite(from, to)
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.d(TAG, "存储根目录迁移失败，保留原目录: ${e.message}")
                 return false
             }
-            try {
-                from.deleteRecursively()
-            } catch (e: Exception) {
+            if (!copied) {
+                Log.d(TAG, "存储根目录迁移不完整，保留原目录")
+                return false
             }
+            val srcCount = countFiles(from)
+            val dstCount = countFiles(to)
+            if (srcCount < 0 || dstCount < srcCount) {
+                Log.d(TAG, "迁移校验未通过（源 $srcCount / 目标 $dstCount），保留原目录")
+                return false
+            }
+            runCatching { from.deleteRecursively() }
+                .onFailure { Log.d(TAG, "删除旧存储目录失败: ${it.message}") }
         }
 
         setRoot(context, normalized)
         return true
+    }
+
+    private fun countFiles(dir: File): Int {
+        if (!dir.exists()) return 0
+        if (dir.isFile) return 1
+        val children = dir.listFiles() ?: return -1
+        var count = 0
+        for (child in children) {
+            val n = countFiles(child)
+            if (n < 0) return -1
+            count += n
+        }
+        return count
     }
 
     private fun setRoot(context: Context, newRoot: String) {
@@ -66,12 +98,12 @@ object StoragePaths {
             if (src.isFile) {
                 dst.parentFile?.mkdirs()
                 src.copyTo(dst, overwrite = true)
+                true
             } else {
                 copyRecursivelyNoOverwrite(src, dst)
             }
-            true
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "复制文件失败: ${e.message}")
             false
         }
     }
@@ -81,17 +113,22 @@ object StoragePaths {
         return path.trimEnd('/')
     }
 
-    private fun copyRecursivelyNoOverwrite(src: File, dst: File) {
+    private fun copyRecursivelyNoOverwrite(src: File, dst: File): Boolean {
         if (src.isDirectory) {
-            val children = src.listFiles() ?: return
+            val children = src.listFiles() ?: return false
+            var ok = true
             for (child in children) {
-                copyRecursivelyNoOverwrite(child, File(dst, child.name))
+                if (!copyRecursivelyNoOverwrite(child, File(dst, child.name))) ok = false
             }
-        } else if (src.isFile) {
-            if (!dst.exists()) {
-                dst.parentFile?.mkdirs()
-                src.copyTo(dst, overwrite = false)
-            }
+            return ok
         }
+        if (src.isFile) {
+            if (dst.exists()) return true
+            dst.parentFile?.mkdirs()
+            return runCatching { src.copyTo(dst, overwrite = false); true }
+                .onFailure { Log.d(TAG, "复制 ${src.name} 失败: ${it.message}") }
+                .getOrDefault(false)
+        }
+        return true
     }
 }

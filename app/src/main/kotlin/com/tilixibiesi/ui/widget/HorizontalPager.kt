@@ -205,13 +205,20 @@ class HorizontalPager @JvmOverloads constructor(
     private var pendingPage: Int? = null
     private var pendingClearTemporary: Int? = null
 
-    private var advancedThisFrame = false
-
+    /**
+     * 滚动推进挂在 OnPreDrawListener 上，保证每个 vsync 都严格推进一次 scroller。
+     *
+     * 之前为了省开销改成 computeScroll 驱动，但 computeScroll 的调用时机依赖父容器的
+     * 绘制路径，滚动推进节奏会变得不均匀，直接反映为翻页时画面抖动。
+     * 这里恢复 pre-draw 驱动，并在空闲帧直接早退，静止时几乎没有开销。
+     */
     private val frameStartWatcher = android.view.ViewTreeObserver.OnPreDrawListener {
-        advancedThisFrame = false
-        advanceScrollForFrame()
+        if (needsFrameAdvance()) advanceScrollForFrame()
         true
     }
+
+    private fun needsFrameAdvance(): Boolean =
+        !scroller.isFinished || scrollState == SCROLL_STATE_SETTLING
 
     private var previewing = false
     private var pendingClearRunnable: Runnable? = null
@@ -368,11 +375,10 @@ class HorizontalPager @JvmOverloads constructor(
 
 
     override fun computeScroll() {
+        // 由 frameStartWatcher 统一驱动，避免同一帧被推进两次
     }
 
     private fun advanceScrollForFrame() {
-        if (advancedThisFrame) return
-        advancedThisFrame = true
         if (!scroller.isFinished && scroller.computeScrollOffset()) {
             scrollTo(scroller.currX, scroller.currY)
             if (scrollState == SCROLL_STATE_SETTLING) postInvalidateOnAnimation()

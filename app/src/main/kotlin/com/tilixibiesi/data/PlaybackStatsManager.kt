@@ -1,32 +1,48 @@
 package com.tilixibiesi.data
 
 import com.tilixibiesi.service.MusicPlayerService
-import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.R
+import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.FontUtils
+import com.tilixibiesi.util.PlaybackStatsWriter
+
 import android.content.Context
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.TextView
-import java.io.File
 import java.lang.ref.WeakReference
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
+/**
+ * 播放时长统计的显示层。
+ *
+ * 数据读写全部委托给 [PlaybackStatsWriter]：
+ * - 逐秒刷新的“今日时长”只读内存快照，不再每秒读文件；
+ * - 按日期分组的明细查询改到 IO 线程，结果回主线程弹窗。
+ */
 object PlaybackStatsManager {
+
+    private const val TAG = "PlaybackStatsManager"
+
+    private const val TICK_MS = 1000L
+
     private val handler = Handler(Looper.getMainLooper())
     private var updaterRunnable: Runnable? = null
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT)
-    private val DATE_PATTERN = Regex("""\d{4}-\d{2}-\d{2}""")
+
     private var tvToday: WeakReference<TextView>? = null
     private var tvTotal: WeakReference<TextView>? = null
+
+    /** 最近一次渲染的文本，避免每秒无谓地重设 TextView（会触发 measure/layout）。 */
+    private var lastTodayText: String? = null
+    private var lastTotalText: String? = null
 
     fun initViews(todayView: TextView, totalView: TextView) {
         tvToday = WeakReference(todayView)
         tvTotal = WeakReference(totalView)
+        lastTodayText = null
+        lastTotalText = null
     }
 
     fun releaseViews() {
@@ -34,22 +50,42 @@ object PlaybackStatsManager {
         tvTotal?.clear()
         tvToday = null
         tvTotal = null
+        lastTodayText = null
+        lastTotalText = null
     }
 
     fun startUpdater() {
-        stopUpdater()
+        if (updaterRunnable != null) {
+            // 已经在跑就不打断节奏，避免每秒重建 Runnable
+            return
+        }
+        // 必须用 uptimeMillis()：Handler 的所有定时 API 都以它为基准
+        var phase = android.os.SystemClock.uptimeMillis()
         updaterRunnable = object : Runnable {
             override fun run() {
                 updateDisplay()
-                handler.postDelayed(this, 1000L)
+                // 固定相位调度，避免与 Service 的统计 tick 产生系统性错拍
+                phase += TICK_MS
+                val delayMs = phase - android.os.SystemClock.uptimeMillis()
+                if (delayMs > 0L) {
+                    handler.postAtTime(this, phase)
+                } else {
+                    phase = android.os.SystemClock.uptimeMillis() + TICK_MS
+                    handler.postAtTime(this, phase)
+                }
             }
         }
         handler.post(updaterRunnable!!)
     }
 
     fun stopUpdater() {
+        // removeCallbacks 能移除 postAtTime 投递的任务（同一个 callback token），
+        // 这里只移除自己的任务，不要用 removeCallbacksAndMessages(null) 误伤同 handler 的其他任务
         updaterRunnable?.let { handler.removeCallbacks(it) }
         updaterRunnable = null
+        // 重置缓存，下次显示时强制刷新一次，避免沿用停止前的文本判重结果
+        lastTodayText = null
+        lastTotalText = null
     }
 
     fun refresh() {
@@ -63,31 +99,43 @@ object PlaybackStatsManager {
             ?: MusicPlayerService.currentPlayingName
         val todayView = tvToday?.get()
         val totalView = tvTotal?.get()
-        val todayDurations = if (!enabled) null else loadTodayDurations()
 
-        if (enabled) {
-            val totalSeconds = todayDurations?.values?.sum() ?: 0L
-            totalView?.apply {
-                text = LanguageUtils.getString(ctx, R.string.format_total_duration, formatDuration(totalSeconds, ctx))
-                visibility = View.VISIBLE
-                setTextColor(FontUtils.color(ctx, Color.BLACK))
-            }
-        } else {
+        if (!enabled) {
             totalView?.visibility = View.GONE
-        }
-        if (!enabled || name == null) {
             todayView?.visibility = View.GONE
-        } else {
-            val seconds = try {
-                todayDurations?.get(name) ?: 0L
-            } catch (_: Exception) {
-                0L
-            }
-            todayView?.apply {
-                text = LanguageUtils.getString(ctx, R.string.format_today_duration, formatDuration(seconds, ctx))
-                visibility = View.VISIBLE
-                setTextColor(FontUtils.color(ctx, Color.BLACK))
-            }
+            lastTodayText = null
+            lastTotalText = null
+            return
+        }
+
+        // 纯内存读取：本进程已累计的秒数 + 今天已落盘部分（由 writer 合并）
+        val snapshot = PlaybackStatsWriter.todaySnapshot()
+        val totalSeconds = PlaybackStatsWriter.todayTotalSeconds()
+
+        val totalText = LanguageUtils.getString(
+            ctx, R.string.format_total_duration, formatDuration(totalSeconds, ctx)
+        )
+        if (totalView != null && (totalText != lastTotalText || totalView.visibility != View.VISIBLE)) {
+            totalView.text = totalText
+            totalView.visibility = View.VISIBLE
+            totalView.setTextColor(FontUtils.color(ctx, Color.BLACK))
+            lastTotalText = totalText
+        }
+
+        if (name == null) {
+            todayView?.visibility = View.GONE
+            lastTodayText = null
+            return
+        }
+        val seconds = snapshot[name] ?: 0L
+        val todayText = LanguageUtils.getString(
+            ctx, R.string.format_today_duration, formatDuration(seconds, ctx)
+        )
+        if (todayView != null && (todayText != lastTodayText || todayView.visibility != View.VISIBLE)) {
+            todayView.text = todayText
+            todayView.visibility = View.VISIBLE
+            todayView.setTextColor(FontUtils.color(ctx, Color.BLACK))
+            lastTodayText = todayText
         }
     }
 
@@ -106,76 +154,26 @@ object PlaybackStatsManager {
         return parts.joinToString("")
     }
 
-    private class CachedShard(
-        val lastModified: Long,
-        val parsed: Map<String, Long>
-    )
+    // ------------------------------------------------------------ 明细查询（异步）
 
-    private val shardCache = HashMap<String, CachedShard>()
-    private val shardCacheLock = Any()
-
-    fun loadPlaybackDetails(): Map<String, Map<String, Long>> {
-        val result = mutableMapOf<String, MutableMap<String, Long>>()
-        forEachShard { date, parsed ->
-            parsed.forEach { (name, seconds) ->
-                val m = result.getOrPut(name) { mutableMapOf() }
-                m[date] = (m[date] ?: 0L) + seconds
-            }
-        }
-        return result
-    }
-
-    fun loadSongDetails(rawName: String): Map<String, Long> {
-        val result = mutableMapOf<String, Long>()
-        forEachShard { date, parsed ->
-            parsed[rawName]?.let { result[date] = (result[date] ?: 0L) + it }
-        }
-        return result
-    }
-
-    private fun forEachShard(action: (date: String, parsed: Map<String, Long>) -> Unit) {
-        synchronized(shardCacheLock) {
-            val dir = StoragePaths.resolveRead(PlaybackDetails.DIR_REL)
-            val todayName = "${dateFormat.format(Date())}.json"
-            val files = dir.listFiles { f -> f.isFile && f.name.endsWith(".json") }
-                ?: return
-            val seen = HashSet<String>(files.size)
-            for (file in files) {
-                seen.add(file.name)
-                val date = dateOf(file.name) ?: continue
-                readShard(file, todayName)?.let { action(date, it) }
-            }
-            shardCache.keys.retainAll(seen)
+    fun loadPlaybackDetailsAsync(onResult: (Map<String, Map<String, Long>>) -> Unit) {
+        AppExecutors.io.execute {
+            val result = runCatching { PlaybackStatsWriter.loadAll() }
+                .onFailure { Log.d(TAG, "读取播放明细失败: ${it.message}") }
+                .getOrDefault(emptyMap())
+            handler.post { onResult(result) }
         }
     }
 
-    private fun dateOf(fileName: String): String? {
-        val date = fileName.removeSuffix(".json")
-        return date.takeIf { DATE_PATTERN.matches(it) }
-    }
-
-    private fun readShard(file: File, todayName: String): Map<String, Long>? {
-        if (file.name == todayName) {
-            return runCatching { PlaybackDetails.parse(file.readText()) }.getOrNull()
+    fun loadSongDetailsAsync(
+        rawName: String,
+        onResult: (Map<String, Long>) -> Unit
+    ) {
+        AppExecutors.io.execute {
+            val result = runCatching { PlaybackStatsWriter.loadSongDetails(rawName) }
+                .onFailure { Log.d(TAG, "读取单曲明细失败: ${it.message}") }
+                .getOrDefault(emptyMap())
+            handler.post { onResult(result) }
         }
-        val mtime = file.lastModified()
-        shardCache[file.name]?.let { if (it.lastModified == mtime) return it.parsed }
-        val parsed = runCatching { PlaybackDetails.parse(file.readText()) }.getOrNull() ?: return null
-        shardCache[file.name] = CachedShard(mtime, parsed)
-        return parsed
-    }
-
-    private fun loadTodayDurations(): Map<String, Long> {
-        val today = dateFormat.format(Date())
-        val result = mutableMapOf<String, Long>()
-
-        runCatching {
-            val shard = File(StoragePaths.resolveRead(PlaybackDetails.DIR_REL), "$today.json")
-            if (shard.exists()) {
-                result.putAll(PlaybackDetails.parse(shard.readText()))
-            }
-        }
-
-        return result
     }
 }

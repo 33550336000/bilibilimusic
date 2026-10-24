@@ -95,6 +95,9 @@ class DanmakuView @JvmOverloads constructor(
     }
 
     companion object {
+        /** 超过这个条数才按字号分组，少量弹幕直接绘制更快。 */
+        private const val BUCKET_THRESHOLD = 12
+
         private const val SCROLL_DURATION_MS = 8000L
         private const val FIXED_DURATION_MS = 4000L
         private const val STANDARD_SIZE_SP = 21f
@@ -266,14 +269,20 @@ class DanmakuView @JvmOverloads constructor(
             if (dispatched) markDirty()
         }
         if (actives.isNotEmpty()) {
-            for (i in actives.size - 1 downTo 0) {
-                if (actives[i].isExpired(clockMs)) {
-                    actives.removeAt(i)
-                    markDirty()
+            // 一次遍历 + 原地压缩，避免逐个 removeAt 触发 O(n) 数组搬移
+            var write = 0
+            for (read in actives.indices) {
+                val dm = actives[read]
+                if (!dm.isExpired(clockMs)) {
+                    if (write != read) actives[write] = dm
+                    write++
                 }
             }
+            if (write != actives.size) {
+                while (actives.size > write) actives.removeAt(actives.size - 1)
+            }
+            markDirty()
         }
-        if (actives.isNotEmpty()) markDirty()
         if (needsInvalidate) {
             needsInvalidate = false
             invalidate()
@@ -383,14 +392,38 @@ class DanmakuView @JvmOverloads constructor(
         trackCount = count
     }
 
+    /** 绘制时按字号分组的下标缓冲，复用避免每帧分配。 */
+    private val drawBuckets = HashMap<Float, MutableList<ActiveDanmaku>>()
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (actives.isEmpty() || width <= 0 || height <= 0) return
         if (trackCount <= 0) recalcTracks()
-        for (dm in actives) drawOne(canvas, dm)
+
+        // 同字号连续绘制，Paint 的 textSize / strokeWidth 只在换桶时设置，
+        // 避免每条弹幕都打断 TextLayout 缓存（弹幕字号通常只有 1~3 种）。
+        if (actives.size <= BUCKET_THRESHOLD) {
+            for (dm in actives) drawOne(canvas, dm)
+            return
+        }
+        drawBuckets.values.forEach { it.clear() }
+        for (dm in actives) {
+            drawBuckets.getOrPut(dm.textSizePx) { mutableListOf() }.add(dm)
+        }
+        var lastSize = -1f
+        for ((size, list) in drawBuckets) {
+            if (list.isEmpty()) continue
+            if (size != lastSize) {
+                fillPaint.textSize = size
+                strokePaint.textSize = size
+                strokePaint.strokeWidth = size * 0.14f
+                lastSize = size
+            }
+            for (dm in list) drawOne(canvas, dm, sizeApplied = true)
+        }
     }
 
-    private fun drawOne(canvas: Canvas, dm: ActiveDanmaku) {
+    private fun drawOne(canvas: Canvas, dm: ActiveDanmaku, sizeApplied: Boolean = false) {
         val item = dm.item
         val size = dm.textSizePx
         val y = trackHeightPx * (dm.track + 1) - trackHeightPx * 0.18f
@@ -416,10 +449,12 @@ class DanmakuView @JvmOverloads constructor(
             baseAlpha
         }
 
-        fillPaint.textSize = size
+        if (!sizeApplied) {
+            fillPaint.textSize = size
+            strokePaint.textSize = size
+            strokePaint.strokeWidth = size * 0.14f
+        }
         fillPaint.color = (alpha shl 24) or (item.color and 0xFFFFFF)
-        strokePaint.textSize = size
-        strokePaint.strokeWidth = size * 0.14f
         strokePaint.color = (alpha shl 24)
 
         canvas.drawText(item.text, x, y, strokePaint)

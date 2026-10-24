@@ -1,4 +1,6 @@
 package com.tilixibiesi.bili
+
+import android.util.Log
 import com.tilixibiesi.data.AppPaths
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.util.AppExecutors
@@ -335,9 +337,9 @@ private fun muxVideoAndAudio(videoFile: File, audioFile: File, outputFile: File)
     } catch (e: Exception) {
         return false
     } finally {
-        try { videoExtractor?.release() } catch (_: Exception) {}
-        try { audioExtractor?.release() } catch (_: Exception) {}
-        try { muxer?.stop(); muxer?.release() } catch (_: Exception) {}
+        try { videoExtractor?.release() } catch (e: Exception) { Log.d(TAG, "释放视频解复用器失败: ${e.message}") }
+        try { audioExtractor?.release() } catch (e: Exception) { Log.d(TAG, "释放音频解复用器失败: ${e.message}") }
+        try { muxer?.stop(); muxer?.release() } catch (e: Exception) { Log.d(TAG, "释放混流器失败: ${e.message}") }
     }
 }
 }

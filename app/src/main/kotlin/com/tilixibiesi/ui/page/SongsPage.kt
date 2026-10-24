@@ -1,4 +1,6 @@
 package com.tilixibiesi.ui.page
+
+import android.util.Log
 import com.tilixibiesi.ui.SongDetailDialogs
 import com.tilixibiesi.util.PlayTimer
 import com.tilixibiesi.util.PlaylistDialogHelper
@@ -56,6 +58,8 @@ import java.lang.ref.WeakReference
 class SongsPage(base: Context) : BasePage(base) {
 
     companion object {
+        private const val TAG = "SongsPage"
+
         internal var pendingPlay: Pair<Int, List<MusicBean>>? = null
         internal var pendingAdjustMode: Boolean = false
 
@@ -868,8 +872,7 @@ class SongsPage(base: Context) : BasePage(base) {
     private fun stopBiliBackgroundPlayback() {
         try {
             BiliVideoPlayer.stopCurrentVideo()
-        } catch (_: Exception) {
-        }
+        } catch (e: Exception) { Log.d(TAG, "停止背景视频失败: ${e.message}") }
     }
 
 
@@ -1101,6 +1104,7 @@ class SongsPage(base: Context) : BasePage(base) {
                 val playing = intent.getBooleanExtra(MusicPlayerService.EXTRA_IS_PLAYING, false)
                 updatePlayPauseButton(playing)
                 if (playing) {
+                    // 每秒都会收到一次带 IS_PLAYING 的广播，startUpdater 内部已做幂等保护
                     PlaybackStatsManager.startUpdater()
                 } else {
                     PlaybackStatsManager.refresh()

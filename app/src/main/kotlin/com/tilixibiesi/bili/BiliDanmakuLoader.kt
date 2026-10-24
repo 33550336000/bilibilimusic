@@ -1,5 +1,7 @@
 package com.tilixibiesi.bili
 
+import android.util.Log
+
 import com.tilixibiesi.network.HttpUtils
 
 import java.io.ByteArrayInputStream
@@ -11,6 +13,8 @@ import java.util.zip.GZIPInputStream
 import java.util.zip.Inflater
 
 object BiliDanmakuLoader {
+
+    private const val TAG = "BiliDanmakuLoader"
 
     private const val CONNECT_TIMEOUT_MS = 8000
     private const val READ_TIMEOUT_MS = 10000
@@ -65,7 +69,7 @@ object BiliDanmakuLoader {
                 GZIPInputStream(ByteArrayInputStream(bytes)).use { inp ->
                     return String(inp.readBytes(), StandardCharsets.UTF_8)
                 }
-            } catch (_: Exception) {  }
+            } catch (_: Exception) { Log.d(TAG, "gzip 解码弹幕失败，回退原始字节") }
         }
         try {
             val out = ByteArrayOutputStream(bytes.size * 4)
@@ -86,7 +90,7 @@ object BiliDanmakuLoader {
             }
             val text = String(out.toByteArray(), StandardCharsets.UTF_8)
             if (text.isNotBlank()) return text
-        } catch (_: Exception) {  }
+        } catch (_: Exception) { Log.d(TAG, "inflate 解码弹幕失败，回退原始字节") }
         return String(bytes, StandardCharsets.UTF_8)
     }
 }

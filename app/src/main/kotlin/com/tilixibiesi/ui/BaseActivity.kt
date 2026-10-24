@@ -19,6 +19,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -84,6 +85,7 @@ open class BaseActivity : Activity() {
         try {
             unregisterReceiver(languageUpdatedReceiver)
         } catch (_: Exception) {
+            Log.d(TAG, "注销语言广播接收器失败，可能已注销")
         }
         BiliLoginHelper.onActivityDestroyed(this)
         ActivityTracker.onDestroyed(this)
@@ -219,6 +221,8 @@ open class BaseActivity : Activity() {
         (dp * resources.displayMetrics.density).roundToInt()
 
     companion object {
+        private const val TAG = "BaseActivity"
+
         const val TAG_BOTTOM_NAV = "bottom_nav_bar"
         const val NAV_HEIGHT_DP = 56
     }

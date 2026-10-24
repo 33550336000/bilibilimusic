@@ -1,4 +1,6 @@
 package com.tilixibiesi.data
+
+import android.util.Log
 import com.tilixibiesi.R
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.AtomicFileWriter
@@ -15,6 +17,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
 object LanguageUtils {
+
+    private const val TAG = "LanguageUtils"
 
     private const val PREFS_NAME = "language_prefs"
     private const val KEY_LANGUAGE = "app_language"
@@ -157,7 +161,7 @@ object LanguageUtils {
                 conn.disconnect()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.d(TAG, "下载语言包失败: ${e.message}")
             false
         }
     }
@@ -206,7 +210,7 @@ object LanguageUtils {
                     context.sendBroadcast(Intent(ACTION_LANGUAGE_UPDATED))
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.d(TAG, "检查语言更新失败: ${e.message}")
             }
         }
     }

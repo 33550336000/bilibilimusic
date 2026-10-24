@@ -1,5 +1,7 @@
 package com.tilixibiesi.data
 
+import android.util.Log
+
 import com.tilixibiesi.util.AtomicFileWriter
 
 import android.content.Context
@@ -7,6 +9,8 @@ import org.json.JSONObject
 import java.io.File
 
 object VideoProgressStore {
+
+    private const val TAG = "VideoProgressStore"
 
     private const val FILE_NAME = "progress.json"
 
@@ -41,8 +45,7 @@ object VideoProgressStore {
                 val value = obj.optInt(key, -1)
                 if (value > 0) positions[key] = value
             }
-        } catch (_: Exception) {
-        }
+        } catch (e: Exception) { Log.d(TAG, "读取播放进度失败，从空表开始: ${e.message}") }
     }
 
     fun get(context: Context, bvid: String): Int = synchronized(lock) {
