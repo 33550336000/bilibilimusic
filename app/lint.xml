@@ -18,7 +18,6 @@
 
     <issue id="AppBundleLocaleChanges" severity="ignore" />
 
-    <!-- 自定义存储根目录：有意硬编码 /sdcard/.Path，忽略该提示 -->
     <issue id="SdCardPath" severity="ignore" />
 
 </lint>

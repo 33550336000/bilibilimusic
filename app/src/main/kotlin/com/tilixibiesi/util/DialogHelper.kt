@@ -131,10 +131,6 @@ object DialogHelper {
         return dialog
     }
 
-    /**
-     * 弹窗字体色：设置里选了「弹窗专用字体色」就用它，否则跟随全局字体色。
-     * 全局字体色复用 [FontUtils.color]，非法值回退到默认色。
-     */
     fun fontColor(context: Context): Int = try {
         val dialogFont = SpUtils.getDialogFontColor(context)
         if (dialogFont.isEmpty()) FontUtils.color(context) else Color.parseColor(dialogFont)
@@ -142,16 +138,6 @@ object DialogHelper {
         Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
     }
 
-    /**
-     * 让弹窗宽度跟随当前可用宽度，而不是在创建时按像素写死。
-     *
-     * MainPagerActivity 声明了 configChanges="orientation|screenSize"，旋转时不会重建
-     * Activity，已显示的弹窗会跨旋转存活。若只在创建时调用一次 setLayout，弹窗会一直
-     * 沿用旧屏幕的宽度：横屏创建后在竖屏下溢出，竖屏创建后在横屏下过窄。
-     *
-     * 这里给 decorView 挂布局监听，每次布局都按当前宽度重算；用 attributes.width 比较
-     * 来截断 setLayout 自身触发的回调，避免死循环。
-     */
     fun applyAdaptiveWidth(dialog: AlertDialog, context: Context, fraction: Float) {
         val activity = ContextUtils.unwrapActivity(context) ?: return
         val window = dialog.window ?: return
@@ -166,7 +152,6 @@ object DialogHelper {
         }
     }
 
-    /** 取当前窗口可用宽度；用 WindowMetrics 以兼容分屏与自由窗口缩放。 */
     private fun currentWindowWidthPx(activity: Activity, fraction: Float): Int {
         val fullWidth = activity.windowManager.currentWindowMetrics.bounds.width()
         return (fullWidth * fraction).toInt()

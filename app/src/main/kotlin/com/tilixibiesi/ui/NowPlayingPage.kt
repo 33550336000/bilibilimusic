@@ -385,10 +385,6 @@ class NowPlayingPage(
     }
 
     private fun applyScaleFeedback() {
-        // 本页是直接挂在 decorView 上的，不在 android.R.id.content 子树里，
-        // 所以 BaseActivity.onStart 那次统一挂载覆盖不到它，必须自己挂一遍。
-        // 这一步负责进度条（sbProgress）与其它 Button 类控件；
-        // 下面几个是 ImageButton，不属于 Button 分支，单独挂。
         ViewUtils.applyScaleOnTouch(root)
         ViewUtils.applyScaleToButton(btnLyrics)
         ViewUtils.applyScaleToButton(btnShare)
@@ -430,7 +426,6 @@ class NowPlayingPage(
             .start()
     }
 
-    /** 播放页完全盖住主界面，返回一定是关它：注册进来，让下滑手势跟手预览关闭。 */
     private fun registerPredictiveBack() {
         PredictiveBack.register(
             activity,
@@ -490,10 +485,6 @@ class NowPlayingPage(
         if (isLyricsVisible) loadLyrics(bean)
     }
 
-    /**
-     * 分享当前曲目：第一行歌名，第二行链接，交给系统分享面板（微信等）。
-     * 具体实现见 [com.tilixibiesi.util.ShareHelper]，与主页面列表长按菜单共用同一套逻辑。
-     */
     private fun shareCurrentTrack() {
         ShareHelper.shareMusic(context, bean, resolvedTitle)
     }
@@ -528,7 +519,6 @@ class NowPlayingPage(
                 ?: unknownAlbum
             tvAlbum.text = album
             tvLrcAlbum.text = album
-            // 封面（含 meta 里的地址）由 loadCover 统一处理，这里不再重复拉一次
         }
     }
 
@@ -552,7 +542,6 @@ class NowPlayingPage(
         }
     }
 
-    /** 打开/回到播放页时先把播放状态对齐一次，别等到下一条广播才纠正按钮。 */
     fun refresh() {
         updateProgress(null, null, MusicPlayerService.isPlaying)
     }
@@ -589,7 +578,6 @@ class NowPlayingPage(
             showNoLyrics()
             return
         }
-        // 同一首曲目已经加载过：直接用内存里的结果
         if (lyricLoadedBvid == bvid) {
             val cached = lyric
             if (cached == null || cached.lines.isEmpty()) showNoLyrics() else renderLyric(cached)
@@ -599,9 +587,7 @@ class NowPlayingPage(
         val requestId = ++lyricRequestId
         val durationSec = (sbProgress.max / 1000).takeIf { it > 0 } ?: (bean.duration)
 
-        // 读盘 + 判定都放后台，主线程只负责渲染
         AppExecutors.io.execute {
-            // 本地歌词优先：播放本地缓存时命中本地就完全不走网络
             val local = BiliLyricStore.load(baseName)
             if (local != null) {
                 handler.post {
@@ -622,7 +608,6 @@ class NowPlayingPage(
                 durationSec = durationSec,
                 cookie = cookie
             )
-            // 解析成功顺手落一份本地歌词，下次播放本地缓存即可离线使用
             if (result != null) BiliLyricStore.save(baseName, result)
             handler.post {
                 if (requestId != lyricRequestId) return@post

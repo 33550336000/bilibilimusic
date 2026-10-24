@@ -39,12 +39,6 @@ class SettingsToggleDialogs(
         )
     }
 
-    /**
-     * 完整B站源开关（原搜索页长按按钮的功能，现统一收到设置页「数据与功能」卡片）。
-     *
-     * 开启需要有登录凭证：本地文件里已有 Cookie 直接开启；
-     * 没有就弹统一登录页，登录成功后自动开启。关闭时不动 Cookie 文件。
-     */
     fun showFullBiliSourceDialog(btn: Button) {
         if (SpUtils.isFullBiliSource(context)) {
             showDialog(
@@ -63,12 +57,10 @@ class SettingsToggleDialogs(
 
         val activity = ContextUtils.unwrapActivity(context) ?: ActivityTracker.current() ?: return
         if (SpUtils.getBiliCookie(activity).isNotEmpty()) {
-            // 有本地 Cookie 就直接开启；若已失效，之后的接口返回 -101 会自动弹登录页
             enableFullBiliSource(btn)
             return
         }
 
-        // 没登录过：先登录，成功后自动开启完整源
         ToastUtils.show(context, str(R.string.full_bili_source_need_login))
         BiliLoginHelper.ensureLoggedIn(activity) { enableFullBiliSource(btn) }
     }
@@ -79,7 +71,6 @@ class SettingsToggleDialogs(
         ToastUtils.show(context, str(R.string.full_bili_source_enabled_toast))
     }
 
-    /** 统一刷新按钮文案，避免各处重复拼字符串。 */
     fun updateFullBiliSourceButtonText(btn: Button) {
         btn.text = str(
             if (SpUtils.isFullBiliSource(context)) R.string.btn_full_bili_source_on
@@ -170,12 +161,6 @@ class SettingsToggleDialogs(
         )
     }
 
-    /**
-     * B站音乐播放音质选择。
-     *
-     * 列表按音质从低到高排列（枚举声明顺序），默认选中最低音质。
-     * 切换后通知播放服务对当前曲目重新解析地址，立即生效。
-     */
     fun showBiliAudioQualityDialog(btn: Button) {
         val qualities = BiliAudioQuality.entries
         val labels = qualities.map { str(it.labelRes) }.toTypedArray()
@@ -194,14 +179,12 @@ class SettingsToggleDialogs(
                         context,
                         str(R.string.toast_bili_audio_quality_changed, str(quality.labelRes))
                     )
-                    // 通知播放服务按新音质重载当前曲目
                     MusicPlayerService.refreshAudioQuality(context)
                 }
                 .setNegativeButton(str(R.string.btn_cancel), null)
         )
     }
 
-    /** 统一刷新音质按钮文案。 */
     fun updateBiliAudioQualityButtonText(btn: Button) {
         val quality = BiliAudioQuality.fromSetting(SpUtils.getBiliAudioQuality(context))
         btn.text = str(R.string.btn_bili_audio_quality, str(quality.labelRes))

@@ -13,14 +13,6 @@ import android.widget.SeekBar
 import android.widget.TextView
 import java.util.Locale
 
-/*
- * 「把已经保存的设置回填到设置页控件」。
- *
- * 这里是设置页读路径的汇总：字体、背景、弹窗配色、以及各开关的文案。
- * 全部通过 findViewById 取控件，不依赖 SettingsPage 的私有字段，
- * 因此可以独立成文，也让主文件只保留「初始化 + 事件绑定」。
- */
-
 internal fun SettingsPage.applySettingsToUI() {
     applyFontControlsFromSettings()
     applyDialogStyleFromSettings()
@@ -63,11 +55,8 @@ internal fun SettingsPage.applySettingsToUI() {
     }
 }
 
-/** 字体颜色 / 字号 / 背景透明度。 */
 private fun SettingsPage.applyFontControlsFromSettings() {
     val savedColor = SpUtils.getFontColor(this)
-    // 存盘内容可能被外部改坏，解析失败时退回默认色，但输入框仍显示原字符串，
-    // 以免用户在设置页里丢失自己填过的值
     val parsedColor = runCatching { Color.parseColor(savedColor) }
         .getOrElse { Color.parseColor(SpUtils.DEFAULT_FONT_COLOR) }
 
@@ -77,7 +66,6 @@ private fun SettingsPage.applyFontControlsFromSettings() {
         it.setTextColor(parsedColor)
     }
     endFontColorSync()
-    // 三个滑块一起回填，黑/白/灰也能正确落到对应位置
     applyFontColorToPicker(parsedColor)
     findViewById<TextView>(R.id.tv_font_color_preview)?.text =
         LanguageUtils.getString(this, R.string.current_color, savedColor)
@@ -102,7 +90,6 @@ private fun SettingsPage.applyFontControlsFromSettings() {
         LanguageUtils.getString(this, R.string.current_brightness, alpha)
 }
 
-/** 弹窗背景色 / 弹窗字体色 / 弹窗透明度。 */
 private fun SettingsPage.applyDialogStyleFromSettings() {
     val dialogBgColor = SpUtils.getDialogBgColor(this)
     runCatching { Color.parseColor(dialogBgColor) }.getOrNull()?.let { color ->
@@ -114,7 +101,6 @@ private fun SettingsPage.applyDialogStyleFromSettings() {
 
     val dialogFontColor = SpUtils.getDialogFontColor(this)
     if (dialogFontColor.isEmpty()) {
-        // 空字符串表示「跟随全局字体色」
         val globalColor = FontUtils.color(this)
         applyDialogFontColorToPicker(globalColor)
         findViewById<TextView>(R.id.tv_dialog_font_preview)?.text =
@@ -138,9 +124,6 @@ private fun SettingsPage.applyDialogStyleFromSettings() {
     findViewById<TextView>(R.id.tv_dialog_alpha_preview)?.text =
         LanguageUtils.getString(this, R.string.current_alpha, dialogAlpha)
 }
-
-// ---- 各开关按钮的文案刷新 ----
-// 原来散在 SettingsPage 里，统一放到这里，界面文案只在这一处维护。
 
 internal fun SettingsPage.updateBottomNavButtonText() {
     findViewById<Button>(R.id.btn_bottom_nav)?.text =

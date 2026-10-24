@@ -1,9 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  悬浮播放控制栏：挂在 MainPagerActivity 的根布局上（与翻页控件平级），
-  所以不跟着页面左右滑动，任何页面都看得到。外边距让它离开屏幕边缘；
-  底部导航栏打开时 BaseActivity 会给根布局加 paddingBottom，它会自动被抬上去。
--->
 <com.tilixibiesi.ui.widget.LiquidGlassLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/layout_player_control"
     android:layout_width="match_parent"

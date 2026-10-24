@@ -13,7 +13,6 @@
 
     <style name="AppTheme.NoTitleBar" parent="@style/AppTheme" />
 
-    <!-- 返回手势预热用的空 Activity：透明、无转场、无预览窗口，用户看不到它出现 -->
     <style name="TransparentPrimer" parent="@android:style/Theme.Translucent.NoTitleBar">
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowAnimationStyle">@null</item>

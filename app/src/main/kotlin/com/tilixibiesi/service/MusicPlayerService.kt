@@ -103,7 +103,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             }
         }
 
-        /** 音质设置变更后，让正在播放的 B 站曲目按新音质重载。 */
         fun refreshAudioQuality(context: Context) {
             if (!isServiceRunning) return
             runCatching {
@@ -123,7 +122,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     private val audioFocus by lazy { AudioFocusController(this, this, mainHandler) }
     private var currentPosition = -1
 
-    /** 切换音质重载时待恢复的进度与播放状态（-1 表示无需恢复）。 */
     private var pendingResumePosition = -1
     private var pendingResumePlaying = false
     private var playGeneration = 0
@@ -149,7 +147,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     private val biliAudioUrlCache = mutableMapOf<String, List<String>>()
     private val biliRetryIndex = mutableMapOf<String, Int>()
 
-    /** bvid -> 解析 [biliAudioUrlCache] 时所用的音质 id，用于判断地址是否已按当前音质解析。 */
     private val biliResolvedQuality = mutableMapOf<String, Int>()
     private var currentBvid: String? = null
     private var currentMusicBean: MusicBean? = null
@@ -244,8 +241,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 }
             }
             val cur = if (prepared) try { mp.currentPosition } catch (e: IllegalStateException) { 0 } else 0
-            // 用播放意图状态回答：prepared 之前 mp.isPlaying 还是 false，
-            // 若照它回答，刚点开播放页的那一次请求就会把按钮刷成「可播放」。
             val playing = isPlaying
             Intent(BROADCAST_PLAY_STATE).apply {
                 putExtra(EXTRA_CURRENT_POSITION, cur)
@@ -351,13 +346,11 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         val full = ArrayList<MusicBean>(bili.size + local.size)
         full.addAll(bili)
         full.addAll(local)
-        // 本地曲目同样过滤（B 站已在 loadBiliHistoryList 中过滤）
         val visible = DataFileUtils.filterBlocked(full, DataFileUtils.loadBlockedWords())
         return visible.toMutableList()
     }
 
     private fun loadBiliHistoryList(): List<MusicBean> = try {
-        // B 站曲目同样受屏蔽词过滤，保证列表与播放队列一致
         DataFileUtils.filterBlocked(
             BiliHistoryHelper.loadAllNormalized(),
             DataFileUtils.loadBlockedWords()
@@ -405,7 +398,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         currentPlayingName = DataFileUtils.getDisplayName(bean.musicName)
         isPlaying = true
         errorCount = 0
-        // 新曲目开始播放：清掉上一首可能残留的「切音质待恢复进度」
         pendingResumePosition = -1
         pendingResumePlaying = false
         stopProgressUpdates()
@@ -426,8 +418,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         val localPath = bean.localPath
         if (localPath != null && File(localPath).exists()) {
             bean.isDownloaded = true
-            // 本地播放也要记下当前曲目：通知栏歌词与缓存音质校对都依赖它。
-            // 不设置 currentBvid，保持本地文件失败时的原有兜底行为。
             currentMusicBean = bean
             doPlay(localPath)
             return
@@ -498,12 +488,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     }
 
 
-    /**
-     * 若已有缓存的音质与当前播放音质不符，按当前音质重新解析地址并在后台重下。
-     *
-     * 覆盖「播放时用的就是本地缓存」的情况：这类曲目不会走在线解析流程，
-     * 但缓存本身可能是按旧音质下载的。
-     */
     private fun updateBiliCacheForQualityIfNeeded(bean: MusicBean) {
         if (!bean.isBilibili) return
         if (!SpUtils.isAutoCacheEnabled(this@MusicPlayerService)) return
@@ -519,16 +503,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-    /** 统一取用本地文件中的登录 Cookie；未开启完整源时返回空串（走匿名接口）。 */
     private fun biliCookie(): String =
         if (SpUtils.isFullBiliSource(this)) SpUtils.getBiliCookie(this) else ""
 
-    /**
-     * 自动下载：确保落盘的是「当前播放音质」对应的音频地址。
-     *
-     * 普通音乐直接用正在播放的地址；B 站曲目若当前地址不是按当前音质解析出来的
-     * （例如沿用了设置里保存的旧地址），先重新解析一次再交给 [CacheManager] 下载。
-     */
     private fun startAutoCacheForBili(bean: MusicBean, playingPath: String, gen: Int) {
         val bvid = bean.bvid?.takeIf { it.isNotEmpty() }
         if (!bean.isBilibili || bvid == null) {
@@ -555,17 +532,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-    /** 当前设置的 B 站音乐音质，默认最低音质。 */
     private fun audioQuality(): BiliAudioQuality =
         BiliAudioQuality.fromSetting(SpUtils.getBiliAudioQuality(this))
 
-    /**
-     * 音质设置变更后重载当前 B 站曲目。
-     *
-     * 手动下载的本地文件不受音质影响，直接忽略；
-     * 自动下载的缓存若音质与当前设置不符，会先删除再按新音质重新下载，
-     * 在线播放维持当前进度与播放/暂停状态。
-     */
     private fun reloadCurrentWithNewQuality() {
         val bean = currentMusicBean ?: return
         val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return
@@ -576,7 +545,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         if (removedOutdated || cacheManager.getCachedFilePath(bean) == null) {
             bean.localPath = null
         } else {
-            // 缓存音质与设置一致，无需重载
             return
         }
 
@@ -662,12 +630,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-    /**
-     * 缓存文件的展示名。
-     *
-     * 下载不再使用 MD5，文件名就是曲目实际名称，因此直接把文件名当作原始名，
-     * 由 [DataFileUtils.getDisplayName] 去掉音频扩展名与重命名映射。
-     */
     private fun getDisplayNameFromCache(filePath: String): String? = File(filePath).name
 
     private fun playFile(filePath: String, displayName: String?) {
@@ -878,7 +840,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     override fun onPrepared(mp: MediaPlayer) {
         isPrepared = true
 
-        // 切换音质后的重载：回到原进度，并按之前的播放/暂停状态决定是否继续
         var resumeTarget = -1
         var startPlaying = true
         if (pendingResumePosition >= 0) {
@@ -888,7 +849,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             pendingResumePlaying = false
         }
 
-        // 先 start 再 seek/pause：部分机型在 prepared 但未 start 时 seek 不生效
         mp.start()
         if (resumeTarget > 0 && resumeTarget < mp.duration) {
             runCatching { mp.seekTo(resumeTarget) }
@@ -909,7 +869,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             if (!wakeLock.isHeld) wakeLock.acquire()
             if (!wifiLock.isHeld) wifiLock.acquire()
         } else {
-            // 重载前处于暂停：保持暂停，不启动前台进度更新
             val pos = if (resumeTarget > 0) resumeTarget.toLong() else 0L
             mediaSessionManager.setTrackMetadata(name, resolveDurationMs())
             mediaSessionManager.updatePlaybackState(PlaybackState.STATE_PAUSED, pos, 0f)
@@ -1128,12 +1087,10 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         currentLyric = null
         lastContentText = null
 
-        // 歌词与音频同名，都按实际名称存盘
         val currentBean = currentMusicBean ?: return
         val baseName = CacheManager.baseNameOf(currentBean)
 
         AppExecutors.io.execute {
-            // 本地歌词优先；命中本地就不再请求网络
             val local = BiliLyricStore.load(baseName)
             if (local != null) {
                 mainHandler.post {
@@ -1158,7 +1115,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 durationSec = durationSec,
                 cookie = cookie
             )
-            // 解析成功就落一份到 cache/Lyric/，下次离线可用
             if (lyric != null) BiliLyricStore.save(baseName, lyric)
             mainHandler.post {
                 if (lyricLoadingBvid != bvid) return@post
@@ -1298,7 +1254,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                             Intent(BROADCAST_PLAY_STATE).apply {
                                 putExtra(EXTRA_CURRENT_POSITION, current)
                                 putExtra(EXTRA_DURATION, duration)
-                                // 带上播放状态，界面才有机会自己纠正回正确图标
                                 putExtra(EXTRA_IS_PLAYING, true)
                                 setPackage(packageName)
                                 sendBroadcast(this)

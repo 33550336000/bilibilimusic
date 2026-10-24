@@ -66,7 +66,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
     lvMusic = findViewById(R.id.lv_music_detail)
     btnBack = findViewById(R.id.btn_back)
     etSearch = findViewById(R.id.et_search)
-    // 歌单内搜索栏文字跟随全局字体颜色
     etSearch.setTextColor(FontUtils.color(this))
     etSearch.setHintTextColor(FontUtils.dimmed(this))
     val lvSubPlaylist = findViewById<ListView>(R.id.lv_sub_playlist)
@@ -104,8 +103,6 @@ lvMusic.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, 
     if (realPos == -1) return@OnItemClickListener
     checkLocalFileForBean(musicBean)
     MusicPlayerService.musicList = musicList
-    // SpUtils 只能存本地曲目字段，B 站曲目由 BiliHistoryHelper 单独维护，
-    // 这里与主页面歌曲列表保持一致，避免把 B 站曲目写成空链接的本地曲目
     SpUtils.saveMusicList(this@PlaylistDetailActivity, musicList.filter { !it.isBilibili })
     val intent = Intent(this@PlaylistDetailActivity, MusicPlayerService::class.java).apply {
         action = MusicPlayerService.ACTION_PLAY
@@ -277,7 +274,6 @@ private fun showLongPressActionDialog(musicBean: MusicBean) {
     showMaterialDialog(
         AlertDialog.Builder(this)
             .setTitle(DataFileUtils.getDisplayName(musicBean.musicName))
-            // 第三个按钮：与播放页的分享行为一致
             .setNeutralButton(R.string.now_playing_share) { _, _ ->
                 ShareHelper.shareMusic(this@PlaylistDetailActivity, musicBean)
             }
@@ -308,12 +304,10 @@ private fun showLongPressActionDialog(musicBean: MusicBean) {
         } else {
             lvSubPlaylist.visibility = View.VISIBLE
             lvSubPlaylist.adapter = SubPlaylistAdapter(this, subPlaylists)
-            // 子歌单列表高度自适应内容，避免占据剩余空间把下方音乐列表挤远
             lvSubPlaylist.post { fitSubPlaylistHeight(lvSubPlaylist) }
         }
     }
 
-    /** 让子歌单列表按内容撑开自身高度（最多不超过屏幕高度的一半）。 */
     private fun fitSubPlaylistHeight(listView: ListView) {
         val adapter = listView.adapter ?: return
         if (adapter.count == 0) return

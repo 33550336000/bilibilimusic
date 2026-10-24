@@ -45,7 +45,6 @@ class StorageDialogs(
                 val view = convertView ?: inflater.inflate(android.R.layout.simple_list_item_1, parent, false)
                 val file = files[pos]
                 view.findViewById<TextView>(android.R.id.text1).apply {
-                    // 文件名存的是实际名称，展示时再套用重命名映射
                     val name = DataFileUtils.getDisplayName(CacheManager.nameOf(file))
                     text = if (CacheManager.isBiliAudioFile(file)) {
                         LanguageUtils.getString(context, R.string.saved_music_bili_format, name)
@@ -72,7 +71,6 @@ class StorageDialogs(
                 ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_file_invalid))
                 return@setOnItemClickListener
             }
-            // 传实际名称：服务端据此还原展示名（含扩展名/重命名映射）
             val actualName = CacheManager.nameOf(file)
             val intent = android.content.Intent(context, MusicPlayerService::class.java).apply {
                 action = MusicPlayerService.ACTION_PLAY_FILE
@@ -102,7 +100,6 @@ class StorageDialogs(
                     )
                     .setPositiveButton(LanguageUtils.getString(context, R.string.btn_delete)) { _, _ ->
                         file.delete()
-                        // 音频删掉后，配套的本地歌词/封面也一并清理（都按实际名称存）
                         BiliLyricStore.delete(actualName)
                         BiliCoverLoader.localCoverFile(actualName).delete()
                         files.removeAt(pos)
@@ -150,7 +147,6 @@ class StorageDialogs(
         val etInput = dialogView.findViewById<EditText>(R.id.et_block_word)
         val lvWords = dialogView.findViewById<ListView>(R.id.lv_blocked_words)
 
-        // 输入框与标题文字跟随全局字体颜色
         etInput.setTextColor(fontColor)
         etInput.setHintTextColor(FontUtils.dimmed(context))
         dialogView.findViewById<TextView>(R.id.tv_blocked_words_title)?.setTextColor(fontColor)

@@ -19,14 +19,6 @@ import android.widget.SeekBar
 import android.widget.TextView
 import java.util.Locale
 
-/*
- * 「恢复默认设置」与「选择默认背景」这两条独立流程。
- *
- * 共同点：都以对话框/系统选择器为入口，成功后集中重刷设置页控件，
- * 因此单独成文，不占用 SettingsPage 的主流程。
- */
-
-/** 选择默认背景的 requestCode，仅本文件与 [SettingsPage.onActivityResult] 使用。 */
 private const val SETTINGS_REQUEST_PICK_DEFAULT_BG = 1005
 
 internal fun SettingsPage.pickDefaultBackground() {
@@ -43,11 +35,6 @@ internal fun SettingsPage.pickDefaultBackground() {
     }
 }
 
-/**
- * 选择默认背景后的处理，由 `onActivityResult` 调用。
- *
- * @return true 表示这条 requestCode 已被处理。
- */
 internal fun SettingsPage.handlePickDefaultBackgroundResult(
     requestCode: Int,
     resultCode: Int,
@@ -76,8 +63,6 @@ internal fun SettingsPage.restoreDefaultSettings() {
                 SpUtils.clearAll(page)
                 if (defaultBg.isNotEmpty()) SpUtils.saveDefaultBackgroundPath(page, defaultBg)
 
-                // B 站登录 Cookie 存在文件里（Appdata/cookie/），恢复默认设置不会清除，
-                // 否则用户会被强制退出登录，需要重新扫码/登录一次
                 SettingsStore.deleteSettingsFile()
 
                 page.resetFontAndBackgroundControls()
@@ -91,7 +76,6 @@ internal fun SettingsPage.restoreDefaultSettings() {
     )
 }
 
-/** 把字体颜色/字号/背景透明度复位并同步到界面。 */
 private fun SettingsPage.resetFontAndBackgroundControls() {
     SpUtils.saveBackgroundAlpha(this, 100)
     findViewById<SeekBar>(R.id.sb_background_alpha)?.progress = 100
@@ -121,7 +105,6 @@ private fun SettingsPage.resetFontAndBackgroundControls() {
     }
 }
 
-/** 把弹窗配色复位到白底、跟随全局字色、不透明。 */
 private fun SettingsPage.resetDialogStyleControls() {
     SpUtils.saveDialogBgColor(this, "#FFFFFF")
     SpUtils.saveDialogFontColor(this, "")
@@ -133,7 +116,6 @@ private fun SettingsPage.resetDialogStyleControls() {
         LanguageUtils.getString(this, R.string.current_color, "#FFFFFF")
     findViewById<View>(R.id.view_dialog_bg_sample)?.setBackgroundColor(white)
 
-    // 弹窗字体默认「跟随全局」，因此滑块回填到全局字体色
     val globalFontColor = FontUtils.color(this)
     applyDialogFontColorToPicker(globalFontColor)
     findViewById<TextView>(R.id.tv_dialog_font_preview)?.text =
@@ -149,7 +131,6 @@ private fun SettingsPage.resetDialogStyleControls() {
         LanguageUtils.getString(this, R.string.current_alpha, 100)
 }
 
-/** 复位后刷新那些用文字表达状态的开关按钮。 */
 private fun SettingsPage.resetToggleButtonLabels() {
     findViewById<Button>(R.id.btn_volume_key_switch)?.text =
         LanguageUtils.getString(this, R.string.btn_volume_key_switch_off)
@@ -164,18 +145,14 @@ private fun SettingsPage.resetToggleButtonLabels() {
     updateSearchBtnStyleButtonText()
     findViewById<Button>(R.id.btn_video_notify_progress)?.text =
         LanguageUtils.getString(this, R.string.btn_video_notify_progress_on)
-    // 恢复默认会把「完整B站源」开关重置为关（登录凭证仍保留在本地文件里）
     findViewById<Button>(R.id.btn_full_bili_source)?.let {
         refreshFullBiliSourceLabel(it)
     }
-    // 播放音质同样回到默认的最低音质，并让当前曲目按新音质重载
     findViewById<Button>(R.id.btn_bili_audio_quality)?.let {
         refreshBiliAudioQualityLabel(it)
     }
     MusicPlayerService.refreshAudioQuality(this)
 
-    // clearAll 把这几个开关也清了，界面上的文案要跟着回到各自默认值，
-    // 否则会留下一批「显示着开启、实际已关闭」的按钮
     updateBottomNavButtonText()
     updateLiquidGlassButtonText()
     updateClickFxButtonText()
@@ -183,12 +160,6 @@ private fun SettingsPage.resetToggleButtonLabels() {
     updateToggleStyleLabels()
 }
 
-/**
- * 刷新「开关式」按钮的文案。
- *
- * 这类按钮的标签由 `setupToggleButton` 在绑定时设置，恢复默认设置后
- * 共享偏好已被清空，但按钮上还留着旧文字，必须按当前实际值重刷一遍。
- */
 private fun SettingsPage.updateToggleStyleLabels() {
     refreshToggleLabel(
         R.id.btn_liquid_glass_cards,

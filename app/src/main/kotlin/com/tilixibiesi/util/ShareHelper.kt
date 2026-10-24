@@ -9,23 +9,10 @@ import com.tilixibiesi.model.PlaylistBean
 import android.content.Context
 import android.content.Intent
 
-/**
- * 分享。播放页、主页面列表长按菜单、歌单长按菜单共用这里的实现，保证行为一致。
- */
 object ShareHelper {
 
-    /** B 站视频短链前缀，拼上 bvid 即为可分享的短链。 */
     private const val BILI_SHORT_LINK_PREFIX = "https://b23.tv/"
 
-    /**
-     * 分享曲目：第一行歌名，第二行链接，交给系统分享面板（微信等）。
-     *
-     * 链接来源分两类：
-     *  - 普通音乐：用它的网络地址（`musicUrl`，即音源主页上的那个文件链接）。
-     *  - B 站音乐：用视频短链 `https://b23.tv/<bvid>`，点开就是原视频。
-     *
-     * [title] 用于覆盖歌名（播放页会传入已经解析好的标题）。
-     */
     fun shareMusic(context: Context, bean: MusicBean?, title: String? = null) {
         val current = bean ?: return
         val shareTitle = title?.takeIf { it.isNotEmpty() }
@@ -41,16 +28,6 @@ object ShareHelper {
         sendShareText(context, shareTitle, text)
     }
 
-    /**
-     * 分享整个歌单。文本按层级递归展开：
-     *
-     * 1. 先输出本层每一首音乐：歌名一行，链接一行（没有链接时只留歌名）；
-     * 2. 本层音乐输出完后再依次输出每个子歌单：先输出子歌单名称一行，
-     *    再按同样规则递归输出它内部的音乐与更深层的子歌单。
-     *
-     * 已从应用内删除（删除记录）或被屏蔽词过滤的音乐不会出现在分享文本里，
-     * 与歌单页面实际显示的内容保持一致。
-     */
     fun sharePlaylist(context: Context, playlist: PlaylistBean?) {
         val current = playlist ?: return
 

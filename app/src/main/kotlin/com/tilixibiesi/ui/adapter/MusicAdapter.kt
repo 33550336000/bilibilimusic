@@ -25,7 +25,6 @@ class MusicAdapter(
     var onAddToPlaylistClickListener: OnAddToPlaylistClickListener? = null
     var onDeleteClickListener: OnDeleteClickListener? = null
     var originalIndexProvider: ((MusicBean) -> Int)? = null
-    /** 主页面可以按设置隐藏「+」与「×」，其它页面保持常显。 */
     var showAddButton: Boolean = true
     var showDeleteButton: Boolean = false
 

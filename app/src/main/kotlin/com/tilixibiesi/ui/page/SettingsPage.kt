@@ -34,7 +34,6 @@ import android.graphics.Typeface
 
 class SettingsPage(base: Context) : BasePage(base) {
     companion object {
-        /** 与 card_background_semi 的 32dp 圆角对齐，切换玻璃时视觉不跳。 */
         private const val CARD_CORNER_DP = 32f
         private const val CARD_BLUR_DP = 5f
 
@@ -97,40 +96,26 @@ class SettingsPage(base: Context) : BasePage(base) {
         setupCollapsibleSections()
     }
 
-    /**
-     * 六个设置卡片改用液态玻璃，折射源是主页那层全局背景。
-     *
-     * 用单独的「液态玻璃卡片」开关，不再跟着控制栏那个开关走。
-     * 玻璃不可用（API < 33 或着色器编译失败）时整段跳过：卡片保持 XML 里的
-     * `card_background_semi`，与改动前完全一致。
-     */
     private fun applyCardGlass() {
         val host = activity as? MainPagerActivity ?: return
         val enabled = SpUtils.getLiquidGlassCardsEnabled(this) && LiquidGlassLayout.isAvailable()
         for (id in CARD_IDS) {
             val card = findViewById<LiquidGlassLayout>(id) ?: continue
             if (!enabled) {
-                // 关掉玻璃后交还给半透明卡片底色：solidWhenDisabled 必须关，
-                // 否则 onDraw 会自己铺一层不透明白底，把 card_background_semi 盖掉。
                 card.solidWhenDisabled = false
                 card.background = resources.getDrawable(R.drawable.card_background_semi, null)
                 card.glassEnabled = false
                 continue
             }
-            // 底色交还给玻璃自己画，否则会盖住折射结果
             card.background = null
             card.solidWhenDisabled = false
             card.tiltEnabled = false
-            // 卡片在 ScrollView 里：手指按下去多半是要滑动，不是要按这张卡。
-            // 开着按压会在每次滑动时先亮一下再灭，读起来像误触。
             card.pressEnabled = false
             card.cornerRadiusDp = CARD_CORNER_DP
             card.blurRadiusDp = CARD_BLUR_DP
             card.backdropSource = host.backgroundLayer
             card.glassEnabled = true
         }
-        // 控制栏的玻璃抓的是整层 contentLayer（含设置页），卡片外观变了要重抓一次，
-        // 否则开关前后那一小块在控制栏里还是旧画面。
         host.invalidateGlassBackdrop()
     }
 
@@ -184,7 +169,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                 if (text.isEmpty()) return
                 try {
                     val color = Color.parseColor(text)
-                    // 输入框可以填任意颜色（含纯黑/纯白/灰色）：同步回三个滑块
                     etFontColorSyncing = true
                     fontColorPicker.setColor(color)
                     etFontColorSyncing = false
@@ -236,12 +220,8 @@ class SettingsPage(base: Context) : BasePage(base) {
 
                         if (!current) {
                             SettingsStore.loadFromFileAsync(this@SettingsPage) {
-                                // 加载设置可能触发语言切换并重建 Activity，
-                                // 那时本页所属的 Activity 已销毁，再刷 UI 没有意义
                                 if (activity.isDestroyed || pageView == null) return@loadFromFileAsync
                                 applySettingsToUI()
-                                // 同上：applySettingsToUI 会把「调整搜索按钮」点亮，
-                                // 收起的卡片里不该出现它，这里补一次折叠状态
                                 reapplyCollapsedSections()
                                 applyBackground()
                             }
@@ -330,7 +310,6 @@ class SettingsPage(base: Context) : BasePage(base) {
     }
 
     private fun initSwitchSection() {
-        // 「音乐与播放」卡片里的第一项：B站音乐播放音质
         val btnBiliAudioQuality = findViewById<Button>(R.id.btn_bili_audio_quality)!!
         toggleDialogs.updateBiliAudioQualityButtonText(btnBiliAudioQuality)
         btnBiliAudioQuality.setOnClickListener {
@@ -377,8 +356,6 @@ class SettingsPage(base: Context) : BasePage(base) {
                 LanguageUtils.getString(this@SettingsPage, R.string.toast_liquid_glass_disabled)
             else
                 LanguageUtils.getString(this@SettingsPage, R.string.toast_liquid_glass_enabled)
-            // showMaterialDialog 内部已经 create().show()，这里不能再套一层，
-            // 否则同一个 builder 会被弹两次（曾经就是这个按钮一次弹两个框）。
             showMaterialDialog(
                 AlertDialog.Builder(this)
                     .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.dialog_title_liquid_glass))
@@ -396,7 +373,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             )
         }
 
-        // 设置页卡片的玻璃单独控制，不再跟着上面那个控制栏开关走
         setupToggleButton(
             buttonId = R.id.btn_liquid_glass_cards,
             titleRes = R.string.btn_liquid_glass_cards,
@@ -411,7 +387,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             onChanged = { applyCardGlass() }
         )
 
-        // 主页面歌曲列表每行右侧的两个按钮：+（加入歌单）与 ×（删除）
         setupToggleButton(
             buttonId = R.id.btn_main_add_button,
             titleRes = R.string.btn_main_add_button,
@@ -451,7 +426,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             LanguageUtils.getString(this@SettingsPage, R.string.btn_toggle_search_button)
         btnToggleSearchMode.setOnClickListener { toggleDialogs.showSearchModeDialog(btnToggleSearchMode) }
 
-        // 「数据与功能」卡片里的第一项：完整B站源开关
         val btnFullBiliSource = findViewById<Button>(R.id.btn_full_bili_source)!!
         toggleDialogs.updateFullBiliSourceButtonText(btnFullBiliSource)
         btnFullBiliSource.setOnClickListener {
@@ -623,7 +597,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         (activity as? MainPagerActivity)?.refreshBackground()
     }
 
-    /** 包装字体色同步标记，避免拆出去的文件直接摸私有字段却漏掉复位。 */
     internal fun beginFontColorSync() {
         etFontColorSyncing = true
     }
@@ -632,12 +605,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         etFontColorSyncing = false
     }
 
-    /**
-     * 应用一个已确定的字体颜色：刷新预览/输入框、保存设置。
-     *
-     * @param syncInput 是否需要把颜色回写到输入框（来自滑块时为 true；
-     *   来自输入框本身时为 false，否则会把用户正在编辑的文本改掉）
-     */
     private fun applyPickedFontColor(color: Int, syncInput: Boolean = true) {
         val hex = String.format("#%06X", 0xFFFFFF and color)
         tvFontColorPreview.text =
@@ -653,12 +620,8 @@ class SettingsPage(base: Context) : BasePage(base) {
 
     private fun loadCurrentSettings() {
         if (SpUtils.isAutoLoadDefaultEnabled(this)) {
-            // 读盘放后台，回到主线程后再刷 UI，避免创建设置页时阻塞主线程
             SettingsStore.loadFromFileAsync(this) {
                 applySettingsToUI()
-                // applySettingsToUI 会无条件设置「调整搜索按钮」的可见性，
-                // 而本回调可能晚于 setupCollapsibleSections 执行，
-                // 届时会把已收起的卡片里那个按钮重新点亮。这里补一次折叠状态。
                 reapplyCollapsedSections()
             }
         } else {
@@ -673,17 +636,14 @@ class SettingsPage(base: Context) : BasePage(base) {
             LanguageUtils.getString(this@SettingsPage, R.string.btn_search_style_transparent)
     }
 
-    /** 供拆出去的扩展文件刷新「完整B站源」按钮文案。 */
     internal fun refreshFullBiliSourceLabel(btn: Button) {
         toggleDialogs.updateFullBiliSourceButtonText(btn)
     }
 
-    /** 供拆出去的扩展文件刷新「播放音质」按钮文案。 */
     internal fun refreshBiliAudioQualityLabel(btn: Button) {
         toggleDialogs.updateBiliAudioQualityButtonText(btn)
     }
 
-    // 取色器是页内私有控件，拆出去的文件通过这三个桥接方法回填颜色
     internal fun applyFontColorToPicker(color: Int) {
         fontColorPicker.setColor(color)
     }
@@ -696,7 +656,6 @@ class SettingsPage(base: Context) : BasePage(base) {
         dialogFontColorPicker.setColor(color)
     }
 
-    /** 统一风格的对话框；拆到 SettingsPageNotification 的扩展函数也会用到。 */
     internal fun showMaterialDialog(builder: AlertDialog.Builder): AlertDialog {
         return DialogHelper.createStyledDialog(activity, builder, boldItalicAllViews = true)
     }
@@ -718,11 +677,9 @@ class SettingsPage(base: Context) : BasePage(base) {
         StorageDialogs(this, layoutInflater, userFontColor) { showMaterialDialog(it) }
     }
 
-    /** 当前生效的字体颜色；设置页自身与拆出去的扩展文件共用。 */
     internal val userFontColor: Int
         get() = FontUtils.color(this)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        // 选择默认背景的处理链已拆到 SettingsPageActions.kt
         if (handlePickDefaultBackgroundResult(requestCode, resultCode, data)) return
     }
 

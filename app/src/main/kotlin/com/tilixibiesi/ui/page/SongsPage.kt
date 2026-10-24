@@ -156,7 +156,6 @@ class SongsPage(base: Context) : BasePage(base) {
         } else {
             PlaybackStatsManager.stopUpdater()
         }
-        // 设置页可能刚改过「+」「×」的显隐，回到本页时同步
         applyMainRowButtonSettings()
         musicAdapter.notifyDataSetChanged()
         nowPlaying?.takeIf { it.isVisible }?.let { page ->
@@ -176,12 +175,6 @@ class SongsPage(base: Context) : BasePage(base) {
         PlaybackStatsManager.stopUpdater()
     }
 
-    /**
-     * 主页面每行右侧的「+（加入歌单）」与「×（删除）」可以按设置隐藏。
-     *
-     * 开关在设置页（另一个页面）里改，回到本页时再同步；值和当前一致就不刷新列表，
-     * 避免每次 onResume 都白重绘一遍。
-     */
     private fun applyMainRowButtonSettings() {
         if (!::musicAdapter.isInitialized) return
         val showAdd = SpUtils.isMainAddButtonVisible(this)
@@ -190,7 +183,6 @@ class SongsPage(base: Context) : BasePage(base) {
         musicAdapter.showAddButton = showAdd
         musicAdapter.showDeleteButton = showDelete
         musicAdapter.notifyDataSetChanged()
-        // 行内按钮显隐会改变列表画面，控制栏的玻璃要重抓，别继续折射旧列表
         (activity as? MainPagerActivity)?.invalidateGlassBackdrop()
     }
 
@@ -265,7 +257,6 @@ class SongsPage(base: Context) : BasePage(base) {
 
     private fun initView() {
         lvMusic = findViewById(R.id.lv_music)!!
-        // 控制栏挂在 Activity 根布局上（与翻页控件平级），不在本页的 pageView 里
         playerControlLayout = activity.findViewById(R.id.layout_player_control)!!
         tvCurrentMusic = activity.findViewById(R.id.tv_current_music)!!
         ivControlCover = activity.findViewById(R.id.iv_control_cover)!!
@@ -300,7 +291,6 @@ class SongsPage(base: Context) : BasePage(base) {
         seekBar.visibility = View.VISIBLE
         seekBar.max = DEFAULT_SEEK_MAX
         seekBar.progress = 0
-        // 悬浮栏是白底，用深色轨道/滑块，否则白色进度条在白底上看不见
         seekBar.progressDrawable = resources.getDrawable(R.drawable.floating_seekbar_track, null)
         seekBar.thumb = resources.getDrawable(R.drawable.floating_seekbar_thumb, null)
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -507,7 +497,6 @@ class SongsPage(base: Context) : BasePage(base) {
         val anchorName = currentPlayPosition.takeIf { it in musicList.indices }
             ?.let { musicList[it].musicName }
             ?: MusicPlayerService.currentPlayingName
-        // B 站曲目同样受屏蔽词过滤（与本地音乐一致）
         val visibleBili = DataFileUtils.filterBlocked(biliBeans, DataFileUtils.loadBlockedWords())
         musicList.removeAll { it.isBilibili }
         musicList.addAll(0, visibleBili)
@@ -578,7 +567,6 @@ class SongsPage(base: Context) : BasePage(base) {
     }
 
     private fun setPlayerControlVisible(visible: Boolean) {
-        // 控制栏在 Activity 根布局上，显隐一致交给宿主，顺便让各页面让出它占的高度
         (activity as? MainPagerActivity)?.setFloatingPlayerBarVisible(visible)
     }
 
@@ -673,10 +661,8 @@ class SongsPage(base: Context) : BasePage(base) {
         return musicList.getOrNull(index)
     }
 
-    /** 控制栏封面：与播放页同一套取图逻辑，普通音乐取不到就停在占位图。 */
     private fun syncControlCover() {
         val bean = resolveCurrentBean()
-        // 列表重建会换掉 Bean 实例，所以按曲名比较：同一首歌不必重复读盘/拉网络
         if (ivControlCover.tag == bean) return
         BiliCoverLoader.loadForBean(ivControlCover, bean)
     }
@@ -778,7 +764,6 @@ class SongsPage(base: Context) : BasePage(base) {
         updateSearchFloatVisibility()
     }
 
-    /** 悬浮控制栏高度变了：把搜索按钮重新贴到栏的上沿之上。 */
     fun repositionSearchButton() {
         if (!::btnSearchFloat.isInitialized) return
         btnSearchFloat.post { applySearchButtonPosition() }
@@ -788,26 +773,19 @@ class SongsPage(base: Context) : BasePage(base) {
         val parent = btnSearchFloat.parent as View ?: return
         if (parent.height <= 0 || btnSearchFloat.height <= 0) return
 
-        // 布局把按钮贴在父容器底部（gravity=bottom|end，marginBottom=16dp）。
-        // 用「父容器高度 - 按钮高度」直接算出贴底时的 top，不去碰 top/translationY
-        // 互相换算——那两者在反复调用时会互相污染，越算越偏。
         val marginBottom = (16 * resources.displayMetrics.density).toInt()
         val restTop = parent.height - btnSearchFloat.height - marginBottom
-        // 悬浮控制栏压在最上层且不参与页面内边距，按钮的底边必须停在栏上沿之上
         val barInset = (activity as? MainPagerActivity)?.floatingPlayerBarInset ?: 0
         val gap = (12 * resources.displayMetrics.density).toInt()
-        // 贴底位置再往上抬：栏高 + 间距
         val lift = barInset + gap
 
         val x = SpUtils.getSearchButtonX(this)
         val y = SpUtils.getSearchButtonY(this)
         if (x == -1f || y == -1f) {
-            // 未自定义过：水平保持布局默认，垂直抬到栏上沿之上
             btnSearchFloat.translationX = 0f
             btnSearchFloat.translationY = -lift.toFloat()
             return
         }
-        // 自定义位置是相对「贴底默认位」的偏移，同样按抬升量修正
         val maxTx = parent.width - btnSearchFloat.width - marginBottom
         val minTy = -(restTop.toFloat())
         val maxTy = -lift.toFloat()
@@ -937,7 +915,6 @@ class SongsPage(base: Context) : BasePage(base) {
         val etHour = dialogView.findViewById<EditText>(R.id.et_hour)
         val etMinute = dialogView.findViewById<EditText>(R.id.et_minute)
         val etSecond = dialogView.findViewById<EditText>(R.id.et_second)
-        // 输入框文字与提示语跟随全局字体颜色（提示语半透明，便于与实际输入区分）
         val fontColor = FontUtils.color(this)
         val hintColor = FontUtils.dimmed(this)
         listOf(etHour, etMinute, etSecond).forEach { input ->
@@ -967,7 +944,6 @@ class SongsPage(base: Context) : BasePage(base) {
         showMaterialDialog(
             AlertDialog.Builder(this, R.style.TransparentDialog)
                 .setTitle(DataFileUtils.getDisplayName(bean.musicName))
-                // 第三个按钮：与播放页的分享行为一致
                 .setNeutralButton(LanguageUtils.getString(this@SongsPage, R.string.now_playing_share)) { _, _ ->
                     ShareHelper.shareMusic(this@SongsPage, bean)
                 }
