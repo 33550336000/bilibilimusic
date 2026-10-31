@@ -95,8 +95,6 @@ open class BaseActivity : Activity() {
     override fun onResume() {
         super.onResume()
         ActivityTracker.onResumed(this)
-        BiliLoginHelper.onActivityResumed(this)
-        BiliLoginHelper.verifyStoredCookie(this)
         val currentLang = LanguageUtils.getEffectiveLanguage(applicationContext)
         if (currentLang != lastLanguageCode) {
             recreate()
@@ -177,7 +175,7 @@ open class BaseActivity : Activity() {
         if (SpUtils.getSearchMode(this)) {
             addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.nav_search), MainPagerActivity.PAGE_SEARCH, R.drawable.ic_nav_search)
         }
-        addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.nav_settings), MainPagerActivity.PAGE_SETTINGS, R.drawable.ic_nav_settings)
+        addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.nav_me), MainPagerActivity.PAGE_ME, R.drawable.ic_nav_me)
     }
 
     private fun addPagerNavButton(navBar: LinearLayout, label: String, page: Int, iconRes: Int) {

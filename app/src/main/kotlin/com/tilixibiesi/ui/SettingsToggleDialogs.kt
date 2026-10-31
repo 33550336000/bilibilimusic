@@ -2,13 +2,10 @@ package com.tilixibiesi.ui
 
 import com.tilixibiesi.R
 import com.tilixibiesi.bili.BiliAudioQuality
-import com.tilixibiesi.bili.BiliLoginHelper
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SettingsStore
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.service.MusicPlayerService
-import com.tilixibiesi.util.ActivityTracker
-import com.tilixibiesi.util.ContextUtils
 import com.tilixibiesi.util.ToastUtils
 
 import android.app.AlertDialog
@@ -36,45 +33,6 @@ class SettingsToggleDialogs(
                     SettingsStore.saveToFile(context)
                 }
                 .setNegativeButton(str(R.string.btn_cancel), null)
-        )
-    }
-
-    fun showFullBiliSourceDialog(btn: Button) {
-        if (SpUtils.isFullBiliSource(context)) {
-            showDialog(
-                AlertDialog.Builder(context)
-                    .setTitle(str(R.string.full_bili_source_title))
-                    .setMessage(str(R.string.full_bili_source_enabled_msg))
-                    .setPositiveButton(str(R.string.btn_ok)) { _, _ ->
-                        SpUtils.setFullBiliSource(context, false)
-                        updateFullBiliSourceButtonText(btn)
-                        ToastUtils.show(context, str(R.string.full_bili_source_disabled_toast))
-                    }
-                    .setNegativeButton(str(R.string.btn_cancel), null)
-            )
-            return
-        }
-
-        val activity = ContextUtils.unwrapActivity(context) ?: ActivityTracker.current() ?: return
-        if (SpUtils.getBiliCookie(activity).isNotEmpty()) {
-            enableFullBiliSource(btn)
-            return
-        }
-
-        ToastUtils.show(context, str(R.string.full_bili_source_need_login))
-        BiliLoginHelper.ensureLoggedIn(activity) { enableFullBiliSource(btn) }
-    }
-
-    private fun enableFullBiliSource(btn: Button) {
-        SpUtils.setFullBiliSource(context, true)
-        updateFullBiliSourceButtonText(btn)
-        ToastUtils.show(context, str(R.string.full_bili_source_enabled_toast))
-    }
-
-    fun updateFullBiliSourceButtonText(btn: Button) {
-        btn.text = str(
-            if (SpUtils.isFullBiliSource(context)) R.string.btn_full_bili_source_on
-            else R.string.btn_full_bili_source_off
         )
     }
 

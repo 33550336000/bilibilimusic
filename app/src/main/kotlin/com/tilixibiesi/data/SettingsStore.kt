@@ -87,7 +87,6 @@ object SettingsStore {
             json.put("click_fx", SpUtils.getClickFxEnabled(context))
             json.put("main_add_button", SpUtils.isMainAddButtonVisible(context))
             json.put("main_delete_button", SpUtils.isMainDeleteButtonVisible(context))
-            json.put("full_bili_source", SpUtils.isFullBiliSource(context))
             json.put("danmaku", SpUtils.isDanmakuEnabled(context))
             json.put("play_mode", SpUtils.getPlayMode(context))
             json.put("search_btn_x", SpUtils.getSearchButtonX(context).toDouble())
@@ -154,7 +153,6 @@ object SettingsStore {
             if (json.has("click_fx")) SpUtils.setClickFxEnabled(context, json.getBoolean("click_fx"))
             if (json.has("main_add_button")) SpUtils.setMainAddButtonVisible(context, json.getBoolean("main_add_button"))
             if (json.has("main_delete_button")) SpUtils.setMainDeleteButtonVisible(context, json.getBoolean("main_delete_button"))
-            if (json.has("full_bili_source")) SpUtils.setFullBiliSource(context, json.getBoolean("full_bili_source"))
             if (json.has("danmaku")) SpUtils.setDanmakuEnabled(context, json.getBoolean("danmaku"))
             if (json.has("play_mode")) SpUtils.savePlayMode(context, json.getInt("play_mode"))
             if (json.has("search_btn_x") && json.has("search_btn_y")) {

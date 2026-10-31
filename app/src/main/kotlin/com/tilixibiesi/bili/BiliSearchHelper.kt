@@ -53,7 +53,6 @@ object BiliSearchHelper {
             )
             val obj = JSONObject(json)
             val code = obj.optInt("code")
-            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) return null
             val cid = obj.optJSONObject("data")?.optLong("cid", 0L) ?: 0L
             if (cid <= 0L) null else cid.also { cidCache[bvid] = it }
@@ -80,7 +79,6 @@ object BiliSearchHelper {
             )
             val obj = JSONObject(json)
             val code = obj.optInt("code")
-            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) emptyList()
             else {
                 val audios = obj.optJSONObject("data")
@@ -115,7 +113,6 @@ object BiliSearchHelper {
             )
             val obj = JSONObject(json)
             val code = obj.optInt("code")
-            BiliLoginHelper.handleApiCode(code, cookie)
             val durl = obj.optJSONObject("data")?.optJSONArray("durl")
             if (code == 0 && durl != null && durl.length() > 0) {
                 listOf(normalizeUrl(durl.getJSONObject(0).getString("url")))
@@ -152,7 +149,6 @@ object BiliSearchHelper {
             val json = HttpUtils.getWithRetry(url, headers)
             val obj = JSONObject(json)
             val code = obj.optInt("code", -1)
-            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) {
                 return SearchResult(emptyList(), false, code)
             }
@@ -185,7 +181,6 @@ object BiliSearchHelper {
             val json = HttpUtils.getWithRetry(url, headers)
             val obj = JSONObject(json)
             val code = obj.optInt("code", -1)
-            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) return null
             val data = obj.getJSONObject("data")
             VideoDetail(
@@ -213,7 +208,6 @@ object BiliSearchHelper {
             val json = HttpUtils.getWithRetry(url, headers)
             val obj = JSONObject(json)
             val code = obj.optInt("code", -1)
-            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) return null
             val data = obj.getJSONObject("data")
 
