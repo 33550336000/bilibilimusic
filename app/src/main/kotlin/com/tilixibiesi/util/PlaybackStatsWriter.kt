@@ -52,6 +52,9 @@ object PlaybackStatsWriter {
 
     private var dirty = false
 
+    /** 等待今日基线加载完成的回调（IO 线程触发），用于冷启动后补刷一次显示。 */
+    private val pendingLoadCallbacks = ArrayList<() -> Unit>()
+
     private val flushScheduled = AtomicBoolean(false)
 
     private val lastFlushAt = AtomicLong(0L)
@@ -90,7 +93,28 @@ object PlaybackStatsWriter {
         todayLoaded = false
         loadInFlight = false
         loadStartedAt = 0L
+        pendingLoadCallbacks.clear()
         startLoadTodayLocked()
+    }
+
+    /**
+     * 确保今日磁盘基线已合入内存，[onLoaded] 在就绪后执行（IO 线程）。
+     *
+     * 冷启动时没有任何 [addSeconds] 调用，基线不会被读取，显示层读到的永远是 0；
+     * 显示前先调这里即可拿到昨天/更早之前落盘的真实累计值。
+     */
+    fun ensureTodayLoaded(onLoaded: () -> Unit) {
+        synchronized(lock) {
+            rollDateIfNeededLocked()
+            if (todayLoaded) {
+                // 已在内存里，直接交给调用方去读，避免多余线程切换
+            } else {
+                pendingLoadCallbacks.add(onLoaded)
+                startLoadTodayLocked()
+                return
+            }
+        }
+        onLoaded()
     }
 
     /** 把当天已落盘的历史值合入内存（异步，避免主线程读文件）。 */
@@ -115,6 +139,9 @@ object PlaybackStatsWriter {
                 }
                 // 无论读到与否都标记完成，避免读取失败后一直卡在"未就绪"而不落盘
                 todayLoaded = true
+                val callbacks = ArrayList(pendingLoadCallbacks)
+                pendingLoadCallbacks.clear()
+                callbacks.forEach { it() }
             }
         }
     }
@@ -176,6 +203,7 @@ object PlaybackStatsWriter {
                 todayTotals[name] = (todayTotals[name] ?: 0L) + seconds
             }
             todayLoaded = true
+            pendingLoadCallbacks.clear()
         }
     }
 

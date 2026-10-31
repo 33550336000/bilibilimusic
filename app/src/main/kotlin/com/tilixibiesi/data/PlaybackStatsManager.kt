@@ -89,6 +89,8 @@ object PlaybackStatsManager {
     }
 
     fun refresh() {
+        // 冷启动时内存里还没有今天的基线，先确保磁盘值读入，读完再补刷一次
+        PlaybackStatsWriter.ensureTodayLoaded { handler.post { updateDisplay() } }
         updateDisplay()
     }
 
