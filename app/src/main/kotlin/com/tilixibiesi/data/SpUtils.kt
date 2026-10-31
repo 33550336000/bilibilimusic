@@ -24,7 +24,6 @@ object SpUtils {
     private const val KEY_DEFAULT_BACKGROUND = "default_background_path"
     private const val KEY_SEARCH_BTN_STYLE = "search_btn_style"
     private const val KEY_AUTO_CACHE = "auto_cache"
-    private const val KEY_FULL_BILI_SOURCE = "full_bili_source"
     private const val KEY_BILI_AUDIO_QUALITY = "bili_audio_quality"
     private const val KEY_SHOW_TODAY_DURATION = "show_today_duration"
     private const val KEY_BILI_COOKIE = "bili_cookie"
@@ -241,12 +240,6 @@ object SpUtils {
         getSp(context).getBoolean(KEY_AUTO_CACHE, true)
     fun setAutoCacheEnabled(context: Context, enabled: Boolean) {
         getSp(context).edit().putBoolean(KEY_AUTO_CACHE, enabled).apply()
-    }
-
-    fun isFullBiliSource(context: Context): Boolean =
-        getSp(context).getBoolean(KEY_FULL_BILI_SOURCE, false)
-    fun setFullBiliSource(context: Context, enabled: Boolean) {
-        getSp(context).edit().putBoolean(KEY_FULL_BILI_SOURCE, enabled).apply()
     }
 
     fun getBiliAudioQuality(context: Context): Int =

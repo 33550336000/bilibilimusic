@@ -145,9 +145,6 @@ private fun SettingsPage.resetToggleButtonLabels() {
     updateSearchBtnStyleButtonText()
     findViewById<Button>(R.id.btn_video_notify_progress)?.text =
         LanguageUtils.getString(this, R.string.btn_video_notify_progress_on)
-    findViewById<Button>(R.id.btn_full_bili_source)?.let {
-        refreshFullBiliSourceLabel(it)
-    }
     findViewById<Button>(R.id.btn_bili_audio_quality)?.let {
         refreshBiliAudioQualityLabel(it)
     }

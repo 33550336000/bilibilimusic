@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <ScrollView
+        android:id="@+id/me_root"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:id="@+id/title_me_page"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/me_title"
+                android:textColor="#000000"
+                android:textSize="24sp"
+                android:layout_marginBottom="24dp" />
+
+            <com.tilixibiesi.ui.widget.LiquidGlassLayout
+                android:id="@+id/card_me_profile"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:background="@drawable/card_background_semi"
+                android:elevation="4dp"
+                android:padding="24dp"
+                android:layout_marginBottom="16dp">
+
+                <ImageView
+                    android:id="@+id/iv_me_avatar"
+                    android:layout_width="96dp"
+                    android:layout_height="96dp"
+                    android:background="@drawable/bg_me_avatar"
+                    android:clipToOutline="true"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/ic_me_avatar"
+                    android:contentDescription="@string/me_avatar" />
+
+                <TextView
+                    android:id="@+id/tv_me_name"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/me_not_logged_in"
+                    android:textColor="#000000"
+                    android:textSize="20sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tv_me_uid"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textColor="#888888"
+                    android:textSize="12sp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btn_me_login"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/me_login"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:padding="12dp" />
+            </com.tilixibiesi.ui.widget.LiquidGlassLayout>
+
+            <com.tilixibiesi.ui.widget.LiquidGlassLayout
+                android:id="@+id/card_me_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background_semi"
+                android:elevation="4dp"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    android:text="@string/me_status_title"
+                    android:textColor="#99002BFF"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/tv_me_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/me_status_checking"
+                    android:textColor="#000000"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:id="@+id/tv_me_sync_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="#888888"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/tv_me_status_detail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textColor="#888888"
+                    android:textSize="13sp" />
+            </com.tilixibiesi.ui.widget.LiquidGlassLayout>
+
+            <com.tilixibiesi.ui.widget.LiquidGlassLayout
+                android:id="@+id/card_me_actions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/card_background_semi"
+                android:elevation="4dp"
+                android:padding="16dp"
+                android:layout_marginBottom="16dp">
+
+                <Button
+                    android:id="@+id/btn_me_settings"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_me_settings"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:padding="12dp"
+                    android:layout_marginBottom="12dp" />
+
+                <Button
+                    android:id="@+id/btn_me_reauth"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/btn_reauth"
+                    android:background="@drawable/button_background"
+                    android:textColor="#000000"
+                    android:padding="12dp"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone" />
+
+                <Button
+                    android:id="@+id/btn_me_logout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/me_logout"
+                    android:background="@drawable/button_background_restore"
+                    android:textColor="#FFFFFF"
+                    android:padding="12dp"
+                    android:visibility="gone" />
+            </com.tilixibiesi.ui.widget.LiquidGlassLayout>
+        </LinearLayout>
+    </ScrollView>
+</FrameLayout>

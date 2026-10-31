@@ -426,12 +426,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             LanguageUtils.getString(this@SettingsPage, R.string.btn_toggle_search_button)
         btnToggleSearchMode.setOnClickListener { toggleDialogs.showSearchModeDialog(btnToggleSearchMode) }
 
-        val btnFullBiliSource = findViewById<Button>(R.id.btn_full_bili_source)!!
-        toggleDialogs.updateFullBiliSourceButtonText(btnFullBiliSource)
-        btnFullBiliSource.setOnClickListener {
-            toggleDialogs.showFullBiliSourceDialog(btnFullBiliSource)
-        }
-
         btnAutoCache = findViewById<Button>(R.id.btn_auto_cache)!!
         updateAutoCacheButtonText()
         btnAutoCache.setOnClickListener {
@@ -634,10 +628,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             LanguageUtils.getString(this@SettingsPage, R.string.btn_search_style_restore)
         else
             LanguageUtils.getString(this@SettingsPage, R.string.btn_search_style_transparent)
-    }
-
-    internal fun refreshFullBiliSourceLabel(btn: Button) {
-        toggleDialogs.updateFullBiliSourceButtonText(btn)
     }
 
     internal fun refreshBiliAudioQualityLabel(btn: Button) {

@@ -47,9 +47,6 @@ internal fun SettingsPage.applySettingsToUI() {
     updateAutoCacheButtonText()
     updateBottomNavButtonText()
     updateClickFxButtonText()
-    findViewById<Button>(R.id.btn_full_bili_source)?.let {
-        refreshFullBiliSourceLabel(it)
-    }
     findViewById<Button>(R.id.btn_bili_audio_quality)?.let {
         refreshBiliAudioQualityLabel(it)
     }

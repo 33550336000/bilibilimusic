@@ -27,7 +27,6 @@ object BiliSubtitleHelper {
             )
             val obj = JSONObject(json)
             val code = obj.optInt("code")
-            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) return emptyList()
 
             val arr = obj.optJSONObject("data")

@@ -526,8 +526,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-    private fun biliCookie(): String =
-        if (SpUtils.isFullBiliSource(this)) SpUtils.getBiliCookie(this) else ""
+    private fun biliCookie(): String = SpUtils.getBiliCookie(this)
 
     private fun startAutoCacheForBili(bean: MusicBean, playingPath: String, gen: Int) {
         val bvid = bean.bvid?.takeIf { it.isNotEmpty() }

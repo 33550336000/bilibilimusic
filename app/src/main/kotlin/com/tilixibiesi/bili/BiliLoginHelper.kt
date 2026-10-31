@@ -24,6 +24,7 @@ import android.widget.Toast
 import com.tilixibiesi.R
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SpUtils
+import com.tilixibiesi.data.BiliProfileStore
 import com.tilixibiesi.data.WebViewMetricsCleaner
 import com.tilixibiesi.util.ActivityTracker
 import com.tilixibiesi.util.AppExecutors
@@ -54,13 +55,7 @@ object BiliLoginHelper {
     private var onLoginSuccess: (() -> Unit)? = null
 
     @Volatile
-    private var reloginRequested = false
-
-    @Volatile
     private var loggedInThisSession = false
-
-    @Volatile
-    private var storedCookieChecked = false
 
     @Volatile
     private var cookieCheckInFlight = false
@@ -70,53 +65,6 @@ object BiliLoginHelper {
 
     fun isAuthInvalid(code: Int): Boolean = code == CODE_NOT_LOGIN
 
-    fun handleApiCode(code: Int, cookie: String, activity: Activity? = null): Boolean {
-        if (cookie.isEmpty() || !isAuthInvalid(code)) return false
-        requestRelogin(activity)
-        return true
-    }
-
-    fun verifyStoredCookie(activity: Activity?) {
-        if (storedCookieChecked) return
-        val target = activity ?: ActivityTracker.current() ?: return
-        if (!SpUtils.isFullBiliSource(target)) return
-        val cookie = SpUtils.getBiliCookie(target)
-        if (cookie.isEmpty()) return
-        storedCookieChecked = true
-        AppExecutors.io.execute {
-            if (navCode(cookie) == CODE_NOT_LOGIN) requestRelogin(null)
-        }
-    }
-
-    fun requestRelogin(activity: Activity? = null) {
-        mainHandler.post {
-            val target = activity ?: ActivityTracker.current()
-            if (target == null || target.isFinishing) {
-                reloginRequested = true
-                return@post
-            }
-            if (isShowing || activityRef != null) return@post
-            reloginRequested = false
-            onLoginSuccess = null
-            Toast.makeText(
-                target,
-                LanguageUtils.getString(target, R.string.login_expired),
-                Toast.LENGTH_LONG
-            ).show()
-            showLogin(target)
-        }
-    }
-
-    private fun showLoginSilently(activity: Activity) {
-        if (isShowing || activityRef != null) return
-        showLogin(activity)
-    }
-    fun flushPendingRequest(activity: Activity) {
-        if (!reloginRequested || isShowing) return
-        reloginRequested = false
-        showLogin(activity)
-    }
-
     fun ensureLoggedIn(activity: Activity?, onReady: () -> Unit) {
         val target = activity ?: ActivityTracker.current()
         if (target == null || target.isFinishing) return
@@ -124,9 +72,16 @@ object BiliLoginHelper {
             onReady()
             return
         }
+        reauthenticate(target, onReady)
+    }
+
+    /** 无条件打开登录窗：已登录也重新走一遍，供“重新认证”使用。 */
+    fun reauthenticate(activity: Activity?, onReady: (() -> Unit)? = null) {
+        val target = activity ?: ActivityTracker.current()
+        if (target == null || target.isFinishing) return
         if (isShowing || activityRef != null) return
         onLoginSuccess = onReady
-        showLoginSilently(target)
+        showLogin(target)
     }
 
     fun showLogin(activity: Activity) {
@@ -322,6 +277,7 @@ object BiliLoginHelper {
         if (loggedInThisSession) return
         loggedInThisSession = true
         SpUtils.saveBiliCookie(activity, cookie)
+        BiliProfileStore.saveLoginTime(System.currentTimeMillis())
         Toast.makeText(
             activity,
             LanguageUtils.getString(activity, R.string.login_success),
@@ -373,10 +329,6 @@ object BiliLoginHelper {
 
     private fun extractValue(cookieString: String, key: String): String? =
         Regex("$key=([^;]*)").find(cookieString)?.groupValues?.get(1)?.trim()
-
-    fun onActivityResumed(activity: Activity) {
-        if (!isShowing) flushPendingRequest(activity)
-    }
 
     fun handleBackPressed(): Boolean {
         if (!isShowing) return false

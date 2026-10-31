@@ -538,8 +538,7 @@ class SearchPage(base: Context) : BasePage(base) {
             .replace(Regex("\\.(mp3|flac|wav|aac|ogg|wma|m4a|opus)$"), "")
     }
 
-    private fun biliCookie(): String =
-        if (SpUtils.isFullBiliSource(this)) SpUtils.getBiliCookie(this) else ""
+    private fun biliCookie(): String = SpUtils.getBiliCookie(this)
 
     private fun loadPage(page: Int) {
         if (isLoadingMore) return

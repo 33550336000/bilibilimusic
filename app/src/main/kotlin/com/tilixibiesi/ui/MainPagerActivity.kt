@@ -16,6 +16,7 @@ import com.tilixibiesi.data.AppPermissionsBridge
 import com.tilixibiesi.bili.BiliLoginHelper
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.ui.page.BasePage
+import com.tilixibiesi.ui.page.MePage
 import com.tilixibiesi.ui.page.PageHost
 import com.tilixibiesi.ui.page.PlaylistPage
 import com.tilixibiesi.ui.page.SearchPage
@@ -37,7 +38,8 @@ class MainPagerActivity : BaseActivity(), PageHost {
         const val PAGE_PLAYLIST = 0
         const val PAGE_SONGS = 1
         const val PAGE_SEARCH = 2
-        const val PAGE_SETTINGS = 3
+        const val PAGE_ME = 3
+        const val PAGE_SETTINGS = 4
 
         const val EXTRA_TARGET_PAGE = "target_page"
         const val EXTRA_ADJUST_SEARCH_BUTTON = "adjust_search_button"
@@ -70,6 +72,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
             PlaylistPage(this),
             SongsPage(this),
             SearchPage(this),
+            MePage(this),
             SettingsPage(this)
         )
 
@@ -286,6 +289,9 @@ class MainPagerActivity : BaseActivity(), PageHost {
         if (position != PAGE_SEARCH && !isPageAvailable(PAGE_SEARCH)) {
             pager.requestClearTemporaryVisible(PAGE_SEARCH)
         }
+        if (position != PAGE_SETTINGS) {
+            pager.requestClearTemporaryVisible(PAGE_SETTINGS)
+        }
     }
 
     fun updateNavHighlight() {
@@ -293,9 +299,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
         val nav = content.findViewWithTag<View>(BaseActivity.TAG_BOTTOM_NAV) as? ViewGroup
             ?: return
         val highlight = android.graphics.Color.parseColor("#00A0FF")
+        val activeNavPage = if (currentPosition == PAGE_SETTINGS) PAGE_ME else currentPosition
         for (i in 0 until nav.childCount) {
             val item = nav.getChildAt(i) as? ViewGroup ?: continue
-            val highlighted = (item.tag as? Int) == currentPosition
+            val highlighted = (item.tag as? Int) == activeNavPage
             val color = if (highlighted) highlight else android.graphics.Color.WHITE
             (item.getTag(R.id.nav_icon_view) as? ImageView)?.setColorFilter(color)
             (item.getTag(R.id.nav_text_view) as? android.widget.TextView)?.setTextColor(color)
@@ -346,7 +353,9 @@ class MainPagerActivity : BaseActivity(), PageHost {
     private fun onBackProgressPreview(progress: Float) {
         if (currentPosition == PAGE_SONGS) return
         val from = pager.pageScrollX(currentPosition) ?: return
-        val to = pager.pageScrollX(PAGE_SONGS) ?: return
+        // 设置页是从“我的”进来的，返回时预览也要朝“我的”滑，而不是朝歌曲页。
+        val backTarget = if (currentPosition == PAGE_SETTINGS) PAGE_ME else PAGE_SONGS
+        val to = pager.pageScrollX(backTarget) ?: return
         invalidateGlassBackdrop()
         pager.previewScrollTo((from + (to - from) * progress).toInt())
     }
@@ -428,6 +437,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
         if ((pages.getOrNull(PAGE_SONGS) as? SongsPage)?.handleNowPlayingBack() == true) return true
         val page = pages.getOrNull(currentPosition)
         if (page?.created == true && page.onBackPressed()) return true
+        if (currentPosition == PAGE_SETTINGS) {
+            setPage(PAGE_ME, true)
+            return true
+        }
         if (currentPosition != PAGE_SONGS) {
             setPage(PAGE_SONGS, true)
             return true
@@ -471,8 +484,16 @@ class MainPagerActivity : BaseActivity(), PageHost {
         if (target == PAGE_SEARCH && !isPageAvailable(PAGE_SEARCH)) {
             pager.markTemporaryVisible(PAGE_SEARCH, takeFocus = false)
         }
+        if (target == PAGE_SETTINGS) {
+            pager.markTemporaryVisible(PAGE_SETTINGS, takeFocus = false)
+        }
         pager.setCurrentPage(target, smooth)
         if (target != currentPosition) handlePageChanged(target)
+    }
+
+    /** 设置页不在底部导航里，只能从“我的”页进入。 */
+    fun openSettingsPage() {
+        setPage(PAGE_SETTINGS, true)
     }
 
     override fun startActivityForResult(page: BasePage, intent: Intent, requestCode: Int) {
@@ -485,6 +506,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
         pager.clearTemporaryVisible(PAGE_SEARCH)
         pager.clearPendingTemporaryClear()
         applySearchPageAvailability()
+        // 设置页不在可见顺序里，重建导航时要以临时页保留，否则会被踢回上一页。
+        if (currentPosition == PAGE_SETTINGS) {
+            pager.markTemporaryVisible(PAGE_SETTINGS, takeFocus = false)
+        }
         pager.refreshPages()
         removeExistingBottomNav()
         setupBottomNav()
@@ -507,11 +532,15 @@ class MainPagerActivity : BaseActivity(), PageHost {
         }
     }
 
-    private fun isPageAvailable(page: Int): Boolean =
-        page != PAGE_SEARCH || SpUtils.getSearchMode(this)
+    private fun isPageAvailable(page: Int): Boolean = when (page) {
+        PAGE_SEARCH -> SpUtils.getSearchMode(this)
+        // 设置页不在底部导航里，只能从“我的”进入，所以平时不参与左右滑动。
+        PAGE_SETTINGS -> false
+        else -> true
+    }
 
 
     private fun applySearchPageAvailability() {
-        pager.pageAvailability = { page -> page != PAGE_SEARCH || SpUtils.getSearchMode(this) }
+        pager.pageAvailability = { page -> isPageAvailable(page) }
     }
 }

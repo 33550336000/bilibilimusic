@@ -684,16 +684,6 @@
             </LinearLayout>
 
             <Button
-                android:id="@+id/btn_full_bili_source"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/btn_full_bili_source_off"
-                android:background="@drawable/button_background"
-                android:textColor="#000000"
-                android:padding="12dp"
-                android:layout_marginBottom="12dp"/>
-
-            <Button
                 android:id="@+id/btn_auto_cache"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

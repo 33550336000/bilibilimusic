@@ -85,7 +85,6 @@ object BiliLyricHelper {
             )
             val obj = JSONObject(json)
             val code = obj.optInt("code")
-            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) return null
             obj.optJSONObject("data")
                 ?.optJSONObject("bgm_info")
@@ -104,7 +103,6 @@ object BiliLyricHelper {
             )
             val obj = JSONObject(json)
             val code = obj.optInt("code")
-            BiliLoginHelper.handleApiCode(code, cookie)
             if (code != 0) return null
             obj.optJSONObject("data")
                 ?.optString("mv_lyric", "")

@@ -1126,7 +1126,6 @@ private fun setPlaybackSpeed(speed: Float) {
             val response = conn.inputStream.bufferedReader().readText()
             val json = JSONObject(response)
             val code = json.optInt("code")
-            BiliLoginHelper.handleApiCode(code, cookie, activity)
             if (code != 0) return null
             val durl = json.getJSONObject("data").optJSONArray("durl")
             if (durl != null && durl.length() > 0) {
