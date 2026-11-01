@@ -10,7 +10,3 @@ buildscript {
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21'
     }
 }
-
-task clean(type: Delete) {
-    delete rootProject.buildDir
-}
