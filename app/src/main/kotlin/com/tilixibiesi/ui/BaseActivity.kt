@@ -24,7 +24,6 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -34,8 +33,6 @@ import kotlin.math.roundToInt
 open class BaseActivity : Activity() {
 
     private var lastLanguageCode: String? = null
-
-    private val RECEIVER_EXPORTED = 2
 
     private val languageUpdatedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -70,12 +67,13 @@ open class BaseActivity : Activity() {
         registerLanguageReceiver()
     }
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag", "WrongConstant")
     private fun registerLanguageReceiver() {
         val langFilter = IntentFilter(LanguageUtils.ACTION_LANGUAGE_UPDATED)
         if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(languageUpdatedReceiver, langFilter, RECEIVER_EXPORTED)
+            registerReceiver(languageUpdatedReceiver, langFilter, Context.RECEIVER_EXPORTED)
         } else {
+            // API 33 以下没有 flag 参数；此分支仅在旧系统执行。
+            @SuppressLint("UnspecifiedRegisterReceiverFlag")
             registerReceiver(languageUpdatedReceiver, langFilter)
         }
     }
@@ -110,6 +108,7 @@ open class BaseActivity : Activity() {
 
     @Deprecated("Deprecated in Java")
     @Suppress("DEPRECATION")
+    @SuppressLint("GestureBackNavigation")
     override fun onBackPressed() {
         if (BiliLoginHelper.handleBackPressed()) return
         super.onBackPressed()

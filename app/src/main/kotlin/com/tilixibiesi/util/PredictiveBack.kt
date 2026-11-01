@@ -1,5 +1,6 @@
 package com.tilixibiesi.util
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Build
 import android.window.BackEvent
@@ -58,6 +59,7 @@ object PredictiveBack {
         registerNow(activity, tag, handler)
     }
 
+    @SuppressLint("NewApi")
     private fun registerNow(activity: Activity, tag: String, handler: Handler) {
         if (handler.cancelled) return
         if (registered[activity]?.containsKey(tag) == true) return

@@ -2,6 +2,7 @@ package com.tilixibiesi.util
 import com.tilixibiesi.R
 import com.tilixibiesi.data.SpUtils
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
@@ -43,6 +44,7 @@ object DialogHelper {
         }
     }
 
+    @SuppressLint("DiscouragedApi")
     fun createStyledDialog(
         activity: Activity,
         builder: AlertDialog.Builder,

@@ -136,7 +136,7 @@
                         android:id="@+id/tv_np_cur"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="00:00"
+                        android:text="@string/player_time_zero"
                         android:textSize="13sp"
                         android:textColor="#FFB0B0B0" />
 
@@ -149,7 +149,7 @@
                         android:id="@+id/tv_np_total"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="00:00"
+                        android:text="@string/player_time_zero"
                         android:textSize="13sp"
                         android:textColor="#FFB0B0B0" />
                 </LinearLayout>

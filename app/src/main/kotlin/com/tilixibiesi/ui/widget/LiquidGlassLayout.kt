@@ -21,7 +21,6 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
-import android.os.SystemClock
 import android.util.Log
 import android.util.AttributeSet
 import android.view.MotionEvent
@@ -320,7 +319,6 @@ half4 main(float2 fragCoord) {
     var pressEnabled: Boolean = true
 
     private var adaptLuma = 0.5f
-    private var adaptPending = false
     private var adaptSampledSignature = Int.MIN_VALUE
 
     private val tiltListener = object : SensorEventListener {
@@ -500,6 +498,7 @@ half4 main(float2 fragCoord) {
         canvas.restoreToCount(save)
     }
 
+    @SuppressLint("NewApi")
     private fun drawShaderPass(canvas: Canvas, bmp: Bitmap): Boolean {
         val s = ensureShader() ?: return false
 
@@ -540,6 +539,7 @@ half4 main(float2 fragCoord) {
         return true
     }
 
+    @SuppressLint("NewApi")
     private fun ensureShaderEffect(s: RuntimeShader): RenderEffect {
         val cached = shaderEffect
         if (cached != null &&
@@ -567,6 +567,7 @@ half4 main(float2 fragCoord) {
         return rebuilt
     }
 
+    @SuppressLint("NewApi")
     private fun recordBlurNode(bmp: Bitmap, bw: Int, bh: Int) {
         val radius = blurRadiusDp * density / DOWNSCALE
         // 只在尺寸 / 内容代次 / 半径变化时重录 display list，
@@ -786,7 +787,7 @@ half4 main(float2 fragCoord) {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         sensorManager = sm
         val sensor = sm?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        if (glassEnabled && tiltEnabled && isAttachedToWindow && sensor != null && sm != null) {
+        if (glassEnabled && tiltEnabled && isAttachedToWindow && sensor != null) {
             sm.registerListener(tiltListener, sensor, SensorManager.SENSOR_DELAY_GAME)
         } else {
             sm?.unregisterListener(tiltListener)

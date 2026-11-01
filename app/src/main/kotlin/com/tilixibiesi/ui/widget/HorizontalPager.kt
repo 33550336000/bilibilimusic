@@ -199,7 +199,6 @@ class HorizontalPager @JvmOverloads constructor(
     private var lastMotionX = 0f
     private var lastMotionY = 0f
     private var downX = 0f
-    private var downY = 0f
     private var activePointerId = MotionEvent.INVALID_POINTER_ID
     private var scrollState = SCROLL_STATE_IDLE
     private var pendingPage: Int? = null
@@ -606,7 +605,6 @@ class HorizontalPager @JvmOverloads constructor(
         isDragging = false
         dragRejected = false
         downX = ev.x
-        downY = ev.y
         lastMotionX = ev.x
         lastMotionY = ev.y
         downOnBlockedTarget = isDragBlockedAtDown(ev.rawX, ev.rawY, ev.x, ev.y)
@@ -635,7 +633,6 @@ class HorizontalPager @JvmOverloads constructor(
         return if (activePointerId != MotionEvent.INVALID_POINTER_ID) {
             vt.getXVelocity(activePointerId)
         } else {
-            @Suppress("DEPRECATION")
             vt.xVelocity
         }
     }

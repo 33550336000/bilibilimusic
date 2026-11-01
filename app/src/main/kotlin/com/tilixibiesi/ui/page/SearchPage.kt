@@ -392,7 +392,6 @@ class SearchPage(base: Context) : BasePage(base) {
                         videoPlayer.play(biliVideoList[currentVideoIndex])
                     }
                 }
-                override fun onRecordHistory(video: BiliVideo) {  }
                 override fun onDanmakuToggled(enabled: Boolean) = this@SearchPage.onDanmakuToggled(enabled)
                 override fun onRequestNeighbor(direction: Int): BiliVideo? {
                     val target = currentVideoIndex + direction

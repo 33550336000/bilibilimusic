@@ -34,6 +34,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
+@SuppressLint("StaticFieldLeak")
 object BiliLoginHelper {
 
     private const val TAG = "BiliLoginHelper"
@@ -194,7 +195,6 @@ object BiliLoginHelper {
         }
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
     private fun configure(wv: WebView) {
         wv.settings.apply {
             javaScriptEnabled = true

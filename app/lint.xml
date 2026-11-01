@@ -2,15 +2,7 @@
 
 <lint>
 
-    <issue id="IconLauncherShape" severity="ignore" />
-
-    <issue id="ExpiredTargetSdkVersion" severity="ignore" />
-
-    <issue id="ChromeOsAbiSupport" severity="ignore" />
-
     <issue id="ScopedStorage" severity="ignore" />
-
-    <issue id="GradleDependency" severity="ignore" />
 
     <issue id="SetJavaScriptEnabled" severity="ignore" />
 
@@ -19,5 +11,13 @@
     <issue id="AppBundleLocaleChanges" severity="ignore" />
 
     <issue id="SdCardPath" severity="ignore" />
+
+    <issue id="MergeRootFrame" severity="ignore" />
+
+    <issue id="UselessParent" severity="ignore" />
+
+    <issue id="TooManyViews" severity="ignore" />
+
+    <issue id="UnusedAttribute" severity="ignore" />
 
 </lint>

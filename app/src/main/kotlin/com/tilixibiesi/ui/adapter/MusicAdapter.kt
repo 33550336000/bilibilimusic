@@ -51,7 +51,7 @@ class MusicAdapter(
 
     // ---- 主题相关取值缓存 ----
     // 每次 getView 都读 SharedPreferences + parseColor 是列表滚动/每秒重绑时的主要开销，
-    // 这里缓存一份；设置页改动颜色字号后调用 invalidateTheme() 失效。
+    // 这里缓存一份；notifyDataSetChanged() 时失效重读。
     private var themeFontColor: Int = Color.WHITE
     private var themeFontSize: Int = 15
     private var themeLoaded = false
@@ -59,10 +59,6 @@ class MusicAdapter(
     private val playingColor: Int by lazy { Color.HSVToColor(floatArrayOf(210f, 1f, 1f)) }
     private val authorColor: Int by lazy { Color.parseColor("#AAAAAA") }
     private val deleteColor: Int by lazy { Color.parseColor("#FF0000") }
-
-    fun invalidateTheme() {
-        themeLoaded = false
-    }
 
     private fun ensureTheme() {
         if (themeLoaded) return
@@ -79,7 +75,6 @@ class MusicAdapter(
     override fun getItem(position: Int): Any = musicList[position]
     override fun getItemId(position: Int): Long = position.toLong()
 
-    @SuppressLint("SetTextI18n")
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
         var view = convertView
         val holder: ViewHolder

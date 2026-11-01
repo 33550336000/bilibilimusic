@@ -112,11 +112,8 @@ class NowPlayingPage(
 
     private var isUserSeeking = false
 
-    private var isPlayingState = false
-
     private val lyricLines = mutableListOf<TextView>()
     private var lyric: BiliLyric? = null
-    private var lyricBvid: String? = null
     private var lyricLoadedBvid: String? = null
     private var lyricRequestId = 0
     private var activeLyricIndex = -1
@@ -524,7 +521,6 @@ class NowPlayingPage(
 
 
     fun updateProgress(positionMs: Int?, durationMs: Int?, isPlaying: Boolean) {
-        isPlayingState = isPlaying
         btnPlay.setImageResource(
             if (isPlaying) android.R.drawable.ic_media_pause
             else android.R.drawable.ic_media_play
@@ -563,7 +559,6 @@ class NowPlayingPage(
     private fun resetLyrics() {
         lyricRequestId++
         lyric = null
-        lyricBvid = null
         lyricLoadedBvid = null
         activeLyricIndex = -1
         lyricLines.clear()
@@ -592,7 +587,6 @@ class NowPlayingPage(
             if (local != null) {
                 handler.post {
                     if (requestId != lyricRequestId) return@post
-                    lyricBvid = bvid
                     lyricLoadedBvid = bvid
                     lyric = local
                     renderLyric(local)
@@ -611,7 +605,6 @@ class NowPlayingPage(
             if (result != null) BiliLyricStore.save(baseName, result)
             handler.post {
                 if (requestId != lyricRequestId) return@post
-                lyricBvid = bvid
                 lyricLoadedBvid = bvid
                 lyric = result
                 if (result == null || result.lines.isEmpty()) showNoLyrics() else renderLyric(result)
@@ -626,7 +619,6 @@ class NowPlayingPage(
         tvNoLyrics.visibility = View.VISIBLE
     }
 
-    @SuppressLint("SetTextI18n")
     private fun renderLyric(lyric: BiliLyric) {
         lyricLines.clear()
         llLyrics.removeAllViews()

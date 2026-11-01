@@ -81,9 +81,6 @@ object PlaybackStatsWriter {
         scheduleFlush()
     }
 
-    /** 兼容旧调用点：加一秒。 */
-    fun addOneSecond(musicName: String) = addSeconds(musicName, 1L)
-
     private fun rollDateIfNeededLocked() {
         val today = LocalDate.now().toString()
         if (today == activeDate) return

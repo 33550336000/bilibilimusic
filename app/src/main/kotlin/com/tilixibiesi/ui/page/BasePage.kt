@@ -83,18 +83,15 @@ abstract class BasePage(base: Context) : ContextWrapper(base) {
         host?.startActivityForResult(this, intent, requestCode)
     }
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag", "WrongConstant")
     fun registerPageReceiver(receiver: BroadcastReceiver, filter: IntentFilter) {
         if (Build.VERSION.SDK_INT >= 33) {
-            activity.registerReceiver(receiver, filter, RECEIVER_EXPORTED)
+            activity.registerReceiver(receiver, filter, android.content.Context.RECEIVER_EXPORTED)
         } else {
+            // API 33 以下没有 flag 参数；此分支仅在旧系统执行。
+            @SuppressLint("UnspecifiedRegisterReceiverFlag")
             activity.registerReceiver(receiver, filter)
         }
         receivers.add(receiver)
-    }
-
-    private companion object {
-        const val RECEIVER_EXPORTED = 2
     }
 
     fun unregisterPageReceiver(receiver: BroadcastReceiver) {
