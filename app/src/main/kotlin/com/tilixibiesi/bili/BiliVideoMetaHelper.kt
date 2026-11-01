@@ -41,8 +41,4 @@ object BiliVideoMetaHelper {
             mainHandler.post { onDone(meta) }
         }
     }
-
-    fun clearCache() {
-        cache.clear()
-    }
 }

@@ -31,7 +31,6 @@ class SelectMusicActivity : BaseActivity() {
     private lateinit var btnConfirm: Button
     private val selectedPositions = HashSet<Int>()
     private lateinit var bgHost: View
-    private var playlistId: String? = null
     private lateinit var etSearch: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,8 +49,6 @@ class SelectMusicActivity : BaseActivity() {
         btnConfirm.setTextColor(fontColor)
         etSearch.setTextColor(fontColor)
         etSearch.setHintTextColor(FontUtils.dimmed(this))
-
-        playlistId = intent.getStringExtra(EXTRA_PLAYLIST_ID)
 
         allMusicList = loadSelectableMusic()
 

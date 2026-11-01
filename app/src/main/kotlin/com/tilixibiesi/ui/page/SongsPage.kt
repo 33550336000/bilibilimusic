@@ -387,7 +387,6 @@ class SongsPage(base: Context) : BasePage(base) {
         tvCurrentMusic.setOnClickListener { openNowPlaying() }
     }
 
-    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     private fun initReceiver() {
         playStateReceiver = PlayStateReceiver()
         val filter = IntentFilter().apply {
@@ -774,7 +773,7 @@ class SongsPage(base: Context) : BasePage(base) {
     }
 
     private fun applySearchButtonPosition() {
-        val parent = btnSearchFloat.parent as View ?: return
+        val parent = btnSearchFloat.parent as? View ?: return
         if (parent.height <= 0 || btnSearchFloat.height <= 0) return
 
         val marginBottom = (16 * resources.displayMetrics.density).toInt()
@@ -797,7 +796,6 @@ class SongsPage(base: Context) : BasePage(base) {
         btnSearchFloat.translationY = y.coerceIn(minTy, maxTy)
     }
 
-    @SuppressLint("ClickableViewAccessibility")
     private fun setupDragForSearchButton() {
         btnSearchFloat.setOnTouchListener { v, event ->
             when (event.action) {

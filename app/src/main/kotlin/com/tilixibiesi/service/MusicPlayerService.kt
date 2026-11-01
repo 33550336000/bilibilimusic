@@ -5,8 +5,6 @@ import com.tilixibiesi.R
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.data.DataFileUtils
-import com.tilixibiesi.data.PlaybackDetails
-import com.tilixibiesi.data.StoragePaths
 import com.tilixibiesi.bili.BiliApiHelper
 import com.tilixibiesi.bili.BiliAudioQuality
 import com.tilixibiesi.bili.BiliLyric
@@ -38,7 +36,6 @@ import java.io.File
 import android.annotation.SuppressLint
 import android.util.Log
 
-@SuppressLint("WakelockTimeout")
 class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     MediaPlayer.OnCompletionListener, MediaPlayer.OnErrorListener, AudioManager.OnAudioFocusChangeListener,
     MediaSessionCallback {
@@ -48,9 +45,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
         /** 进度 tick 周期。 */
         private const val TICK_INTERVAL_MS = 1000L
-
-        /** 单次最多补记的时长，防止长时间后台后一次性灌入巨量统计。 */
-        private const val MAX_STATS_CATCH_UP_MS = 60_000L
 
         /** 播放位置回退超过这个阈值才视作用户拖动，否则忽略（解码器抖动）。 */
         private const val SEEK_BACK_TOLERANCE_MS = 2_000L
@@ -654,6 +648,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     private fun getDisplayNameFromCache(filePath: String): String? = File(filePath).name
 
+    @SuppressLint("WakelockTimeout")
     private fun playFile(filePath: String, displayName: String?) {
         resetBiliState()
         stopProgressUpdates()
@@ -859,6 +854,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
+    @SuppressLint("WakelockTimeout")
     override fun onPrepared(mp: MediaPlayer) {
         isPrepared = true
 
@@ -1019,6 +1015,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
+    @SuppressLint("WakelockTimeout")
     private fun resumePlay() {
         if (isPaused && mediaPlayer != null) {
             audioFocus.request()

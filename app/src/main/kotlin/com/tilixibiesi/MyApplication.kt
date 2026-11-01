@@ -9,16 +9,11 @@ import com.tilixibiesi.service.MusicPlayerService
 
 import android.app.Activity
 import android.app.Application
-import android.content.Context
 import android.os.Bundle
 
 class MyApplication : Application() {
 
     private var startedActivities = 0
-
-    override fun attachBaseContext(base: Context?) {
-        super.attachBaseContext(base)
-    }
 
     override fun onCreate() {
         super.onCreate()

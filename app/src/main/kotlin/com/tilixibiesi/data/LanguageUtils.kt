@@ -1,7 +1,6 @@
 package com.tilixibiesi.data
 
 import android.util.Log
-import com.tilixibiesi.R
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.AtomicFileWriter
 

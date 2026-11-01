@@ -3,7 +3,6 @@ package com.tilixibiesi.ui.widget
 import android.content.Context
 import android.util.AttributeSet
 import android.widget.FrameLayout
-import kotlin.math.min
 
 class SquareLayout @JvmOverloads constructor(
     context: Context,

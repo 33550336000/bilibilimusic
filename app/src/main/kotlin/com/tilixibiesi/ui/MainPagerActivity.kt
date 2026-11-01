@@ -2,6 +2,7 @@ package com.tilixibiesi.ui
 
 import com.tilixibiesi.R
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.view.MotionEvent
 import android.content.res.Configuration
@@ -427,6 +428,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
 
     @Deprecated("Deprecated in Java")
     @Suppress("DEPRECATION")
+    @SuppressLint("GestureBackNavigation")
     override fun onBackPressed() {
         if (BiliLoginHelper.handleBackPressed()) return
         if (handleBackPressed()) return

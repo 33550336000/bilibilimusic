@@ -34,10 +34,6 @@ object BiliLyricHelper {
         synchronized(cache) { cache[key] = value }
     }
 
-    fun clearCache() {
-        synchronized(cache) { cache.clear() }
-    }
-
     fun fetch(bvid: String, cid: Long, durationSec: Int = 0, cookie: String = ""): BiliLyric? {
         if (bvid.isEmpty() || cid <= 0L) return null
         val key = "$bvid/$cid"

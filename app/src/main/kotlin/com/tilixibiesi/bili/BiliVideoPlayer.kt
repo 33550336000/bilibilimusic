@@ -11,7 +11,6 @@ import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.VideoPlaybackController
 import com.tilixibiesi.service.VideoPlaybackService
 
-import android.app.Activity
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
@@ -44,7 +43,6 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
         fun setFullScreen()
         fun onRequestSwitchNext()
         fun onRequestSwitchPrevious()
-        fun onRecordHistory(video: BiliVideo)
 
         fun onRequestNeighbor(direction: Int): BiliVideo? = null
 
@@ -316,7 +314,6 @@ private fun updateLayoutForOrientation() {
 
     textureView.layoutParams = params
 }
-@SuppressLint("SourceLockedOrientationActivity")
 fun close() {
     isExpectedPrepare = false
     saveCurrentProgress()

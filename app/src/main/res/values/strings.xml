@@ -163,6 +163,7 @@
     <string name="format_today_duration">今日:%s</string>
     <string name="format_total_duration">总:%s</string>
     <string name="player_time_format">%1$s / %2$s</string>
+    <string name="player_time_zero">00:00</string>
     <string name="player_time_placeholder">00:00 / %1$s</string>
     <string name="all_songs">全部歌曲</string>
     <string name="detail">详情</string>
@@ -335,7 +336,6 @@
 <string name="toast_bottom_nav_disabled">底部导航栏已关闭</string>
     <string name="dialog_msg_bottom_nav_on">是否开启底部导航栏？</string>
     <string name="dialog_msg_bottom_nav_off">是否关闭底部导航栏？</string>
-    <string name="btn_liquid_glass">液态玻璃控制栏</string>
     <string name="btn_liquid_glass_on">液态玻璃控制栏-开</string>
     <string name="btn_liquid_glass_off">液态玻璃控制栏-关</string>
     <string name="dialog_title_liquid_glass">液态玻璃控制栏</string>
