@@ -38,8 +38,8 @@
     <string name="btn_blocked_words">屏蔽词管理</string>
     <string name="btn_toggle_click_fx">点击特效:%s</string>
 <string name="dialog_title_click_fx">点击特效</string>
-<string name="dialog_msg_click_fx_on">开启之后，应用内将会启用特效</string>
-<string name="dialog_msg_click_fx_off">关闭后不再显示点击特效。</string>
+<string name="dialog_msg_click_fx_on">将会启用点击特效</string>
+<string name="dialog_msg_click_fx_off">不再显示点击特效</string>
 <string name="toast_click_fx_changed">已切换</string>
 <string name="btn_toggle_search_page">启用搜索页面</string>
     <string name="btn_toggle_search_button">启用搜索按钮</string>
@@ -128,10 +128,10 @@
     <string name="dialog_msg_confirm_disable_auto_cache">确定要关闭自动下载吗</string>
     <string name="dialog_msg_confirm_enable_auto_cache">确定要开启自动下载吗</string>
     <string name="dialog_msg_confirm_clear_records">确定要清除所有记录吗？</string>
-    <string name="dialog_msg_search_mode_page">当前模式:滑动进入搜索页面\n是否切换到按钮模式</string>
-    <string name="dialog_msg_search_mode_button">当前模式:滑动进入设置页面\n是否切换回滑动进入搜索？</string>
-    <string name="dialog_msg_volume_key_on">当前已启用音量键切换歌曲\n是否关闭？</string>
-    <string name="dialog_msg_volume_key_off">当前未启用音量键切换歌曲\n是否启用？</string>
+    <string name="dialog_msg_search_mode_page">是否切换到按钮模式</string>
+    <string name="dialog_msg_search_mode_button">是否切换回滑动进入搜索？</string>
+    <string name="dialog_msg_volume_key_on">确定关闭？</string>
+    <string name="dialog_msg_volume_key_off">确定启用？</string>
     <string name="dialog_msg_delete_music_format">确定要删除《%s》的文件吗？</string>
     <string name="dialog_msg_delete_word_format">确定要删除「%s」吗？</string>
     <string name="dialog_msg_clear_all_music">将删除所有音乐</string>
@@ -224,7 +224,7 @@
     <string name="delete_song_title">删除歌曲</string>
     <string name="delete_song_message">确定要移除《%1$s》吗？</string>
     <string name="delete_restricted_title">操作受限</string>
-    <string name="delete_restricted_message">该歌曲《%1$s》不支持删除。</string>
+    <string name="delete_restricted_message">该歌曲《%1$s》不允许删除。</string>
     <string name="delete_success">已永久删除:%1$s</string>
 
     <string name="restore_original_success">已恢复原名</string>
@@ -339,31 +339,31 @@
     <string name="btn_liquid_glass_on">液态玻璃控制栏-开</string>
     <string name="btn_liquid_glass_off">液态玻璃控制栏-关</string>
     <string name="dialog_title_liquid_glass">液态玻璃控制栏</string>
-    <string name="dialog_msg_liquid_glass_on">是否开启液态玻璃效果？开启后悬浮播放栏会折射背后的内容。</string>
-    <string name="dialog_msg_liquid_glass_off">是否关闭液态玻璃效果？关闭后悬浮播放栏为纯白底。</string>
+    <string name="dialog_msg_liquid_glass_on">是否开启液态玻璃效果？</string>
+    <string name="dialog_msg_liquid_glass_off">是否关闭液态玻璃效果？</string>
     <string name="toast_liquid_glass_enabled">液态玻璃已开启</string>
     <string name="toast_liquid_glass_disabled">液态玻璃已关闭</string>
     <string name="btn_liquid_glass_cards">液态玻璃卡片</string>
     <string name="btn_liquid_glass_cards_on">液态玻璃卡片-开</string>
     <string name="btn_liquid_glass_cards_off">液态玻璃卡片-关</string>
-    <string name="dialog_msg_liquid_glass_cards_on">是否给设置页的卡片开启液态玻璃？开启后卡片会折射背后的内容，与控制栏的开关互不影响。</string>
-    <string name="dialog_msg_liquid_glass_cards_off">是否关闭设置页卡片的液态玻璃？关闭后卡片恢复为半透明底色，与控制栏的开关互不影响。</string>
+    <string name="dialog_msg_liquid_glass_cards_on">是否给设置页的卡片开启液态玻璃？</string>
+    <string name="dialog_msg_liquid_glass_cards_off">是否关闭设置页卡片的液态玻璃？</string>
     <string name="toast_liquid_glass_cards_enabled">液态玻璃卡片已开启</string>
     <string name="toast_liquid_glass_cards_disabled">液态玻璃卡片已关闭</string>
     <string name="btn_main_add_button">主页面·加入歌单按钮</string>
     <string name="btn_main_add_button_on">主页面·加入歌单按钮-开</string>
     <string name="btn_main_add_button_off">主页面·加入歌单按钮-关</string>
-    <string name="dialog_msg_main_add_button_on">是否在主页面每首歌右侧显示「+」按钮（加入歌单）？</string>
-    <string name="dialog_msg_main_add_button_off">是否隐藏主页面每首歌右侧的「+」按钮（加入歌单）？隐藏后仍可在歌单页把歌加进歌单。</string>
+    <string name="dialog_msg_main_add_button_on">是否在主页面每首歌右侧显示「+」（加入歌单）?</string>
+    <string name="dialog_msg_main_add_button_off">是否隐藏主页面每首歌右侧的「+」（加入歌单）?</string>
     <string name="toast_main_add_button_enabled">主页面「+」按钮已显示</string>
     <string name="toast_main_add_button_disabled">主页面「+」按钮已隐藏</string>
     <string name="btn_main_delete_button">主页面·删除按钮</string>
     <string name="btn_main_delete_button_on">主页面·删除按钮-开</string>
     <string name="btn_main_delete_button_off">主页面·删除按钮-关</string>
-    <string name="dialog_msg_main_delete_button_on">是否在主页面每首歌右侧显示「×」删除按钮？</string>
-    <string name="dialog_msg_main_delete_button_off">是否隐藏主页面每首歌右侧的「×」删除按钮？隐藏后无法在列表里直接删歌，需要时再打开即可。</string>
-    <string name="toast_main_delete_button_enabled">主页面「×」按钮已显示</string>
-    <string name="toast_main_delete_button_disabled">主页面「×」按钮已隐藏</string>
+    <string name="dialog_msg_main_delete_button_on">是否在主页面每首歌右侧显示「×」</string>
+    <string name="dialog_msg_main_delete_button_off">是否隐藏主页面每首歌右侧的「×」</string>
+    <string name="toast_main_delete_button_enabled">主页面「×」已显示</string>
+    <string name="toast_main_delete_button_disabled">主页面「×」已隐藏</string>
 <string name="nav_songs">歌曲</string>
 <string name="nav_search">搜索</string>
 <string name="nav_playlist">歌单</string>
@@ -436,7 +436,7 @@
     <string name="read_failed">读取失败</string>
 
     <string name="op_restricted">操作受限</string>
-    <string name="delete_restricted_song">该歌曲《%1$s》不支持删除。</string>
+    <string name="delete_restricted_song">该歌曲《%1$s》不允许删除。</string>
 
     <string name="perm_partial">部分权限被拒绝</string>
     <string name="perm_need">需要存储权限</string>
