@@ -3,6 +3,7 @@ package com.tilixibiesi.util
 import android.util.Log
 
 import com.tilixibiesi.bili.BiliApiHelper
+import com.tilixibiesi.bili.BiliAudioQuality
 import com.tilixibiesi.bili.BiliCoverLoader
 import com.tilixibiesi.bili.BiliSearchHelper
 import com.tilixibiesi.data.AppPaths
@@ -99,7 +100,9 @@ class CacheManager {
 
         AppExecutors.io.execute {
             try {
-                val qualityId = if (isBili) SpUtils.getBiliAudioQuality(context) else 0
+                val qualityId = if (isBili) {
+                    BiliAudioQuality.fromSetting(SpUtils.getBiliAudioQuality(context)).id
+                } else 0
                 val existing = findAudioFile(baseName)?.takeIf { it.parentFile == dir }
                 val extension = existing?.name?.substringAfterLast('.')
                     ?: audioExtension(audioUrl, isBili)
