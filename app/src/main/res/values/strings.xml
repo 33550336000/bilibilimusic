@@ -72,8 +72,6 @@
     <string name="audio_quality_64k">64K</string>
     <string name="audio_quality_132k">132K</string>
     <string name="audio_quality_192k">192K</string>
-    <string name="audio_quality_dolby">杜比全景声</string>
-    <string name="audio_quality_hires">Hi-Res</string>
 
     <string name="error_font_size_positive">字体大小必须大于0</string>
     <string name="error_invalid_number">请输入有效数字</string>

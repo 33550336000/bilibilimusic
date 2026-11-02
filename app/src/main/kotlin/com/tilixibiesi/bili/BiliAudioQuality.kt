@@ -9,13 +9,11 @@ enum class BiliAudioQuality(
 ) {
     Q64(30216, 0, R.string.audio_quality_64k),
     Q132(30232, 1, R.string.audio_quality_132k),
-    Q192(30280, 2, R.string.audio_quality_192k),
-    DOLBY(30250, 3, R.string.audio_quality_dolby),
-    HIRES(30251, 4, R.string.audio_quality_hires);
+    Q192(30280, 2, R.string.audio_quality_192k);
 
     companion object {
 
-        val DEFAULT: BiliAudioQuality = Q64
+        val DEFAULT: BiliAudioQuality = Q192
 
         fun fromId(id: Int): BiliAudioQuality? = entries.firstOrNull { it.id == id }
 
@@ -28,11 +26,11 @@ enum class BiliAudioQuality(
             val distinct = availableIds.distinct()
             if (distinct.isEmpty()) return emptyList()
 
-            val others = distinct.filter { it != preferredId }
-            val higher = others.filter { rankOf(it) > preferredRank }.sortedBy { rankOf(it) }
-            val lower = others.filter { rankOf(it) <= preferredRank }.sortedByDescending { rankOf(it) }
-            val head = if (distinct.contains(preferredId)) listOf(preferredId) else emptyList()
-            return head + higher + lower
+            // 先按所选音质逐档下降，降到最低后再从低往高回升，确保任何可用音质都能被选中
+            val ordered = distinct.sortedBy { rankOf(it) }
+            val lower = ordered.filter { rankOf(it) <= preferredRank }.reversed()
+            val higher = ordered.filter { rankOf(it) > preferredRank }
+            return lower + higher
         }
     }
 }
