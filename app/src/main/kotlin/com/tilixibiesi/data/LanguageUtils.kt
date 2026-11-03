@@ -44,8 +44,10 @@ object LanguageUtils {
         "ru" to "Русский",
         "fr" to "Français",
         "es" to "Español",
+        "es-ES" to "Español (España)",
         "hi" to "हिन्दी",
         "pt" to "Português",
+        "pt-PT" to "Português (Portugal)",
         "ko" to "한국어",
         "de" to "Deutsch",
         "it" to "Italiano",
@@ -88,7 +90,19 @@ object LanguageUtils {
         "te" to "తెలుగు",
         "tr" to "Türkçe",
         "uk" to "українська мова",
-        "ur" to "اردو"
+        "ur" to "اردو",
+        "id" to "Bahasa Indonesia",
+        "fil" to "Filipino",
+        "el" to "Ελληνικά",
+        "he" to "עברית",
+        "uz" to "Oʻzbekcha",
+        "bs" to "Bosanski",
+        "lt" to "Lietuvių",
+        "lv" to "Latviešu",
+        "sq" to "Shqip",
+        "ne" to "नेपाली",
+        "si" to "සිංහල",
+        "af" to "Afrikaans"
     )
 
     fun getSupportedLanguages(context: Context): List<Pair<String, String>> {
@@ -222,6 +236,7 @@ object LanguageUtils {
 
     private fun resolveSystemLanguageCode(): String? {
         val locale = systemLocale() ?: return null
+        resolveRegionalVariant(locale)?.let { return it }
         return when (locale.language.lowercase(Locale.ROOT)) {
             "zh" -> if (isTraditionalChinese(locale)) "zh-TW" else BUILTIN_LANG
             "en" -> "en"
@@ -274,6 +289,35 @@ object LanguageUtils {
             "tr" -> "tr"
             "uk" -> "uk"
             "ur" -> "ur"
+            "id" -> "id"
+            "fil" -> "fil"
+            "el" -> "el"
+            "he" -> "he"
+            "uz" -> "uz"
+            "bs" -> "bs"
+            "lt" -> "lt"
+            "lv" -> "lv"
+            "sq" -> "sq"
+            "ne" -> "ne"
+            "si" -> "si"
+            "af" -> "af"
+            else -> null
+        }
+    }
+
+    /**
+     * 西班牙语/葡萄牙语有地区变体，中文/塞尔维亚语有文字变体，单靠 language 不够，
+     * 这里在精确匹配失败时按 region/script 再细分一次。
+     */
+    private fun resolveRegionalVariant(locale: Locale): String? {
+        val lang = locale.language.lowercase(Locale.ROOT)
+        val country = locale.country.uppercase(Locale.ROOT)
+        return when (lang) {
+            "es" -> if (country == "ES") "es-ES" else "es"
+            "pt" -> if (country == "PT" || country == "AO" || country == "MZ" ||
+                country == "CV" || country == "GW" || country == "ST" ||
+                country == "TL" || country == "MO"
+            ) "pt-PT" else "pt"
             else -> null
         }
     }
