@@ -10,6 +10,7 @@ import com.tilixibiesi.bili.BiliAudioQuality
 import com.tilixibiesi.bili.BiliLyric
 import com.tilixibiesi.bili.BiliLyricHelper
 import com.tilixibiesi.bili.BiliLyricStore
+import com.tilixibiesi.bili.BiliMusicZone
 import com.tilixibiesi.bili.BiliSearchHelper
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.AudioFocusController
@@ -358,6 +359,17 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     }
 
     private fun buildFullList(): MutableList<MusicBean> {
+        // 主页面数据源切到 B站音乐分区时，列表就是分区内容本身（分区接口不覆盖本地歌曲库），
+        // 因此这里优先返回分区缓存；缓存为空（首次启动/未拉取成功）时回落到旧的内置列表。
+        if (SpUtils.isMainSourceBiliZone(this)) {
+            val zone = BiliMusicZone.loadCached()
+            if (zone.isNotEmpty()) {
+                return DataFileUtils.filterBlocked(
+                    zone,
+                    DataFileUtils.loadBlockedWords()
+                ).toMutableList()
+            }
+        }
         val local = SpUtils.getMusicList(this)
         val bili = loadBiliHistoryList()
         val full = ArrayList<MusicBean>(bili.size + local.size)
@@ -447,15 +459,15 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             return
         }
 
-        if (bean.isBilibili && !bean.bvid.isNullOrEmpty()) {
-            val bvid = bean.bvid!!
+        if (bean.isBilibili && !bean.biliKey.isNullOrEmpty()) {
+            val bvid = bean.biliKey!!
             currentBvid = bvid
             currentMusicBean = bean
 
             fun fillBackupUrls(firstUrl: String?) {
                 AppExecutors.io.execute {
                     val preferred = audioQuality().id
-                    val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), preferred)
+                    val urls = biliAudioUrls(bean, preferred)
                     biliAudioUrlCache[bvid] =
                         if (firstUrl != null && !urls.contains(firstUrl)) listOf(firstUrl) + urls
                         else urls
@@ -474,7 +486,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
             AppExecutors.io.execute {
                 val preferred = audioQuality().id
-                val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), preferred)
+                val urls = biliAudioUrls(bean, preferred)
                 val firstUrl = urls.firstOrNull()
                 mainHandler.post {
                     if (gen != playGeneration) return@post
@@ -510,9 +522,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         if (!SpUtils.isAutoCacheEnabled(this@MusicPlayerService)) return
         val quality = audioQuality()
         if (!cacheManager.biliCacheQualityMismatch(bean, quality.id)) return
-        val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return
+        if (bean.biliKey == null) return
         AppExecutors.io.execute {
-            val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), quality.id)
+            val urls = biliAudioUrls(bean, quality.id)
             mainHandler.post {
                 val url = urls.firstOrNull() ?: return@post
                 cacheManager.startBackgroundCache(bean, this@MusicPlayerService, url)
@@ -522,8 +534,19 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     private fun biliCookie(): String = SpUtils.getBiliCookie(this)
 
+    /**
+     * 取某个 B站条目的可用音频 URL。
+     *
+     * 所有来源（搜索、播放历史、音乐分区）的条目都带 bvid，统一走 bvid 解析。
+     */
+    private fun biliAudioUrls(bean: MusicBean?, preferredId: Int): List<String> {
+        if (bean == null || !bean.isBilibili) return emptyList()
+        val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return emptyList()
+        return BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), preferredId)
+    }
+
     private fun startAutoCacheForBili(bean: MusicBean, playingPath: String, gen: Int) {
-        val bvid = bean.bvid?.takeIf { it.isNotEmpty() }
+        val bvid = bean.biliKey
         if (!bean.isBilibili || bvid == null) {
             cacheManager.startBackgroundCache(bean, this@MusicPlayerService, playingPath)
             return
@@ -534,7 +557,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             return
         }
         AppExecutors.io.execute {
-            val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), qualityId)
+            val urls = biliAudioUrls(bean, qualityId)
             mainHandler.post {
                 if (gen != playGeneration) return@post
                 val qualityUrl = urls.firstOrNull() ?: playingPath
@@ -553,7 +576,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     private fun reloadCurrentWithNewQuality() {
         val bean = currentMusicBean ?: return
-        val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return
+        val bvid = bean.biliKey ?: return
         if (bean.isDownloaded && bean.localPath != null && File(bean.localPath!!).exists()) return
 
         val quality = audioQuality()
@@ -571,7 +594,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         val gen = playGeneration
 
         AppExecutors.io.execute {
-            val urls = BiliSearchHelper.getAudioUrlsByQuality(bvid, biliCookie(), quality.id)
+            val urls = biliAudioUrls(bean, quality.id)
             mainHandler.post {
                 if (gen != playGeneration) return@post
                 val firstUrl = urls.firstOrNull() ?: return@post
@@ -896,8 +919,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         savePlayState()
         currentMusicBean?.let { bean ->
             updateBiliCacheForQualityIfNeeded(bean)
+            val durationSec = (resolveDurationMs() / 1000L).toInt()
             bean.bvid?.takeIf { it.isNotEmpty() }?.let { bvid ->
-                startLyricLoad(bvid, (resolveDurationMs() / 1000L).toInt())
+                startLyricLoad(bvid, durationSec)
             }
         }
     }
@@ -925,9 +949,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 return true
             } else {
                 AppExecutors.io.execute {
-                    val freshUrl = BiliSearchHelper.getPreferredAudioUrl(
-                        bvid, biliCookie(), audioQuality().id
-                    )
+                    val freshUrl = biliAudioUrls(currentMusicBean, audioQuality().id).firstOrNull()
                     mainHandler.post {
                         if (freshUrl != null) {
                             val urls = (biliAudioUrlCache[bvid] ?: mutableListOf<String>()).toMutableList()

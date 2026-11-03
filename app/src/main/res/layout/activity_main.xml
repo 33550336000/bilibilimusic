@@ -27,17 +27,24 @@
 
         </RelativeLayout>
 
-        <ListView
-            android:id="@+id/lv_music"
+        <com.tilixibiesi.ui.widget.PullToRefreshLayout
+            android:id="@+id/pull_refresh"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:background="@null"
-            android:paddingBottom="0dp"
-            android:divider="#22FFFFFF"
-            android:dividerHeight="1dp" 
-            android:clipToPadding="false"
-            android:scrollbars="none"/>
+            android:layout_weight="1">
+
+            <ListView
+                android:id="@+id/lv_music"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@null"
+                android:paddingBottom="0dp"
+                android:divider="#22FFFFFF"
+                android:dividerHeight="1dp"
+                android:clipToPadding="false"
+                android:scrollbars="none"/>
+
+        </com.tilixibiesi.ui.widget.PullToRefreshLayout>
 
     </LinearLayout>
 

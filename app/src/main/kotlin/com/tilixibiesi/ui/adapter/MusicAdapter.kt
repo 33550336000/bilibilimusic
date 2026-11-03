@@ -13,7 +13,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.TextView
+import com.tilixibiesi.bili.BiliCoverLoader
 import java.util.IdentityHashMap
 
 class MusicAdapter(
@@ -28,6 +30,7 @@ class MusicAdapter(
     var originalIndexProvider: ((MusicBean) -> Int)? = null
     var showAddButton: Boolean = true
     var showDeleteButton: Boolean = false
+    var showCoverInsteadOfIndex: Boolean = false
 
     // ---- 原列表序号缓存 ----
     // 调用方传进来的 originalIndexProvider 通常是 allMusicList.indexOf(...)，
@@ -82,6 +85,7 @@ class MusicAdapter(
             view = LayoutInflater.from(context).inflate(R.layout.item_music, parent, false)
             holder = ViewHolder(
                 tvIndex = view.findViewById(R.id.tv_index),
+                ivIndexCover = view.findViewById(R.id.iv_index_cover),
                 tvMusicName = view.findViewById(R.id.tv_music_name),
                 tvAuthor = view.findViewById(R.id.tv_author),
                 btnAddToPlaylist = view.findViewById(R.id.btn_add_to_playlist),
@@ -109,10 +113,20 @@ class MusicAdapter(
         ensureTheme()
 
         val musicBean = musicList[position]
-        holder.tvIndex.text = if (originalIndexProvider != null) {
-            (originalIndex(musicBean) + 1).toString()
+        val coverUrl = musicBean.coverUrl
+        if (showCoverInsteadOfIndex && musicBean.isBilibili && !coverUrl.isNullOrEmpty()) {
+            holder.tvIndex.visibility = View.GONE
+            holder.ivIndexCover.visibility = View.VISIBLE
+            BiliCoverLoader.load(holder.ivIndexCover, coverUrl)
         } else {
-            (position + 1).toString()
+            holder.ivIndexCover.visibility = View.GONE
+            holder.ivIndexCover.tag = null
+            holder.tvIndex.visibility = View.VISIBLE
+            holder.tvIndex.text = if (originalIndexProvider != null) {
+                (originalIndex(musicBean) + 1).toString()
+            } else {
+                (position + 1).toString()
+            }
         }
         val displayName = DataFileUtils.getDisplayName(musicBean.musicName)
         holder.tvMusicName.text = displayName
@@ -164,6 +178,7 @@ class MusicAdapter(
 
     data class ViewHolder(
         val tvIndex: TextView,
+        val ivIndexCover: ImageView,
         val tvMusicName: TextView,
         val tvAuthor: TextView,
         val btnAddToPlaylist: ImageButton,

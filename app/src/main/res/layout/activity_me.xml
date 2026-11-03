@@ -154,7 +154,17 @@
                 android:background="@drawable/button_background_restore"
                 android:textColor="#FFFFFF"
                 android:padding="12dp"
+                android:layout_marginBottom="12dp"
                 android:visibility="gone" />
+
+            <Button
+                android:id="@+id/btn_me_main_source"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/btn_me_main_source_zone"
+                android:background="@drawable/button_background"
+                android:textColor="#000000"
+                android:padding="12dp" />
         </com.tilixibiesi.ui.widget.LiquidGlassLayout>
     </LinearLayout>
 </ScrollView>

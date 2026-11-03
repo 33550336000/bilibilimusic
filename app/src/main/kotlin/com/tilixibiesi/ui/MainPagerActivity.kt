@@ -498,6 +498,13 @@ class MainPagerActivity : BaseActivity(), PageHost {
         setPage(PAGE_SETTINGS, true)
     }
 
+    /** “我的”页切换主页面数据源后，立即让歌曲页重新加载列表。 */
+    fun onMainSourceChanged() {
+        (pages.getOrNull(PAGE_SONGS) as? SongsPage)
+            ?.takeIf { it.created }
+            ?.onMainSourceChanged()
+    }
+
     override fun startActivityForResult(page: BasePage, intent: Intent, requestCode: Int) {
         pendingResultTarget = page
         @Suppress("DEPRECATION")

@@ -63,6 +63,7 @@ class MePage(base: Context) : BasePage(base) {
     private var ivAvatar: ImageView? = null
     private var btnLogin: Button? = null
     private var btnLogout: Button? = null
+    private var btnMainSource: Button? = null
 
     private var statusChecked = false
     private var statusLoading = false
@@ -92,6 +93,9 @@ class MePage(base: Context) : BasePage(base) {
         btnLogout?.setOnClickListener { confirmLogout() }
         findViewById<Button>(R.id.btn_me_reauth)?.setOnClickListener { startReauth() }
         findViewById<Button>(R.id.btn_me_settings)?.setOnClickListener { openSettings() }
+        btnMainSource = findViewById(R.id.btn_me_main_source)
+        updateMainSourceLabel()
+        btnMainSource?.setOnClickListener { showMainSourceDialog() }
 
         applyCardGlass()
         if (SpUtils.getBiliCookie(this).isEmpty()) {
@@ -122,6 +126,7 @@ class MePage(base: Context) : BasePage(base) {
 
     override fun onPageShow() {
         refreshAccount(force = false)
+        updateMainSourceLabel()
     }
 
     override fun onResume() {
@@ -402,6 +407,46 @@ class MePage(base: Context) : BasePage(base) {
 
     private fun openSettings() {
         (activity as? MainPagerActivity)?.openSettingsPage()
+    }
+
+    private fun updateMainSourceLabel() {
+        val biliZone = SpUtils.isMainSourceBiliZone(this)
+        btnMainSource?.text = LanguageUtils.getString(
+            this,
+            if (biliZone) R.string.btn_me_main_source_zone else R.string.btn_me_main_source_builtin
+        )
+    }
+
+    /** 卡片最下方按钮：在主页面「B站音乐分区」与旧的「内置歌曲列表」之间二选一。 */
+    private fun showMainSourceDialog() {
+        val biliZone = SpUtils.isMainSourceBiliZone(this)
+        DialogHelper.createStyledDialog(
+            activity,
+            AlertDialog.Builder(this)
+                .setTitle(LanguageUtils.getString(this, R.string.dialog_title_me_main_source))
+                .setMessage(
+                    LanguageUtils.getString(
+                        this,
+                        if (biliZone) R.string.dialog_msg_me_main_source_to_builtin
+                        else R.string.dialog_msg_me_main_source_to_zone
+                    )
+                )
+                .setPositiveButton(LanguageUtils.getString(this, R.string.btn_ok)) { _, _ ->
+                    val target = !biliZone
+                    SpUtils.setMainSourceBiliZone(this, target)
+                    updateMainSourceLabel()
+                    (activity as? MainPagerActivity)?.onMainSourceChanged()
+                    ToastUtils.show(
+                        this,
+                        LanguageUtils.getString(
+                            this,
+                            if (target) R.string.toast_me_main_source_zone
+                            else R.string.toast_me_main_source_builtin
+                        )
+                    )
+                }
+                .setNegativeButton(LanguageUtils.getString(this, R.string.btn_cancel), null)
+        )
     }
 
     private fun applyCardGlass() {

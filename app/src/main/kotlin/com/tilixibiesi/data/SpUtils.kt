@@ -36,6 +36,7 @@ object SpUtils {
     private const val KEY_LIQUID_GLASS_CARDS_ENABLED = "liquid_glass_cards_enabled"
     private const val KEY_MAIN_ADD_BUTTON_VISIBLE = "main_add_button_visible"
     private const val KEY_MAIN_DELETE_BUTTON_VISIBLE = "main_delete_button_visible"
+    private const val KEY_MAIN_SOURCE_BILI_ZONE = "main_source_bili_zone"
 
     private const val KEY_CLICK_FX_ENABLED = "click_fx_enabled"
     private const val KEY_COLLAPSED_SECTIONS = "collapsed_sections"
@@ -170,6 +171,14 @@ object SpUtils {
 
     fun setMainDeleteButtonVisible(context: Context, visible: Boolean) {
         getSp(context).edit().putBoolean(KEY_MAIN_DELETE_BUTTON_VISIBLE, visible).apply()
+    }
+
+    /** 主页面数据源：true = B站音乐分区（默认），false = 旧的服务器内置歌曲列表。 */
+    fun isMainSourceBiliZone(context: Context): Boolean =
+        getSp(context).getBoolean(KEY_MAIN_SOURCE_BILI_ZONE, true)
+
+    fun setMainSourceBiliZone(context: Context, biliZone: Boolean) {
+        getSp(context).edit().putBoolean(KEY_MAIN_SOURCE_BILI_ZONE, biliZone).apply()
     }
 
     fun getClickFxEnabled(context: Context): Boolean =
