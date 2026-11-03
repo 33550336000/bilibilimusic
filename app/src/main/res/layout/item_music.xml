@@ -4,25 +4,46 @@
     android:layout_height="56dp"
     android:background="@null"
     android:paddingHorizontal="16dp">
-    <TextView
-        android:id="@+id/tv_index"
+    <!--
+        序号与封面的共用前导槽位：宽度固定，两者叠放互斥显示。
+        这样 layout_text 永远锚在同一个位置上，不会因为 tv_index 变 GONE 而错位。
+    -->
+    <FrameLayout
+        android:id="@+id/layout_lead"
         android:layout_width="30dp"
-        android:layout_height="wrap_content"
-        android:layout_centerVertical="true"
-        android:textColor="#888888"
-        android:textSize="14sp" />
+        android:layout_height="30dp"
+        android:layout_centerVertical="true">
+        <TextView
+            android:id="@+id/tv_index"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textColor="#888888"
+            android:textSize="14sp" />
+        <ImageView
+            android:id="@+id/iv_index_cover"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_item_cover"
+            android:clipToOutline="true"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_cover_placeholder"
+            android:contentDescription="@string/video_cover"
+            android:visibility="gone" />
+    </FrameLayout>
     <LinearLayout
         android:id="@+id/layout_text"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_centerVertical="true"
         android:layout_marginStart="12dp"
-        android:layout_toEndOf="@id/tv_index"
+        android:layout_toEndOf="@id/layout_lead"
         android:layout_toStartOf="@id/layout_right"
         android:orientation="vertical">
         <TextView
             android:id="@+id/tv_music_name"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
@@ -30,7 +51,7 @@
             android:textSize="15sp" />
         <TextView
             android:id="@+id/tv_author"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="#AAAAAA"
             android:textSize="12sp"

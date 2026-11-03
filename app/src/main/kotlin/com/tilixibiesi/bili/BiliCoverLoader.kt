@@ -53,13 +53,18 @@ object BiliCoverLoader {
             return
         }
         val url = normalize(coverUrl)
+        val previous = imageView.tag as? String
         imageView.tag = url
         val cached = cache.get(url)
         if (cached != null) {
             imageView.setImageBitmap(cached)
             return
         }
-        imageView.setImageDrawable(null)
+        // 列表每次 notifyDataSetChanged 都会把所有可见行重新 bind 一遍。
+        // 这里若先清空，就会出现「点一下就整屏封面消失再逐个加载」。
+        // 所以只有当这张 View 之前显示的是「别的封面」时才清空；同一 URL 的
+        // 重复绑定保留现有图片，等新图下载完再替换。
+        if (previous != url) imageView.setImageResource(R.drawable.ic_cover_placeholder)
         if (isFailed(url)) return
         AppExecutors.io.execute {
             val bitmap = runCatching { download(url) }

@@ -394,6 +394,14 @@
     <string name="me_logout_title">退出登录</string>
     <string name="me_logout_message">退出后将清除已保存的 B站 登录凭证，确定退出吗？</string>
     <string name="me_logout_done">已退出登录</string>
+    <string name="btn_me_main_source">主页面数据源</string>
+    <string name="btn_me_main_source_zone">主页面数据源:B站音乐分区</string>
+    <string name="btn_me_main_source_builtin">主页面数据源:内置歌曲列表</string>
+    <string name="dialog_title_me_main_source">主页面数据源</string>
+    <string name="dialog_msg_me_main_source_to_zone">切换为 B站音乐分区?主页面将显示分区列表（封面+作者，无删除按钮）。</string>
+    <string name="dialog_msg_me_main_source_to_builtin">切换为内置歌曲列表?主页面将恢复原来的内置歌曲与播放历史。</string>
+    <string name="toast_me_main_source_zone">已切换为 B站音乐分区</string>
+    <string name="toast_me_main_source_builtin">已切换为内置歌曲列表</string>
     <string name="channel_music">音乐播放</string>
     <string name="channel_music_desc">音乐播放前台服务通知</string>
     <string name="channel_video">视频播放</string>
@@ -461,6 +469,7 @@
     <string name="playlist_item_format">%1$s（%2$d 首）</string>
     <string name="sub_playlist_item_format">%1$s（%2$d 首）</string>
     <string name="music_list_updated">已更新 %1$d 首歌曲到歌单</string>
+    <string name="zone_fetch_fail">音乐分区获取失败</string>
 
     <string name="danmaku_toggle_on">弹幕 开</string>
     <string name="danmaku_toggle_off">弹幕 关</string>

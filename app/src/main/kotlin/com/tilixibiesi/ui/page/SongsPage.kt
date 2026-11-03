@@ -6,7 +6,6 @@ import com.tilixibiesi.util.PlayTimer
 import com.tilixibiesi.util.PlaylistDialogHelper
 import com.tilixibiesi.util.ToastUtils
 
-import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -31,6 +30,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import com.tilixibiesi.R
 import com.tilixibiesi.bili.BiliHistoryHelper
+import com.tilixibiesi.bili.BiliMusicZone
 import com.tilixibiesi.bili.BiliVideoPlayer
 import com.tilixibiesi.bili.BiliCoverLoader
 import com.tilixibiesi.data.AppPermissionsBridge
@@ -48,6 +48,7 @@ import com.tilixibiesi.ui.AccessibleTextView
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.ui.NowPlayingPage
 import com.tilixibiesi.ui.adapter.MusicAdapter
+import com.tilixibiesi.ui.widget.PullToRefreshLayout
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.FontUtils
@@ -84,6 +85,7 @@ class SongsPage(base: Context) : BasePage(base) {
     private lateinit var btnTimer: ImageButton
 
     private lateinit var lvMusic: ListView
+    private lateinit var pullRefresh: PullToRefreshLayout
     private lateinit var musicAdapter: MusicAdapter
     private lateinit var playerControlLayout: View
     private lateinit var tvCurrentMusic: TextView
@@ -120,6 +122,17 @@ class SongsPage(base: Context) : BasePage(base) {
     private var isUserSeeking = false
     private val biliHistoryLock = Any()
     private var isLoadingBiliHistory = false
+
+    /** 音乐分区翻页状态：下一页下标 / 是否还有更多 / 是否正在加载。 */
+    private var zoneNextPage = 1
+    private var zoneHasMore = true
+    private var zoneLoading = false
+
+    /** 连续空页计数：用于区分「翻到底了」和「这一页刚好请求失败」。 */
+    private var zoneEmptyStreak = 0
+
+    /** 下拉刷新进行中（防止连续下拉重复请求）。 */
+    private var zoneRefreshing = false
 
     private var nowPlaying: NowPlayingPage? = null
 
@@ -181,13 +194,28 @@ class SongsPage(base: Context) : BasePage(base) {
 
     private fun applyMainRowButtonSettings() {
         if (!::musicAdapter.isInitialized) return
+        val biliZone = SpUtils.isMainSourceBiliZone(this)
         val showAdd = SpUtils.isMainAddButtonVisible(this)
-        val showDelete = SpUtils.isMainDeleteButtonVisible(this)
-        if (musicAdapter.showAddButton == showAdd && musicAdapter.showDeleteButton == showDelete) return
+        // 分区列表里的条目不可从主页删除，只有内置歌曲列表才提供删除按钮
+        val showDelete = !biliZone && SpUtils.isMainDeleteButtonVisible(this)
+        // 下拉刷新只在分区模式有意义，内置列表保持原来的行为
+        if (::pullRefresh.isInitialized) pullRefresh.refreshEnabled = biliZone
+        if (musicAdapter.showAddButton == showAdd &&
+            musicAdapter.showDeleteButton == showDelete &&
+            musicAdapter.showCoverInsteadOfIndex == biliZone
+        ) return
         musicAdapter.showAddButton = showAdd
         musicAdapter.showDeleteButton = showDelete
+        musicAdapter.showCoverInsteadOfIndex = biliZone
         musicAdapter.notifyDataSetChanged()
         (activity as? MainPagerActivity)?.invalidateGlassBackdrop()
+    }
+
+    /** “我的”页切换数据源后调用：重新加载列表并立即换掉封面/序号表现。 */
+    internal fun onMainSourceChanged() {
+        if (!::musicAdapter.isInitialized) return
+        applyMainRowButtonSettings()
+        loadMusicList()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
@@ -261,6 +289,7 @@ class SongsPage(base: Context) : BasePage(base) {
 
     private fun initView() {
         lvMusic = findViewById(R.id.lv_music)!!
+        pullRefresh = findViewById(R.id.pull_refresh)!!
         playerControlLayout = activity.findViewById(R.id.layout_player_control)!!
         tvCurrentMusic = activity.findViewById(R.id.tv_current_music)!!
         ivControlCover = activity.findViewById(R.id.iv_control_cover)!!
@@ -315,8 +344,10 @@ class SongsPage(base: Context) : BasePage(base) {
         })
 
         musicAdapter = MusicAdapter(this, musicList).apply {
+            val biliZone = SpUtils.isMainSourceBiliZone(this@SongsPage)
             showAddButton = SpUtils.isMainAddButtonVisible(this@SongsPage)
-            showDeleteButton = SpUtils.isMainDeleteButtonVisible(this@SongsPage)
+            showDeleteButton = !biliZone && SpUtils.isMainDeleteButtonVisible(this@SongsPage)
+            showCoverInsteadOfIndex = biliZone
         }
         lvMusic.adapter = musicAdapter
 
@@ -333,6 +364,26 @@ class SongsPage(base: Context) : BasePage(base) {
                 }
                 true
             }
+
+        lvMusic.setOnScrollListener(object : android.widget.AbsListView.OnScrollListener {
+            override fun onScrollStateChanged(view: android.widget.AbsListView?, scrollState: Int) {}
+            override fun onScroll(
+                view: android.widget.AbsListView?,
+                firstVisibleItem: Int,
+                visibleItemCount: Int,
+                totalItemCount: Int
+            ) {
+                if (!SpUtils.isMainSourceBiliZone(this@SongsPage)) return
+                if (zoneLoading || !zoneHasMore || totalItemCount == 0) return
+                if (firstVisibleItem + visibleItemCount >= totalItemCount - 1) {
+                    loadNextZonePage()
+                }
+            }
+        })
+
+        // 下拉刷新：仅 B站音乐分区模式启用，内置列表保持原样
+        pullRefresh.refreshEnabled = SpUtils.isMainSourceBiliZone(this)
+        pullRefresh.onRefresh = { refreshZoneFromTop() }
 
         musicAdapter.onAddToPlaylistClickListener =
             object : MusicAdapter.OnAddToPlaylistClickListener {
@@ -397,6 +448,10 @@ class SongsPage(base: Context) : BasePage(base) {
 
 
     private fun loadMusicList() {
+        if (SpUtils.isMainSourceBiliZone(this)) {
+            loadBiliZoneMusicList()
+            return
+        }
         val musicFile = StoragePaths.resolveRead("music.txt")
         val now = System.currentTimeMillis()
         val isCacheValid = musicFile.exists() && (now - musicFile.lastModified()) < 24 * 60 * 60 * 1000L
@@ -450,10 +505,179 @@ class SongsPage(base: Context) : BasePage(base) {
         })
     }
 
+    /**
+     * B站音乐分区模式：先用本地缓存铺满，再在后台从第 1 页开始拉。
+     *
+     * 该模式下列表完全由分区数据构成，不再混入内置歌曲/播放历史；
+     * 下拉到底由 [loadNextZonePage] 继续翻页追加。
+     */
+    private fun loadBiliZoneMusicList() {
+        val cached = BiliMusicZone.loadCached()
+        if (cached.isNotEmpty()) {
+            zoneNextPage = BiliMusicZone.loadCachedNextPage()
+            applyZoneListUpdate(cached)
+            showZoneList()
+        } else {
+            zoneNextPage = 1
+        }
+        val cacheFresh = cached.isNotEmpty() && BiliMusicZone.isCacheFresh()
+        if (cacheFresh) return
+        val pageRef = WeakReference<SongsPage>(this)
+        AppExecutors.io.execute {
+            val cookie = SpUtils.getBiliCookie(this)
+            val fetched = BiliMusicZone.fetchPage(1, cookie)
+            if (fetched.isEmpty()) {
+                if (cached.isEmpty()) {
+                    handler.post {
+                        val page = pageRef.get() ?: return@post
+                        if (!SpUtils.isMainSourceBiliZone(page)) return@post
+                        ToastUtils.show(page, LanguageUtils.getString(page, R.string.zone_fetch_fail))
+                    }
+                }
+                return@execute
+            }
+            // 刷新只更新第 1 页，已翻出来的后续页要保留（否则每次启动都会掉回 10 条）
+            val merged = LinkedHashMap<String, MusicBean>()
+            for (bean in fetched) bean.biliKey?.let { merged[it] = bean }
+            for (bean in cached) bean.biliKey?.let { merged.putIfAbsent(it, bean) }
+            val mergedList = merged.values.toList()
+            val nextPage = maxOf(BiliMusicZone.loadCachedNextPage(), 2)
+            BiliMusicZone.saveCache(mergedList, nextPage)
+            handler.post {
+                val page = pageRef.get() ?: return@post
+                if (!SpUtils.isMainSourceBiliZone(page)) return@post
+                page.zoneEmptyStreak = 0
+                page.zoneNextPage = nextPage
+                page.zoneHasMore = BiliMusicZone.canFetch(nextPage)
+                page.applyZoneListUpdate(mergedList)
+                page.showZoneList()
+            }
+        }
+    }
+
+    /**
+     * 下拉刷新：整体重置列表。
+     *
+     * 搜索同一关键词的同一页结果是稳定的，直接重置到第 1 页会刷出一模一样的内容，
+     * 所以这里跳到「下一个关键词」的第 1 页，用不同关键词拿到新的一批音乐。
+     */
+    private fun refreshZoneFromTop() {
+        if (!SpUtils.isMainSourceBiliZone(this)) {
+            pullRefresh.finishRefresh(false)
+            return
+        }
+        if (zoneRefreshing) {
+            pullRefresh.finishRefresh(false)
+            return
+        }
+        zoneRefreshing = true
+        val pageRef = WeakReference<SongsPage>(this)
+        val startPage = BiliMusicZone.nextRefreshStart(zoneNextPage)
+        AppExecutors.io.execute {
+            val cookie = SpUtils.getBiliCookie(this)
+            val fetched = BiliMusicZone.fetchPage(startPage, cookie)
+            handler.post {
+                val page = pageRef.get() ?: return@post
+                page.zoneRefreshing = false
+                if (fetched.isEmpty()) {
+                    page.pullRefresh.finishRefresh(false)
+                    return@post
+                }
+                page.zoneEmptyStreak = 0
+                page.zoneNextPage = startPage + 1
+                page.zoneHasMore = BiliMusicZone.canFetch(startPage + 1)
+                // 整体替换：旧的分页内容全部作废
+                page.applyZoneListUpdate(fetched)
+                page.showZoneList()
+                page.lvMusic.setSelection(0)
+                BiliMusicZone.saveCache(musicList, startPage + 1)
+                page.pullRefresh.finishRefresh(true)
+            }
+        }
+    }
+
+    /** 下拉到底时追加下一页；[zoneLoading] 防重入。 */
+    private fun loadNextZonePage() {
+        if (!SpUtils.isMainSourceBiliZone(this)) return
+        if (zoneLoading || !zoneHasMore) return
+        zoneLoading = true
+        val pageRef = WeakReference<SongsPage>(this)
+        val pageIndex = zoneNextPage
+        AppExecutors.io.execute {
+            val cookie = SpUtils.getBiliCookie(this)
+            val fetched = BiliMusicZone.fetchPage(pageIndex, cookie)
+            handler.post {
+                val page = pageRef.get() ?: return@post
+                page.zoneLoading = false
+                if (!SpUtils.isMainSourceBiliZone(page)) return@post
+                if (fetched.isEmpty()) {
+                    // 空结果可能只是这一页请求失败（风控/网络），不能直接判定「没有更多」，
+                    // 否则一次失败就会让整条列表停止加载。最多容忍连续 3 次，之后才收尾。
+                    page.zoneEmptyStreak++
+                    if (page.zoneEmptyStreak >= 3) {
+                        page.zoneHasMore = false
+                    } else {
+                        page.zoneNextPage = pageIndex + 1
+                        page.zoneHasMore = BiliMusicZone.canFetch(pageIndex + 1)
+                    }
+                    return@post
+                }
+                page.zoneEmptyStreak = 0
+                page.zoneNextPage = pageIndex + 1
+                page.zoneHasMore = BiliMusicZone.canFetch(pageIndex + 1)
+                page.appendZoneBeans(fetched)
+                // 追加后把「已翻到第几页」落盘，重启才不会重复拉同一页
+                BiliMusicZone.saveCache(musicList, pageIndex + 1)
+            }
+        }
+    }
+
+    private fun showZoneList() {
+        musicAdapter.notifyDataSetChanged()
+        setPlayerControlVisible(true)
+        seekBar.visibility = View.VISIBLE
+        restorePlayingHighlight()
+    }
+
+    private fun applyZoneListUpdate(newList: List<MusicBean>) {
+        val anchorName = currentPlayPosition.takeIf { it in musicList.indices }
+            ?.let { musicList[it].musicName }
+            ?: MusicPlayerService.currentPlayingName
+        val visible = DataFileUtils.filterBlocked(newList, DataFileUtils.loadBlockedWords())
+        musicList.clear()
+        musicList.addAll(visible)
+        MusicPlayerService.musicList = musicList
+        if (anchorName != null) {
+            val newPos = musicList.indexOfFirst { it.musicName == anchorName }
+            if (newPos != -1) {
+                currentPlayPosition = newPos
+                musicList.forEachIndexed { i, bean -> bean.isPlaying = (i == newPos) }
+            } else {
+                // 正在播放的若是内置歌曲，切到分区后列表里没有它，旧下标会指向错的条目
+                currentPlayPosition = -1
+                musicList.forEach { it.isPlaying = false }
+            }
+        }
+    }
+
+    /** 追加下一页到列表尾部（已存在的条目按 aid/bvid 去重）。 */
+    private fun appendZoneBeans(beans: List<MusicBean>) {
+        val existing = musicList.mapNotNullTo(HashSet()) { it.biliKey }
+        val added = DataFileUtils.filterBlocked(beans, DataFileUtils.loadBlockedWords())
+            .filter { key -> key.biliKey?.let { it !in existing } ?: false }
+        if (added.isEmpty()) return
+        musicList.addAll(added)
+        MusicPlayerService.musicList = musicList
+        musicAdapter.notifyDataSetChanged()
+    }
+
     private fun applyMusicListUpdate(newList: List<MusicBean>) {
         musicList.clear()
         musicList.addAll(newList)
         MusicPlayerService.musicList = musicList
+        // 分区模式下列表归分区管，搜索页的临时播放请求不能覆盖内置歌曲文件，
+        // 否则切回内置列表时会读到一份被清空的缓存
+        if (SpUtils.isMainSourceBiliZone(this)) return
         val pureList = musicList.filter { !it.isBilibili }
         SpUtils.saveMusicList(this, pureList)
         DataFileUtils.saveMusicList(pureList)
@@ -469,6 +693,8 @@ class SongsPage(base: Context) : BasePage(base) {
     }
 
     private fun loadBiliHistoryToMusicList() {
+        // 分区模式下列表就是分区内容本身，混入播放历史会破坏“封面+作者”的展示预期
+        if (SpUtils.isMainSourceBiliZone(this)) return
         synchronized(biliHistoryLock) {
             if (isLoadingBiliHistory) return
             isLoadingBiliHistory = true

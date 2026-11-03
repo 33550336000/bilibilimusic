@@ -222,12 +222,14 @@ class CacheManager {
 
     private fun downloadCoverIfNeeded(musicBean: MusicBean) {
         if (!musicBean.isBilibili) return
-        val bvid = musicBean.bvid?.takeIf { it.isNotEmpty() } ?: return
+        // 分区条目没有 bvid，但 feed 已经给出封面地址；只有缺封面时才需要 bvid 去查
+        val bvid = musicBean.bvid?.takeIf { it.isNotEmpty() }
+        if (bvid == null && musicBean.coverUrl.isNullOrEmpty()) return
         val baseName = baseNameOf(musicBean)
 
         val coverUrl = BiliCoverLoader.highestQualityUrl(
             musicBean.coverUrl?.takeIf { it.isNotEmpty() }
-                ?: BiliSearchHelper.getVideoDetail(bvid)?.coverUrl.orEmpty()
+                ?: BiliSearchHelper.getVideoDetail(bvid!!)?.coverUrl.orEmpty()
         )
         if (coverUrl.isEmpty()) return
 

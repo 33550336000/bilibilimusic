@@ -86,16 +86,27 @@ object BiliSearchHelper {
                     ?.optJSONArray("audio")
                 if (audios == null) emptyList()
                 else {
-                    val byId = LinkedHashMap<Int, String>()
+                    val byId = LinkedHashMap<Int, MutableList<String>>()
                     for (i in 0 until audios.length()) {
                         val a = audios.getJSONObject(i)
                         val id = a.optInt("id", 0)
                         val base = a.optString("baseUrl", "")
                         if (id == 0 || base.isEmpty() || byId.containsKey(id)) continue
-                        byId[id] = normalizeUrl(base)
+                        // 主地址 + 备用地址一起收：主地址的 CDN 节点偶尔 403/超时，
+                        // 备用地址通常落在 bilivideo.com，可以顶上（播放器的失败重试会依次尝试）
+                        val urls = mutableListOf(normalizeUrl(base))
+                        val backup = a.optJSONArray("backupUrl")
+                        if (backup != null) {
+                            for (j in 0 until backup.length()) {
+                                val u = backup.optString(j, "")
+                                if (u.isNotEmpty()) urls.add(normalizeUrl(u))
+                            }
+                        }
+                        byId[id] = urls
                     }
                     BiliAudioQuality.fallbackOrder(byId.keys.toList(), preferredId)
-                        .mapNotNull { byId[it] }
+                        .flatMap { byId[it] ?: emptyList() }
+                        .distinct()
                 }
             }
         } catch (e: Exception) {
@@ -127,15 +138,6 @@ object BiliSearchHelper {
         u.startsWith("http://") -> "https://" + u.removePrefix("http://")
         else -> u
     }
-
-    fun getAudioUrls(bvid: String, cookie: String = ""): List<String> =
-        getAudioUrlsByQuality(bvid, cookie)
-
-    fun getPreferredAudioUrl(bvid: String, cookie: String = ""): String? =
-        getAudioUrls(bvid, cookie).firstOrNull()
-
-    fun getPreferredAudioUrl(bvid: String, cookie: String, preferredId: Int): String? =
-        getAudioUrlsByQuality(bvid, cookie, preferredId).firstOrNull()
 
     fun searchVideosPage(
         keyword: String,
