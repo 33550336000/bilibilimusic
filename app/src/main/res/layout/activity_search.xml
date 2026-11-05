@@ -116,6 +116,30 @@
     </LinearLayout>
 
     <FrameLayout
+        android:id="@+id/layout_search_history"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone">
+
+        <com.tilixibiesi.ui.widget.LiquidGlassLayout
+            android:id="@+id/glass_search_history"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <ListView
+                android:id="@+id/lv_search_history"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:divider="@null"
+                android:dividerHeight="0dp"
+                android:scrollbars="vertical"
+                android:fadeScrollbars="false" />
+        </com.tilixibiesi.ui.widget.LiquidGlassLayout>
+    </FrameLayout>
+
+    <FrameLayout
         android:id="@+id/layout_fullscreen_video"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
