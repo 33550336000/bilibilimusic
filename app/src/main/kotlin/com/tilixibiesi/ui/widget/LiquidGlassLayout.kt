@@ -195,6 +195,20 @@ half4 main(float2 fragCoord) {
             invalidate()
         }
 
+    /**
+     * 抓图时叠在 [backdropSource] 之上一起画的上层视图，用来补上只采背景层时漏掉的页面内容
+     * （比如搜索结果里的视频封面）。
+     *
+     * 与 [backdropSource] 在同一窗口内时共用同一个 ViewTreeObserver，监听由 backdropSource 负责。
+     */
+    var overlaySource: View? = null
+        set(value) {
+            if (field === value) return
+            field = value
+            invalidateBackdrop()
+            invalidate()
+        }
+
     var glassEnabled: Boolean = false
         set(value) {
             if (field == value) return
@@ -308,6 +322,7 @@ half4 main(float2 fragCoord) {
 
     private val selfLoc = IntArray(2)
     private val srcLoc = IntArray(2)
+    private val overlayLoc = IntArray(2)
 
     private var tiltX = 0f
     private var tiltY = 0f
@@ -409,7 +424,14 @@ half4 main(float2 fragCoord) {
 
     private fun backdropSignature(src: View): Int {
         getLocationInWindow(selfLoc)
-        return scrollSignature(src, 96) * 31 + selfLoc[0] * 31 + selfLoc[1]
+        var h = scrollSignature(src, 96) * 31 + selfLoc[0] * 31 + selfLoc[1]
+        val overlay = overlaySource
+        if (overlay != null && overlay !== src) {
+            overlay.getLocationInWindow(overlayLoc)
+            h = h * 31 + scrollSignature(overlay, 96)
+            h = h * 31 + overlayLoc[0] * 31 + overlayLoc[1]
+        }
+        return h
     }
 
     private fun scrollSignature(v: View, budget: Int): Int {
@@ -671,6 +693,24 @@ half4 main(float2 fragCoord) {
         captureDepth++
         try {
             src.draw(c)
+            // 只采 backgroundSource 会漏掉页面内容（搜索结果里的视频封面等），
+            // 这里把上层内容补画到同一张位图上。画布此时已按 src 平移过，
+            // 因此只需补上 overlay 相对 src 的偏移。
+            val overlay = overlaySource
+            if (overlay != null && overlay !== src && overlay.isShown) {
+                val saveOverlay = c.save()
+                overlay.getLocationInWindow(overlayLoc)
+                c.translate(
+                    (overlayLoc[0] - srcLoc[0] - overlay.scrollX).toFloat(),
+                    (overlayLoc[1] - srcLoc[1] - overlay.scrollY).toFloat()
+                )
+                try {
+                    overlay.draw(c)
+                } catch (_: Throwable) {
+                } finally {
+                    c.restoreToCount(saveOverlay)
+                }
+            }
         } catch (_: Throwable) {
         } finally {
             captureDepth--

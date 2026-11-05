@@ -17,12 +17,14 @@ import com.tilixibiesi.bili.BiliVideoGridAdapter
 import com.tilixibiesi.bili.BiliSubtitleHelper
 import com.tilixibiesi.bili.BiliSubtitleTrack
 import com.tilixibiesi.ui.widget.DanmakuView
+import com.tilixibiesi.ui.widget.LiquidGlassLayout
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.WindowUtils
 import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.data.SpUtils
+import com.tilixibiesi.data.SearchHistoryStore
 import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.ui.BaseActivity
 import com.tilixibiesi.ui.MainPagerActivity
@@ -39,12 +41,14 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.TextureView
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.AbsListView
 import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.CompoundButton
@@ -67,6 +71,9 @@ class SearchPage(base: Context) : BasePage(base) {
     @Suppress("unused")
     companion object {
         const val TAG = "SearchActivity"
+
+        private const val HISTORY_ROW_HEIGHT_DP = 46
+        private const val HISTORY_MAX_VISIBLE_ROWS = 5
     }
 
     private lateinit var etSearch: EditText
@@ -88,6 +95,10 @@ class SearchPage(base: Context) : BasePage(base) {
     private var lastSourceSize = -1
     private lateinit var progressBar: ProgressBar
     private lateinit var tvSearchingHint: TextView
+    private var historyOverlay: FrameLayout? = null
+    private var historyGlass: LiquidGlassLayout? = null
+    private var lvSearchHistory: ListView? = null
+    private var searchHistoryAdapter: ArrayAdapter<String>? = null
 
     private lateinit var videoPlayer: BiliVideoPlayer
     private lateinit var danmakuView: DanmakuView
@@ -123,6 +134,7 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     override fun onPause() {
+        dismissSearchHistory()
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.releaseCovers()
         if (!::videoPlayer.isInitialized) return
         videoPlayer.onHostPause()
@@ -137,6 +149,7 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     override fun onPageHide() {
+        dismissSearchHistory()
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.releaseCovers()
     }
 
@@ -168,6 +181,7 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     override fun onDestroy() {
+        dismissSearchHistory()
         BiliVideoPlayer.stopCurrentVideo()
         if (::biliVideoAdapter.isInitialized) biliVideoAdapter.shutdown()
     }
@@ -205,6 +219,10 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     override fun onBackPressed(): Boolean {
+        if (historyOverlay?.visibility == View.VISIBLE) {
+            dismissSearchHistory()
+            return true
+        }
         if (findViewById<FrameLayout>(R.id.layout_fullscreen_video)?.visibility == View.VISIBLE &&
             ::videoPlayer.isInitialized
         ) {
@@ -244,6 +262,8 @@ class SearchPage(base: Context) : BasePage(base) {
         val btnSort = findViewById<Button>(R.id.btn_sort)
         btnSort?.visibility = View.GONE
 
+        initSearchHistory()
+
         val btnClearSearch = findViewById<ImageButton>(R.id.btn_clear_search)
         btnClearSearch?.apply {
             visibility = View.GONE
@@ -274,11 +294,20 @@ class SearchPage(base: Context) : BasePage(base) {
         etSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                dismissSearchHistory()
                 btnClearSearch?.visibility = if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
                 if (s.isNullOrEmpty()) clearSearchResults()
             }
             override fun afterTextChanged(s: Editable?) {}
         })
+
+        etSearch.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_UP) {
+                if (historyOverlay?.visibility == View.VISIBLE) dismissSearchHistory()
+                else showSearchHistory()
+            }
+            false
+        }
 
         etSearch.setOnEditorActionListener { _, actionId, event ->
             val isImeConfirm = actionId == EditorInfo.IME_ACTION_SEARCH ||
@@ -468,11 +497,131 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     private fun performSearch() {
+        dismissSearchHistory()
         val keyword = etSearch.text.toString().trim()
         submittedKeyword = keyword
+        if (keyword.isNotEmpty()) SearchHistoryStore.add(keyword)
         hideSoftKeyboard()
         etSearch.clearFocus()
         filterMusic(keyword)
+    }
+
+    private fun initSearchHistory() {
+        val overlay = findViewById<FrameLayout>(R.id.layout_search_history) ?: return
+        val glass = findViewById<LiquidGlassLayout>(R.id.glass_search_history) ?: return
+        val list = findViewById<ListView>(R.id.lv_search_history) ?: return
+
+        glass.solidWhenDisabled = false
+        glass.cornerRadiusDp = 16f
+        glass.blurRadiusDp = 5f
+        glass.tiltEnabled = false
+        glass.pressEnabled = false
+        // 采样分两层：底层用活动背景层（视频/图片背景），再把页面内容根叠上去。
+        // 只采 backgroundLayer 时，搜索结果里的视频封面会被"无视"，玻璃直接透出更底层的背景。
+        // 页面内容根不含下拉框自身，因此不会把玻璃自己采进去。
+        val host = activity as? MainPagerActivity
+        glass.backdropSource = host?.backgroundLayer
+        glass.overlaySource = findViewById<View>(R.id.layout_search_root)
+        val adapter = ArrayAdapter<String>(this, R.layout.item_search_history)
+        list.adapter = adapter
+        list.setOnItemClickListener { _, _, position, _ ->
+            val keyword = adapter.getItem(position) ?: return@setOnItemClickListener
+            dismissSearchHistory()
+            etSearch.setText(keyword)
+            etSearch.setSelection(keyword.length)
+        }
+        list.setOnItemLongClickListener { _, _, position, _ ->
+            val keyword = adapter.getItem(position) ?: return@setOnItemLongClickListener false
+            showDeleteHistoryDialog(keyword)
+            true
+        }
+        overlay.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_UP) {
+                dismissSearchHistory()
+                if (!isTouchInside(etSearch, event.rawX, event.rawY)) {
+                    hideSoftKeyboard()
+                    etSearch.clearFocus()
+                }
+            }
+            true
+        }
+
+        historyOverlay = overlay
+        historyGlass = glass
+        lvSearchHistory = list
+        searchHistoryAdapter = adapter
+    }
+
+    private fun showSearchHistory() {
+        if (!::etSearch.isInitialized || etSearch.width <= 0) return
+        val overlay = historyOverlay ?: return
+        val glass = historyGlass ?: return
+        val list = lvSearchHistory ?: return
+        val adapter = searchHistoryAdapter ?: return
+        if (overlay.visibility == View.VISIBLE) return
+        val history = SearchHistoryStore.load()
+        if (history.isEmpty()) return
+
+        adapter.clear()
+        adapter.addAll(history)
+
+        val rowPx = (HISTORY_ROW_HEIGHT_DP * resources.displayMetrics.density).toInt()
+        list.layoutParams = list.layoutParams.apply {
+            height = rowPx * history.size.coerceAtMost(HISTORY_MAX_VISIBLE_ROWS)
+        }
+
+        val parent = overlay.parent as? View ?: return
+        val origin = IntArray(2)
+        parent.getLocationInWindow(origin)
+        val anchor = IntArray(2)
+        etSearch.getLocationInWindow(anchor)
+        val left = anchor[0] - origin[0]
+        overlay.setPadding(left, anchor[1] - origin[1] + etSearch.height, parent.width - left - etSearch.width, 0)
+
+        val glassEnabled = SpUtils.getLiquidGlassCardsEnabled(this) && LiquidGlassLayout.isAvailable()
+        glass.background = if (glassEnabled) null
+        else resources.getDrawable(R.drawable.card_background_semi, null)
+        glass.glassEnabled = glassEnabled
+        overlay.visibility = View.VISIBLE
+    }
+
+    private fun dismissSearchHistory() {
+        val overlay = historyOverlay ?: return
+        if (overlay.visibility == View.GONE) return
+        overlay.visibility = View.GONE
+        historyGlass?.glassEnabled = false
+    }
+
+    private fun showDeleteHistoryDialog(keyword: String) {
+        DialogHelper.createStyledDialog(
+            activity,
+            AlertDialog.Builder(this@SearchPage, R.style.TransparentDialog)
+                .setTitle(LanguageUtils.getString(this@SearchPage, R.string.delete_history_title))
+                .setMessage(
+                    LanguageUtils.getString(this@SearchPage, R.string.delete_history_message, keyword)
+                )
+                .setPositiveButton(LanguageUtils.getString(this@SearchPage, R.string.ok)) { _, _ ->
+                    SearchHistoryStore.remove(keyword)
+                    refreshSearchHistory()
+                }
+                .setNegativeButton(LanguageUtils.getString(this@SearchPage, R.string.cancel), null)
+        )
+    }
+
+    private fun refreshSearchHistory() {
+        val list = lvSearchHistory ?: return
+        val adapter = searchHistoryAdapter ?: return
+        val history = SearchHistoryStore.load()
+        if (history.isEmpty()) {
+            dismissSearchHistory()
+            return
+        }
+        adapter.clear()
+        adapter.addAll(history)
+        val rowPx = (HISTORY_ROW_HEIGHT_DP * resources.displayMetrics.density).toInt()
+        list.layoutParams = list.layoutParams.apply {
+            height = rowPx * history.size.coerceAtMost(HISTORY_MAX_VISIBLE_ROWS)
+        }
     }
 
     private fun clearSearchResults() {
@@ -487,6 +636,13 @@ class SearchPage(base: Context) : BasePage(base) {
     private fun hideSoftKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager ?: return
         imm.hideSoftInputFromWindow(etSearch.windowToken, 0)
+    }
+
+    private fun isTouchInside(view: View, rawX: Float, rawY: Float): Boolean {
+        val loc = IntArray(2)
+        view.getLocationOnScreen(loc)
+        return rawX >= loc[0] && rawX <= loc[0] + view.width &&
+            rawY >= loc[1] && rawY <= loc[1] + view.height
     }
 
     private fun filterMusic(keyword: String) {
