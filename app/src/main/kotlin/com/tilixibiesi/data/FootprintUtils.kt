@@ -1,6 +1,6 @@
 package com.tilixibiesi.data
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 
 import android.content.Context
 import com.tilixibiesi.R
@@ -22,7 +22,7 @@ object FootprintUtils {
         ensureDir()
         try {
             FileWriter(StoragePaths.resolveWrite(relativePath), true).use { it.append("$line\n") }
-        } catch (e: Exception) { Log.d(TAG, "写入足迹失败: ${e.message}") }
+        } catch (e: Exception) { AppLog.d(TAG, "写入足迹失败: ${e.message}") }
     }
 
     private fun readFootprint(context: Context, relativePath: String): String {
@@ -38,7 +38,7 @@ object FootprintUtils {
     private fun clearFootprint(relativePath: String) {
         try {
             StoragePaths.resolveRead(relativePath).delete()
-        } catch (e: Exception) { Log.d(TAG, "清除足迹失败: ${e.message}") }
+        } catch (e: Exception) { AppLog.d(TAG, "清除足迹失败: ${e.message}") }
     }
 
     private fun ensureDir() {

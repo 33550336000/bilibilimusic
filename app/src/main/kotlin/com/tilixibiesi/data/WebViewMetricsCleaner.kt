@@ -1,6 +1,6 @@
 package com.tilixibiesi.data
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 
 import android.app.Application
 import android.content.Context
@@ -157,7 +157,7 @@ object WebViewMetricsCleaner {
             runCatching<Unit> {
                 app.cacheDir.listFiles()?.forEach { it.deleteRecursively() }
             }
-        } catch (e: Exception) { Log.d(TAG, "清理缓存目录失败: ${e.message}") }
+        } catch (e: Exception) { AppLog.d(TAG, "清理缓存目录失败: ${e.message}") }
     }
 }
 

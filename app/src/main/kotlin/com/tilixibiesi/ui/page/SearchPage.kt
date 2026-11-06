@@ -1,6 +1,6 @@
 package com.tilixibiesi.ui.page
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.PlaylistDialogHelper
 import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.ToastUtils
@@ -806,7 +806,7 @@ class SearchPage(base: Context) : BasePage(base) {
                     subtitleTracks = BiliSubtitleHelper.fetchTracks(detail.bvid, detail.cid, cookie)
                 } finally { latch.countDown() }
             }
-            try { latch.await() } catch (_: InterruptedException) { Log.d(TAG, "等待并发请求被中断，继续使用已就绪的数据") }
+            try { latch.await() } catch (_: InterruptedException) { AppLog.d(TAG, "等待并发请求被中断，继续使用已就绪的数据") }
             val playUrls = urls ?: run {
                 handler.post { dialog.dismiss(); ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.quality_fetch_fail)) }
                 return@execute

@@ -28,6 +28,7 @@ import android.text.TextWatcher
 import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import java.io.File
 import java.util.Locale
 import android.graphics.Typeface
 
@@ -64,6 +65,7 @@ class SettingsPage(base: Context) : BasePage(base) {
     private lateinit var btnSearchBtnStyle: Button
     private lateinit var btnSaveAsDefault: Button
     private lateinit var btnAutoLoadDefault: Button
+    internal var pendingLogFile: File? = null
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -458,6 +460,8 @@ class SettingsPage(base: Context) : BasePage(base) {
 
         findViewById<Button>(R.id.btn_send_notification)!!.setOnClickListener { showSendNotificationDialog() }
 
+        findViewById<Button>(R.id.btn_export_log)!!.setOnClickListener { showExportLogDialog() }
+
         val btnSwitchPlayMode = findViewById<Button>(R.id.btn_switch_play_mode)!!
         btnSwitchPlayMode.setOnClickListener { toggleDialogs.showSwitchPlayModeDialog(btnSwitchPlayMode) }
     }
@@ -670,6 +674,7 @@ class SettingsPage(base: Context) : BasePage(base) {
         get() = FontUtils.color(this)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         if (handlePickDefaultBackgroundResult(requestCode, resultCode, data)) return
+        if (handleExportLogResult(requestCode, resultCode, data)) return
     }
 
     private fun applyBoldItalicGlobally() {

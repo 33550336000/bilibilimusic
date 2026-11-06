@@ -1,6 +1,6 @@
 package com.tilixibiesi.data
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.AtomicFileWriter
 
@@ -174,7 +174,7 @@ object LanguageUtils {
                 conn.disconnect()
             }
         } catch (e: Exception) {
-            Log.d(TAG, "下载语言包失败: ${e.message}")
+            AppLog.d(TAG, "下载语言包失败: ${e.message}")
             false
         }
     }
@@ -223,7 +223,7 @@ object LanguageUtils {
                     context.sendBroadcast(Intent(ACTION_LANGUAGE_UPDATED))
                 }
             } catch (e: Exception) {
-                Log.d(TAG, "检查语言更新失败: ${e.message}")
+                AppLog.d(TAG, "检查语言更新失败: ${e.message}")
             }
         }
     }

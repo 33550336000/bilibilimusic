@@ -21,7 +21,7 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -744,7 +744,7 @@ half4 main(float2 fragCoord) {
         var y = stepY / 2
         while (y < h) {
             val read = runCatching { bmp.getPixels(row, 0, w, 0, y, w, 1) }
-                .onFailure { Log.d(TAG, "backdrop 行采样失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "backdrop 行采样失败: ${it.message}") }
                 .isSuccess
             if (!read) return
             var x = stepX / 2

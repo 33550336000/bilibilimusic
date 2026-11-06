@@ -1,6 +1,5 @@
 package com.tilixibiesi.util
 
-import android.util.Log
 
 import com.tilixibiesi.bili.BiliApiHelper
 import com.tilixibiesi.bili.BiliAudioQuality
@@ -141,14 +140,14 @@ class CacheManager {
                         finalFile.name
                     )
                 } else {
-                    Log.d(TAG, "缓存文件重命名失败，恢复旧文件")
+                    AppLog.d(TAG, "缓存文件重命名失败，恢复旧文件")
                     tempFile.delete()
                     backup?.let { b -> if (b.exists()) b.renameTo(finalFile) }
                     DownloadNotifier.cancel(context, notifyId)
                 }
                 downloadCoverIfNeeded(musicBean)
             } catch (e: Exception) {
-                Log.d(TAG, "缓存下载失败: ${e.message}")
+                AppLog.d(TAG, "缓存下载失败: ${e.message}")
                 DownloadNotifier.cancel(context, notifyId)
             } finally {
                 synchronized(downloadingKeys) {
@@ -213,7 +212,7 @@ class CacheManager {
             }
             true
         } catch (e: Exception) {
-            Log.d(TAG, "音频下载失败: ${e.message}")
+            AppLog.d(TAG, "音频下载失败: ${e.message}")
             false
         } finally {
             runCatching { conn?.disconnect() }
@@ -327,7 +326,7 @@ class CacheManager {
             map.forEach { (name, id) -> obj.put(name, id) }
             AtomicFileWriter.writeText(indexFile, obj.toString())
         } catch (e: Exception) {
-            Log.d(TAG, "音质索引写入失败: ${e.message}")
+            AppLog.d(TAG, "音质索引写入失败: ${e.message}")
         }
     }
 

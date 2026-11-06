@@ -1,6 +1,6 @@
 package com.tilixibiesi.data
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 
 import android.content.Context
 import java.io.File
@@ -51,21 +51,21 @@ object StoragePaths {
             val copied = try {
                 copyRecursivelyNoOverwrite(from, to)
             } catch (e: Exception) {
-                Log.d(TAG, "存储根目录迁移失败，保留原目录: ${e.message}")
+                AppLog.d(TAG, "存储根目录迁移失败，保留原目录: ${e.message}")
                 return false
             }
             if (!copied) {
-                Log.d(TAG, "存储根目录迁移不完整，保留原目录")
+                AppLog.d(TAG, "存储根目录迁移不完整，保留原目录")
                 return false
             }
             val srcCount = countFiles(from)
             val dstCount = countFiles(to)
             if (srcCount < 0 || dstCount < srcCount) {
-                Log.d(TAG, "迁移校验未通过（源 $srcCount / 目标 $dstCount），保留原目录")
+                AppLog.d(TAG, "迁移校验未通过（源 $srcCount / 目标 $dstCount），保留原目录")
                 return false
             }
             runCatching { from.deleteRecursively() }
-                .onFailure { Log.d(TAG, "删除旧存储目录失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "删除旧存储目录失败: ${it.message}") }
         }
 
         setRoot(context, normalized)
@@ -103,7 +103,7 @@ object StoragePaths {
                 copyRecursivelyNoOverwrite(src, dst)
             }
         } catch (e: Exception) {
-            Log.d(TAG, "复制文件失败: ${e.message}")
+            AppLog.d(TAG, "复制文件失败: ${e.message}")
             false
         }
     }
@@ -126,7 +126,7 @@ object StoragePaths {
             if (dst.exists()) return true
             dst.parentFile?.mkdirs()
             return runCatching { src.copyTo(dst, overwrite = false); true }
-                .onFailure { Log.d(TAG, "复制 ${src.name} 失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "复制 ${src.name} 失败: ${it.message}") }
                 .getOrDefault(false)
         }
         return true

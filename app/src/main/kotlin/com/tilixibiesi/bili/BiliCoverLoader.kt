@@ -10,7 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import android.util.LruCache
 import android.widget.ImageView
 
@@ -68,7 +68,7 @@ object BiliCoverLoader {
         if (isFailed(url)) return
         AppExecutors.io.execute {
             val bitmap = runCatching { download(url) }
-                .onFailure { Log.d(TAG, "封面下载失败 $url: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "封面下载失败 $url: ${it.message}") }
                 .getOrNull()
             if (bitmap == null) {
                 markFailed(url)
@@ -188,10 +188,10 @@ object BiliCoverLoader {
                 inSampleSize = sample
             })
         } catch (e: Exception) {
-            Log.d(TAG, "本地封面解码失败 $displayName: ${e.message}")
+            AppLog.d(TAG, "本地封面解码失败 $displayName: ${e.message}")
             null
         } catch (e: OutOfMemoryError) {
-            Log.d(TAG, "本地封面解码 OOM $displayName: ${e.message}")
+            AppLog.d(TAG, "本地封面解码 OOM $displayName: ${e.message}")
             null
         }
     }

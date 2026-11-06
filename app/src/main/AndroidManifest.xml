@@ -107,6 +107,12 @@
             android:stopWithTask="true"
             android:foregroundServiceType="mediaPlayback" />
 
+        <provider
+            android:name="com.tilixibiesi.util.LogFileProvider"
+            android:authorities="${applicationId}.logfiles"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

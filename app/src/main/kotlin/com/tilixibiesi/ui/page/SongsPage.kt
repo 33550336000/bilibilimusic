@@ -1,6 +1,6 @@
 package com.tilixibiesi.ui.page
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.ui.SongDetailDialogs
 import com.tilixibiesi.util.PlayTimer
 import com.tilixibiesi.util.PlaylistDialogHelper
@@ -1096,7 +1096,7 @@ class SongsPage(base: Context) : BasePage(base) {
     private fun stopBiliBackgroundPlayback() {
         try {
             BiliVideoPlayer.stopCurrentVideo()
-        } catch (e: Exception) { Log.d(TAG, "停止背景视频失败: ${e.message}") }
+        } catch (e: Exception) { AppLog.d(TAG, "停止背景视频失败: ${e.message}") }
     }
 
 

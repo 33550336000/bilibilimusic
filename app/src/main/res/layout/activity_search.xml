@@ -134,8 +134,7 @@
                 android:layout_height="wrap_content"
                 android:divider="@null"
                 android:dividerHeight="0dp"
-                android:scrollbars="vertical"
-                android:fadeScrollbars="false" />
+                android:scrollbars="none" />
         </com.tilixibiesi.ui.widget.LiquidGlassLayout>
     </FrameLayout>
 

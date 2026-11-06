@@ -7,7 +7,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
@@ -161,7 +161,7 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
                 } catch (e: Exception) {
                     // 线程池已关闭（页面销毁）时静默放弃本次加载
                     inFlight.remove(coverUrl)
-                    Log.d(TAG, "封面加载任务被拒绝: ${e.message}")
+                    AppLog.d(TAG, "封面加载任务被拒绝: ${e.message}")
                 }
             }
         }
@@ -207,7 +207,7 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
                     }
                 }
             } catch (e: Exception) {
-                Log.d(TAG, "封面加载失败 $coverUrl: ${e.message}")
+                AppLog.d(TAG, "封面加载失败 $coverUrl: ${e.message}")
             } finally {
                 runCatching { conn?.disconnect() }
             }

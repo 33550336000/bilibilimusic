@@ -35,7 +35,7 @@ import java.io.IOException
 import java.util.Random
 import java.io.File
 import android.annotation.SuppressLint
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 
 class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     MediaPlayer.OnCompletionListener, MediaPlayer.OnErrorListener, AudioManager.OnAudioFocusChangeListener,
@@ -1345,7 +1345,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                         statsTrack = null
                     }
                 } catch (e: IllegalStateException) {
-                    Log.d(TAG, "进度轮询时 MediaPlayer 状态异常: ${e.message}")
+                    AppLog.d(TAG, "进度轮询时 MediaPlayer 状态异常: ${e.message}")
                 } finally {
                     // 锚定到固定相位调度：按"下一个整秒边界"投递，
                     // 而不是"从现在起再等 1000ms"，避免每次执行耗时累积成漂移。
@@ -1511,7 +1511,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                 action = ACTION_KEEP_ALIVE
             }
             startForegroundService(keepAlive)
-        }.onFailure { Log.d(TAG, "任务移除后自拉起失败: ${it.message}") }
+        }.onFailure { AppLog.d(TAG, "任务移除后自拉起失败: ${it.message}") }
     }
 
 

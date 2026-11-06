@@ -8,6 +8,7 @@ import com.tilixibiesi.model.PlaylistBean
 
 import android.content.Context
 import android.content.Intent
+import java.io.File
 
 object ShareHelper {
 
@@ -98,10 +99,33 @@ object ShareHelper {
             putExtra(Intent.EXTRA_SUBJECT, subject)
             putExtra(Intent.EXTRA_TEXT, text)
         }
-        val chooser = Intent.createChooser(
-            intent,
-            LanguageUtils.getString(context, R.string.now_playing_share_chooser)
+        launchChooser(
+            context,
+            Intent.createChooser(
+                intent,
+                LanguageUtils.getString(context, R.string.now_playing_share_chooser)
+            )
         )
+    }
+
+    fun shareLog(context: Context, file: File) {
+        val uri = LogFileProvider.uriFor(context, file)
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, file.name)
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        launchChooser(
+            context,
+            Intent.createChooser(
+                intent,
+                LanguageUtils.getString(context, R.string.now_playing_share_chooser)
+            ).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        )
+    }
+
+    private fun launchChooser(context: Context, chooser: Intent) {
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             context.startActivity(chooser)

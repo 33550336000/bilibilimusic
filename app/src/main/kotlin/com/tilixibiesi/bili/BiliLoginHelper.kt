@@ -6,7 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -263,7 +263,7 @@ object BiliLoginHelper {
             val code = navCode(cookie)
             cookieCheckInFlight = false
             if (code != 0) {
-                Log.d(TAG, "Cookie 校验未通过: code=$code")
+                AppLog.d(TAG, "Cookie 校验未通过: code=$code")
                 return@execute
             }
             mainHandler.post {
