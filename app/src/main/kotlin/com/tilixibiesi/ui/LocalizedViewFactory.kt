@@ -2,7 +2,7 @@ package com.tilixibiesi.ui
 
 import android.content.Context
 import android.util.AttributeSet
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.TextView
@@ -30,7 +30,7 @@ class LocalizedViewFactory(
                 if (inflater.factory2 is LocalizedViewFactory) return
                 inflater.factory2 = LocalizedViewFactory(inflater, inflater.factory2)
             } catch (_: Throwable) {
-                Log.d(TAG, "install factory 失败")
+                AppLog.d(TAG, "install factory 失败")
             }
         }
     }
@@ -60,7 +60,7 @@ class LocalizedViewFactory(
             return try {
                 inflater.createView(name, null, attrs)
             } catch (e: Throwable) {
-                Log.d(TAG, "自定义 View 创建失败: $name (${e.message})")
+                AppLog.d(TAG, "自定义 View 创建失败: $name (${e.message})")
                 null
             }
         }
@@ -68,7 +68,7 @@ class LocalizedViewFactory(
             try {
                 inflater.createView(name, prefix, attrs)?.let { return it }
             } catch (e: Throwable) {
-                Log.d(TAG, "按前缀 $prefix 创建 $name 失败: ${e.message}")
+                AppLog.d(TAG, "按前缀 $prefix 创建 $name 失败: ${e.message}")
             }
         }
         return null
@@ -90,7 +90,7 @@ class LocalizedViewFactory(
                 LanguageUtils.lookupOverlay(res, descId)?.let { view.contentDescription = it }
             }
         } catch (_: Throwable) {
-            Log.d(TAG, "读取本地化属性失败")
+            AppLog.d(TAG, "读取本地化属性失败")
         }
     }
 }

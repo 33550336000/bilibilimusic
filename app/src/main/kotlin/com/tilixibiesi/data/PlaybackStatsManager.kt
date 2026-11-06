@@ -10,7 +10,7 @@ import android.content.Context
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import android.view.View
 import android.widget.TextView
 import java.lang.ref.WeakReference
@@ -161,7 +161,7 @@ object PlaybackStatsManager {
     fun loadPlaybackDetailsAsync(onResult: (Map<String, Map<String, Long>>) -> Unit) {
         AppExecutors.io.execute {
             val result = runCatching { PlaybackStatsWriter.loadAll() }
-                .onFailure { Log.d(TAG, "读取播放明细失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "读取播放明细失败: ${it.message}") }
                 .getOrDefault(emptyMap())
             handler.post { onResult(result) }
         }
@@ -173,7 +173,7 @@ object PlaybackStatsManager {
     ) {
         AppExecutors.io.execute {
             val result = runCatching { PlaybackStatsWriter.loadSongDetails(rawName) }
-                .onFailure { Log.d(TAG, "读取单曲明细失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "读取单曲明细失败: ${it.message}") }
                 .getOrDefault(emptyMap())
             handler.post { onResult(result) }
         }

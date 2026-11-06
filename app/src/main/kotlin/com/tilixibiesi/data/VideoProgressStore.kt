@@ -1,6 +1,6 @@
 package com.tilixibiesi.data
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 
 import com.tilixibiesi.util.AtomicFileWriter
 
@@ -45,7 +45,7 @@ object VideoProgressStore {
                 val value = obj.optInt(key, -1)
                 if (value > 0) positions[key] = value
             }
-        } catch (e: Exception) { Log.d(TAG, "读取播放进度失败，从空表开始: ${e.message}") }
+        } catch (e: Exception) { AppLog.d(TAG, "读取播放进度失败，从空表开始: ${e.message}") }
     }
 
     fun get(context: Context, bvid: String): Int = synchronized(lock) {

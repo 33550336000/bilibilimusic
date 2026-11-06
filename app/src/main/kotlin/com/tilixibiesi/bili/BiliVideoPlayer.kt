@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.lang.ref.WeakReference
 import java.util.Locale
 import android.annotation.SuppressLint
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackController.Target {
 
     interface Callback {
@@ -1046,13 +1046,13 @@ private fun setPlaybackSpeed(speed: Float) {
         if (mp != null) {
             runCatching {
                 if (mp.isPlaying) mp.stop()
-            }.onFailure { Log.d(TAG, "释放前 stop 失败: ${it.message}") }
+            }.onFailure { AppLog.d(TAG, "释放前 stop 失败: ${it.message}") }
             runCatching { mp.setSurface(null) }
-                .onFailure { Log.d(TAG, "释放前 setSurface 失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "释放前 setSurface 失败: ${it.message}") }
             runCatching { mp.reset() }
-                .onFailure { Log.d(TAG, "释放前 reset 失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "释放前 reset 失败: ${it.message}") }
             runCatching { mp.release() }
-                .onFailure { Log.d(TAG, "release 失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "release 失败: ${it.message}") }
         }
     }
 

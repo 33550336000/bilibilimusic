@@ -4,7 +4,7 @@ import com.tilixibiesi.util.AtomicFileWriter
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -93,7 +93,7 @@ object BiliProfileStore {
             .put(KEY_FACE, profile.face)
             .put(KEY_LOGIN_AT, profile.loginAt)
         if (!AtomicFileWriter.writeText(profileFile(), json.toString())) {
-            Log.d(TAG, "账号信息写入失败: ${profileFile().absolutePath}")
+            AppLog.d(TAG, "账号信息写入失败: ${profileFile().absolutePath}")
         }
     }
 

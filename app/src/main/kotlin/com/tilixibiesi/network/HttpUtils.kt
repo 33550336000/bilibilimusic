@@ -1,6 +1,6 @@
 package com.tilixibiesi.network
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.util.AppExecutors
@@ -46,11 +46,11 @@ object HttpUtils {
                     listener?.onFailed(LanguageUtils.getString(context, R.string.request_failed_code, connection.responseCode))
                 }
             } catch (e: Exception) {
-                Log.d(TAG, "网络请求失败: ${e.message}")
+                AppLog.d(TAG, "网络请求失败: ${e.message}")
                 listener?.onFailed(LanguageUtils.getString(context, R.string.request_error, e.message))
             } finally {
-                try { reader?.close() } catch (e: Exception) { Log.d(TAG, "关闭响应流失败: ${e.message}") }
-                try { connection?.disconnect() } catch (e: Exception) { Log.d(TAG, "断开连接失败: ${e.message}") }
+                try { reader?.close() } catch (e: Exception) { AppLog.d(TAG, "关闭响应流失败: ${e.message}") }
+                try { connection?.disconnect() } catch (e: Exception) { AppLog.d(TAG, "断开连接失败: ${e.message}") }
             }
         }
     }

@@ -55,6 +55,12 @@
     <string name="btn_playlist_footprint">查看歌单歌曲足迹</string>
     <string name="btn_manage_files">管理文件</string>
     <string name="btn_send_notification">发送通知</string>
+    <string name="btn_export_log">导出日志</string>
+    <string name="dialog_title_export_log">导出日志</string>
+    <string name="dialog_msg_export_log">是否将本次运行日志导出？</string>
+    <string name="btn_export">导出</string>
+    <string name="toast_log_export_saved">日志已导出</string>
+    <string name="toast_log_export_failed">导出日志失败</string>
 
     <string name="btn_restore_default">恢复默认设置</string>
     <string name="btn_play_mode_format">播放模式:%s</string>

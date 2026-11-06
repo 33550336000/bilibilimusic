@@ -1,6 +1,6 @@
 package com.tilixibiesi.bili
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 
 import com.tilixibiesi.network.HttpUtils
 
@@ -69,7 +69,7 @@ object BiliDanmakuLoader {
                 GZIPInputStream(ByteArrayInputStream(bytes)).use { inp ->
                     return String(inp.readBytes(), StandardCharsets.UTF_8)
                 }
-            } catch (_: Exception) { Log.d(TAG, "gzip 解码弹幕失败，回退原始字节") }
+            } catch (_: Exception) { AppLog.d(TAG, "gzip 解码弹幕失败，回退原始字节") }
         }
         try {
             val out = ByteArrayOutputStream(bytes.size * 4)
@@ -90,7 +90,7 @@ object BiliDanmakuLoader {
             }
             val text = String(out.toByteArray(), StandardCharsets.UTF_8)
             if (text.isNotBlank()) return text
-        } catch (_: Exception) { Log.d(TAG, "inflate 解码弹幕失败，回退原始字节") }
+        } catch (_: Exception) { AppLog.d(TAG, "inflate 解码弹幕失败，回退原始字节") }
         return String(bytes, StandardCharsets.UTF_8)
     }
 }

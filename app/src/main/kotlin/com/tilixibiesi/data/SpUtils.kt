@@ -1,6 +1,6 @@
 package com.tilixibiesi.data
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.util.AppExecutors
 
@@ -67,7 +67,7 @@ object SpUtils {
             }
             getSp(context).edit().putString(KEY_MUSIC_LIST, jsonArray.toString()).apply()
         } catch (e: Exception) {
-            Log.d(TAG, "保存歌曲列表失败: ${e.message}")
+            AppLog.d(TAG, "保存歌曲列表失败: ${e.message}")
         }
     }
 
@@ -86,7 +86,7 @@ object SpUtils {
                 list.add(bean)
             }
         } catch (e: Exception) {
-            Log.d(TAG, "读取歌曲列表失败: ${e.message}")
+            AppLog.d(TAG, "读取歌曲列表失败: ${e.message}")
         }
         return list
     }

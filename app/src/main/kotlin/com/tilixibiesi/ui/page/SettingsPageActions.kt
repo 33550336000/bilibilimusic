@@ -5,7 +5,10 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SettingsStore
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.service.MusicPlayerService
+import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.FontUtils
+import com.tilixibiesi.util.LogExporter
+import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.ToastUtils
 
 import android.app.Activity
@@ -17,9 +20,100 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.SeekBar
 import android.widget.TextView
+import java.io.File
 import java.util.Locale
 
 private const val SETTINGS_REQUEST_PICK_DEFAULT_BG = 1005
+
+private const val SETTINGS_REQUEST_EXPORT_LOG = 1006
+
+internal fun SettingsPage.showExportLogDialog() {
+    val page = this
+    showMaterialDialog(
+        AlertDialog.Builder(page)
+            .setTitle(LanguageUtils.getString(page, R.string.dialog_title_export_log))
+            .setMessage(LanguageUtils.getString(page, R.string.dialog_msg_export_log))
+            .setPositiveButton(LanguageUtils.getString(page, R.string.btn_export)) { _, _ ->
+                page.exportLogToDocument()
+            }
+            .setNeutralButton(LanguageUtils.getString(page, R.string.now_playing_share)) { _, _ ->
+                page.shareLogFile()
+            }
+            .setNegativeButton(LanguageUtils.getString(page, R.string.btn_cancel), null)
+    )
+}
+
+private fun SettingsPage.prepareLogFile(onReady: (File?) -> Unit) {
+    val page = this
+    AppExecutors.io.execute {
+        val file = LogExporter.export(page)
+        page.runOnUiThread {
+            if (page.activity.isDestroyed) return@runOnUiThread
+            onReady(file)
+        }
+    }
+}
+
+private fun SettingsPage.shareLogFile() {
+    prepareLogFile { file ->
+        if (file == null) {
+            ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_log_export_failed))
+        } else {
+            ShareHelper.shareLog(this, file)
+        }
+    }
+}
+
+private fun SettingsPage.exportLogToDocument() {
+    prepareLogFile { file ->
+        if (file == null) {
+            ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_log_export_failed))
+            return@prepareLogFile
+        }
+        pendingLogFile = file
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TITLE, file.name)
+        }
+        try {
+            startActivityForResult(intent, SETTINGS_REQUEST_EXPORT_LOG)
+        } catch (e: android.content.ActivityNotFoundException) {
+            pendingLogFile = null
+            ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_no_file_picker))
+        }
+    }
+}
+
+internal fun SettingsPage.handleExportLogResult(
+    requestCode: Int,
+    resultCode: Int,
+    data: Intent?
+): Boolean {
+    if (requestCode != SETTINGS_REQUEST_EXPORT_LOG) return false
+    val source = pendingLogFile
+    pendingLogFile = null
+    if (resultCode != Activity.RESULT_OK || data == null || source == null) return true
+    val uri = data.data ?: return true
+    AppExecutors.io.execute {
+        val ok = runCatching {
+            contentResolver.openOutputStream(uri)?.use { out ->
+                source.inputStream().use { input -> input.copyTo(out) }
+            } != null
+        }.getOrDefault(false)
+        runOnUiThread {
+            if (activity.isDestroyed) return@runOnUiThread
+            ToastUtils.show(
+                this,
+                LanguageUtils.getString(
+                    this,
+                    if (ok) R.string.toast_log_export_saved else R.string.toast_log_export_failed
+                )
+            )
+        }
+    }
+    return true
+}
 
 internal fun SettingsPage.pickDefaultBackground() {
     val intents = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {

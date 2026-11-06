@@ -19,7 +19,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -83,7 +83,7 @@ open class BaseActivity : Activity() {
         try {
             unregisterReceiver(languageUpdatedReceiver)
         } catch (_: Exception) {
-            Log.d(TAG, "注销语言广播接收器失败，可能已注销")
+            AppLog.d(TAG, "注销语言广播接收器失败，可能已注销")
         }
         BiliLoginHelper.onActivityDestroyed(this)
         ActivityTracker.onDestroyed(this)

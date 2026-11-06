@@ -1,7 +1,6 @@
 package com.tilixibiesi.util
 
 import android.os.Looper
-import android.util.Log
 
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
@@ -75,10 +74,10 @@ object AppExecutors {
 
         override fun rejectedExecution(r: Runnable, executor: ThreadPoolExecutor) {
             if (Looper.myLooper() == Looper.getMainLooper()) {
-                Log.d(TAG, "IO 队列已满，任务转入后备线程执行")
+                AppLog.d(TAG, "IO 队列已满，任务转入后备线程执行")
             }
             runCatching { fallback.execute(r) }
-                .onFailure { Log.d(TAG, "后备线程执行失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "后备线程执行失败: ${it.message}") }
         }
     }
 }

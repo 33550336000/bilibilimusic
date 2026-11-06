@@ -5,7 +5,7 @@ import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.network.HttpUtils
 import com.tilixibiesi.util.AtomicFileWriter
 
-import android.util.Log
+import com.tilixibiesi.util.AppLog
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -120,7 +120,7 @@ object BiliMusicZone {
             }
             list to nextPage
         } catch (e: Exception) {
-            Log.d(TAG, "读取音乐列表缓存失败: ${e.message}")
+            AppLog.d(TAG, "读取音乐列表缓存失败: ${e.message}")
             emptyList<MusicBean>() to 1
         }
     }
@@ -163,7 +163,7 @@ object BiliMusicZone {
                 readTimeout = TIMEOUT_MS
             )
         } catch (e: Exception) {
-            Log.d(TAG, "搜索「$keyword/$order」第 $pageInCombo 页请求失败: ${e.message}")
+            AppLog.d(TAG, "搜索「$keyword/$order」第 $pageInCombo 页请求失败: ${e.message}")
             return emptyList()
         }
 
@@ -172,7 +172,7 @@ object BiliMusicZone {
             if (obj.optInt("code") != 0) emptyList()
             else parseResults(obj.optJSONObject("data")?.optJSONArray("result"))
         } catch (e: Exception) {
-            Log.d(TAG, "解析「$keyword/$order」第 $pageInCombo 页失败: ${e.message}")
+            AppLog.d(TAG, "解析「$keyword/$order」第 $pageInCombo 页失败: ${e.message}")
             emptyList()
         }
     }
@@ -274,7 +274,7 @@ object BiliMusicZone {
             file.parentFile?.mkdirs()
             AtomicFileWriter.writeText(file, root.toString())
         } catch (e: Exception) {
-            Log.d(TAG, "保存音乐列表缓存失败: ${e.message}")
+            AppLog.d(TAG, "保存音乐列表缓存失败: ${e.message}")
         }
     }
 

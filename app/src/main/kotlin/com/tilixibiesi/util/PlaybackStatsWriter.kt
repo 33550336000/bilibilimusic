@@ -4,7 +4,6 @@ import com.tilixibiesi.data.PlaybackDetails
 import com.tilixibiesi.data.StoragePaths
 
 import android.os.SystemClock
-import android.util.Log
 
 import java.io.File
 import java.time.LocalDate
@@ -125,7 +124,7 @@ object PlaybackStatsWriter {
                 val file = fileOf(date)
                 if (file.exists()) PlaybackDetails.parse(file.readText()) else emptyMap()
             }
-                .onFailure { Log.d(TAG, "读取今日统计基线失败: ${it.message}") }
+                .onFailure { AppLog.d(TAG, "读取今日统计基线失败: ${it.message}") }
                 .getOrDefault(emptyMap())
             synchronized(lock) {
                 loadInFlight = false
@@ -163,7 +162,7 @@ object PlaybackStatsWriter {
             try {
                 flushInternal()
             } catch (e: Exception) {
-                Log.d(TAG, "落盘失败: ${e.message}")
+                AppLog.d(TAG, "落盘失败: ${e.message}")
             } finally {
                 flushScheduled.set(false)
             }
@@ -177,7 +176,7 @@ object PlaybackStatsWriter {
             loadTodayBaselineBlocking()
             flushInternal()
         } catch (e: Exception) {
-            Log.d(TAG, "退出前落盘失败: ${e.message}")
+            AppLog.d(TAG, "退出前落盘失败: ${e.message}")
         }
     }
 
@@ -192,7 +191,7 @@ object PlaybackStatsWriter {
             val file = fileOf(date)
             if (file.exists()) PlaybackDetails.parse(file.readText()) else emptyMap()
         }
-            .onFailure { Log.d(TAG, "退出前补读基线失败: ${it.message}") }
+            .onFailure { AppLog.d(TAG, "退出前补读基线失败: ${it.message}") }
             .getOrDefault(emptyMap())
         synchronized(lock) {
             if (date != activeDate || todayLoaded) return
@@ -233,7 +232,7 @@ object PlaybackStatsWriter {
     private fun writeShard(date: String, values: Map<String, Long>): Boolean {
         val dir = detailDir()
         if (!dir.exists() && !dir.mkdirs()) {
-            Log.d(TAG, "统计目录创建失败: ${dir.absolutePath}")
+            AppLog.d(TAG, "统计目录创建失败: ${dir.absolutePath}")
             return false
         }
         val target = fileOf(date)
@@ -241,7 +240,7 @@ object PlaybackStatsWriter {
         if (ok) {
             synchronized(lock) { shardCache.remove(target.name) }
         } else {
-            Log.d(TAG, "统计写入失败: ${target.name}")
+            AppLog.d(TAG, "统计写入失败: ${target.name}")
         }
         return ok
     }
@@ -318,7 +317,7 @@ object PlaybackStatsWriter {
             shardCache[file.name]?.let { if (it.lastModified == mtime) return it.parsed }
         }
         val parsed = runCatching { PlaybackDetails.parse(file.readText()) }
-            .onFailure { Log.d(TAG, "统计分片解析失败 ${file.name}: ${it.message}") }
+            .onFailure { AppLog.d(TAG, "统计分片解析失败 ${file.name}: ${it.message}") }
             .getOrNull()
             ?: return null
         synchronized(lock) { shardCache[file.name] = CachedShard(mtime, parsed) }
