@@ -23,6 +23,7 @@ object BiliLyricStore {
             val lines = BiliLyricHelper.parseLrc(file.readText())
             if (lines.isEmpty()) null else BiliLyric(lines, BiliLyric.Source.LOCAL)
         } catch (_: Exception) {
+            AppLog.d(TAG, "读取本地歌词失败")
             null
         }
     }

@@ -58,6 +58,7 @@ object BiliDanmakuLoader {
             val xml = decodeBody(raw)
             BiliDanmakuParser.parse(xml)
         } catch (_: Exception) {
+            AppLog.d(TAG, "解析弹幕失败，按无弹幕处理")
             null
         }
     }

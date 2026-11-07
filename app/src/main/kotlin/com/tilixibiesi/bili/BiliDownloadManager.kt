@@ -129,6 +129,7 @@ fun downloadVideoWithQuality(
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
+            AppLog.d(TAG, "下载封面失败: ${e.message}")
             handler.post {
                 dialog.dismiss()
                 Toast.makeText(context, LanguageUtils.getString(context, R.string.download_failed_msg, e.message), Toast.LENGTH_SHORT).show()
@@ -164,6 +165,7 @@ fun downloadVideoWithQuality(
                     Toast.makeText(context, LanguageUtils.getString(context, R.string.download_complete_name, safeName), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
+                AppLog.d(TAG, "下载视频失败: ${e.message}")
                 handler.post {
                     dialog.dismiss()
                     Toast.makeText(context, LanguageUtils.getString(context, R.string.download_failed_msg, e.message), Toast.LENGTH_SHORT).show()
@@ -196,6 +198,7 @@ fun downloadVideoWithQuality(
             AtomicFileWriter.writeText(finalTarget, BiliSubtitleHelper.toSrt(cues))
             finalTarget
         } catch (_: Exception) {
+            AppLog.d(TAG, "写入字幕文件失败")
             null
         }
     }
@@ -259,6 +262,7 @@ fun downloadVideoWithQuality(
             }
             return true
         } catch (e: Exception) {
+            AppLog.d(TAG, "下载分P失败: ${e.javaClass.simpleName}")
             dest.delete()
             handler.post {
                 Toast.makeText(context, LanguageUtils.getString(context, R.string.download_failed_class, e.javaClass.simpleName), Toast.LENGTH_SHORT).show()

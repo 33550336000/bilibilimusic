@@ -21,6 +21,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 
 object DialogHelper {
+    private const val TAG = "DialogHelper"
 
     fun createStyledDialog(
         context: Context,
@@ -91,6 +92,7 @@ object DialogHelper {
         val dialogBgColor = try {
             Color.parseColor(SpUtils.getDialogBgColor(activity))
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析弹窗背景色失败，回退白色: ${e.message}")
             Color.WHITE
         }
         val dialogAlpha = SpUtils.getDialogAlpha(activity) / 100f
@@ -137,6 +139,7 @@ object DialogHelper {
         val dialogFont = SpUtils.getDialogFontColor(context)
         if (dialogFont.isEmpty()) FontUtils.color(context) else Color.parseColor(dialogFont)
     } catch (_: Exception) {
+        AppLog.d(TAG, "解析弹窗字体色失败，回退默认色")
         Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
     }
 

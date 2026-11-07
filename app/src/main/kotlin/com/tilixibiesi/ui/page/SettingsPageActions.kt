@@ -6,8 +6,8 @@ import com.tilixibiesi.data.SettingsStore
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.FontUtils
-import com.tilixibiesi.util.LogExporter
 import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.ToastUtils
 
@@ -20,8 +20,9 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.SeekBar
 import android.widget.TextView
-import java.io.File
 import java.util.Locale
+
+private const val TAG = "SettingsPageActions"
 
 private const val SETTINGS_REQUEST_PICK_DEFAULT_BG = 1005
 
@@ -43,45 +44,29 @@ internal fun SettingsPage.showExportLogDialog() {
     )
 }
 
-private fun SettingsPage.prepareLogFile(onReady: (File?) -> Unit) {
-    val page = this
-    AppExecutors.io.execute {
-        val file = LogExporter.export(page)
-        page.runOnUiThread {
-            if (page.activity.isDestroyed) return@runOnUiThread
-            onReady(file)
-        }
-    }
-}
-
 private fun SettingsPage.shareLogFile() {
-    prepareLogFile { file ->
-        if (file == null) {
-            ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_log_export_failed))
-        } else {
-            ShareHelper.shareLog(this, file)
-        }
+    if (AppLog.isEmpty()) {
+        ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_log_export_failed))
+        return
     }
+    ShareHelper.shareLog(this, AppLog.defaultFileName())
 }
 
 private fun SettingsPage.exportLogToDocument() {
-    prepareLogFile { file ->
-        if (file == null) {
-            ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_log_export_failed))
-            return@prepareLogFile
-        }
-        pendingLogFile = file
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/plain"
-            putExtra(Intent.EXTRA_TITLE, file.name)
-        }
-        try {
-            startActivityForResult(intent, SETTINGS_REQUEST_EXPORT_LOG)
-        } catch (e: android.content.ActivityNotFoundException) {
-            pendingLogFile = null
-            ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_no_file_picker))
-        }
+    if (AppLog.isEmpty()) {
+        ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_log_export_failed))
+        return
+    }
+    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TITLE, AppLog.defaultFileName())
+    }
+    try {
+        startActivityForResult(intent, SETTINGS_REQUEST_EXPORT_LOG)
+    } catch (e: android.content.ActivityNotFoundException) {
+        AppLog.d(TAG, "未找到可处理导出的应用")
+        ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_no_file_picker))
     }
 }
 
@@ -91,15 +76,13 @@ internal fun SettingsPage.handleExportLogResult(
     data: Intent?
 ): Boolean {
     if (requestCode != SETTINGS_REQUEST_EXPORT_LOG) return false
-    val source = pendingLogFile
-    pendingLogFile = null
-    if (resultCode != Activity.RESULT_OK || data == null || source == null) return true
+    if (resultCode != Activity.RESULT_OK || data == null) return true
     val uri = data.data ?: return true
     AppExecutors.io.execute {
         val ok = runCatching {
             contentResolver.openOutputStream(uri)?.use { out ->
-                source.inputStream().use { input -> input.copyTo(out) }
-            } != null
+                AppLog.writeTo(out) > 0
+            } ?: false
         }.getOrDefault(false)
         runOnUiThread {
             if (activity.isDestroyed) return@runOnUiThread
@@ -125,6 +108,7 @@ internal fun SettingsPage.pickDefaultBackground() {
     try {
         startActivityForResult(intents, SETTINGS_REQUEST_PICK_DEFAULT_BG)
     } catch (e: android.content.ActivityNotFoundException) {
+        AppLog.d(TAG, "未找到可用的文件选择器")
         ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_no_file_picker))
     }
 }

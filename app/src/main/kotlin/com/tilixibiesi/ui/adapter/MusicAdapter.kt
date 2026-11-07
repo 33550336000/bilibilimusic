@@ -2,6 +2,7 @@ package com.tilixibiesi.ui.adapter
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.data.DataFileUtils
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.ViewUtils
 import com.tilixibiesi.R
 
@@ -22,6 +23,7 @@ class MusicAdapter(
     private val context: Context,
     private val musicList: MutableList<MusicBean>
 ) : BaseAdapter() {
+    private val TAG = "MusicAdapter"
     var showMoveButton: Boolean = false
     var onMoveClickListener: OnMoveClickListener? = null
     var onItemLongClickListener: OnItemLongClickListener? = null
@@ -70,6 +72,7 @@ class MusicAdapter(
         themeFontColor = try {
             Color.parseColor(SpUtils.getFontColor(context))
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析主题字体颜色失败: ${e.message}")
             Color.WHITE
         }
     }

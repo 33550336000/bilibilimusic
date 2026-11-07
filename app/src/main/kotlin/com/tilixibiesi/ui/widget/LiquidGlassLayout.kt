@@ -487,6 +487,7 @@ half4 main(float2 fragCoord) {
             drawn = try {
                 drawShaderPass(canvas, bmp)
             } catch (_: Throwable) {
+                AppLog.d(TAG, "shader 绘制失败，回退纯色")
                 shaderBroken = true
                 false
             }
@@ -707,11 +708,13 @@ half4 main(float2 fragCoord) {
                 try {
                     overlay.draw(c)
                 } catch (_: Throwable) {
+                    AppLog.d(TAG, "采样 overlay 失败")
                 } finally {
                     c.restoreToCount(saveOverlay)
                 }
             }
         } catch (_: Throwable) {
+            AppLog.d(TAG, "采样背景失败")
         } finally {
             captureDepth--
             c.restoreToCount(saveCount)
@@ -775,6 +778,7 @@ half4 main(float2 fragCoord) {
         return try {
             RuntimeShader(AGSL).also { shader = it }
         } catch (_: Throwable) {
+            AppLog.d(TAG, "创建 RuntimeShader 失败，回退纯色")
             shaderBroken = true
             null
         }

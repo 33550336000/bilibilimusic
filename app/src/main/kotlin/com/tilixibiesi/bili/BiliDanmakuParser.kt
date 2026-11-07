@@ -1,6 +1,9 @@
 package com.tilixibiesi.bili
 
+import com.tilixibiesi.util.AppLog
+
 object BiliDanmakuParser {
+    private const val TAG = "BiliDanmakuParser"
 
     private val DANMAKU_RE = Regex("""<d\s+p\s*=\s*"([^"]*)"\s*>([\s\S]*?)</d>""")
 
@@ -65,6 +68,7 @@ object BiliDanmakuParser {
             val code = if (body.startsWith("x", true)) body.substring(1).toInt(16) else body.toInt()
             code.toChar().toString()
         } catch (_: Exception) {
+            AppLog.d(TAG, "解析弹幕字符实体失败")
             null
         }
     }

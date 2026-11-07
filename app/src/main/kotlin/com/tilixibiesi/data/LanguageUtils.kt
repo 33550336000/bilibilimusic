@@ -112,6 +112,7 @@ object LanguageUtils {
     fun currentVersionCode(context: Context): Int = try {
         context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode.toInt()
     } catch (e: Exception) {
+        AppLog.d(TAG, "读取版本号失败: ${e.message}")
         0
     }
 
@@ -133,13 +134,19 @@ object LanguageUtils {
         return try {
             JSONObject(file.readText()).optInt("versionCode", -1) != currentVersionCode(context)
         } catch (e: Exception) {
+            AppLog.d(TAG, "比较语言版本失败: ${e.message}")
             true
         }
     }
 
     fun lookupOverlay(res: Resources, resId: Int): String? {
         val map = currentLanguageMap ?: return null
-        val name = try { res.getResourceEntryName(resId) } catch (e: Exception) { return null }
+        val name = try {
+            res.getResourceEntryName(resId)
+        } catch (e: Exception) {
+            AppLog.d(TAG, "查询字符串资源名失败: ${e.message}")
+            return null
+        }
         return map[name]
     }
 
@@ -149,6 +156,7 @@ object LanguageUtils {
         return try {
             String.format(Locale.getDefault(), raw, *formatArgs)
         } catch (e: Exception) {
+            AppLog.d(TAG, "格式化字符串失败: ${e.message}")
             raw
         }
     }
@@ -200,6 +208,7 @@ object LanguageUtils {
                 m
             }
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析语言资源失败: ${e.message}")
             null
         }
     }
@@ -326,6 +335,7 @@ object LanguageUtils {
         return try {
             Resources.getSystem().configuration.locales[0]
         } catch (e: Exception) {
+            AppLog.d(TAG, "读取系统语言失败: ${e.message}")
             null
         }
     }

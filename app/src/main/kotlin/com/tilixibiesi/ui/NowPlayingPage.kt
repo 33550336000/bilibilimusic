@@ -13,6 +13,7 @@ import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.service.MusicPlayerService
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.CacheManager
 import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.ShareHelper
@@ -45,6 +46,7 @@ class NowPlayingPage(
     private val activity: android.app.Activity,
     private val commands: Commands
 ) {
+    private val TAG = "NowPlayingPage"
 
     interface Commands {
         fun onPlayPause()
@@ -501,6 +503,7 @@ class NowPlayingPage(
             val h = (src.height * ratio).toInt().coerceAtLeast(1)
             Bitmap.createScaledBitmap(src, w, h, true)
         } catch (_: Exception) {
+            AppLog.d(TAG, "缩放封面失败")
             null
         }
     }

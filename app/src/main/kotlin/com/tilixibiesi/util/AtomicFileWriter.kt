@@ -6,6 +6,7 @@ import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicLong
 
 object AtomicFileWriter {
+    private const val TAG = "AtomicFileWriter"
 
     private val tmpSeq = AtomicLong(0)
 
@@ -33,6 +34,7 @@ object AtomicFileWriter {
             }
             true
         } catch (e: Exception) {
+            AppLog.d(TAG, "原子写入失败: ${e.message}")
             false
         } finally {
             runCatching { if (tmp.exists()) tmp.delete() }

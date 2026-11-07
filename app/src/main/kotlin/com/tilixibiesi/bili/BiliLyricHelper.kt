@@ -1,9 +1,11 @@
 package com.tilixibiesi.bili
 
 import com.tilixibiesi.network.HttpUtils
+import com.tilixibiesi.util.AppLog
 import org.json.JSONObject
 
 object BiliLyricHelper {
+    private const val TAG = "BiliLyricHelper"
 
     private const val MARK_SONG_OFFSET = "[song_offset]"
     private const val MARK_END_POINT = "[end_point]"
@@ -66,6 +68,7 @@ object BiliLyricHelper {
             }
             if (lines.isEmpty()) null else BiliLyric(lines, BiliLyric.Source.SUBTITLE)
         } catch (_: Exception) {
+            AppLog.d(TAG, "从字幕接口获取歌词失败")
             null
         }
     }
@@ -87,6 +90,7 @@ object BiliLyricHelper {
                 ?.optString("music_id", "")
                 ?.takeIf { it.isNotEmpty() }
         } catch (_: Exception) {
+            AppLog.d(TAG, "请求歌词 music_id 失败")
             null
         } ?: return null
 
@@ -104,6 +108,7 @@ object BiliLyricHelper {
                 ?.optString("mv_lyric", "")
                 ?.takeIf { it.isNotEmpty() }
         } catch (_: Exception) {
+            AppLog.d(TAG, "请求 mv_lyric 失败")
             null
         } ?: return null
 
@@ -116,6 +121,7 @@ object BiliLyricHelper {
             )
             BiliDanmakuLoader.decodeBody(bytes)
         } catch (_: Exception) {
+            AppLog.d(TAG, "解码歌词响应失败")
             null
         } ?: return null
 

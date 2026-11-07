@@ -19,9 +19,18 @@ object AppLog {
     /** 环形缓冲容量。当前全仓日志量很低（只在异常/失败分支打点），2000 条足够。 */
     private const val MAX_ENTRIES = 2000
 
-    private const val TAG = "AppLog"
+    /**
+     * 同一条日志在这个间隔内只留一条。
+     *
+     * 有些 catch 位于逐帧绘制路径上（LiquidGlassLayout 的采样与 shader 绘制），
+     * 一旦失败会每帧触发。不折叠的话几秒就能把缓冲刷满，把真正有用的日志挤出去。
+     */
+    private const val DEDUP_WINDOW_MS = 3000L
 
     private val entries = ArrayDeque<Entry>(MAX_ENTRIES)
+
+    /** tag + message 的最近一次记录时刻，用于上面说的折叠。 */
+    private val lastSeen = HashMap<String, Long>()
 
     private val timeFormat = java.text.SimpleDateFormat("MM-dd HH:mm:ss.SSS", java.util.Locale.US)
 
@@ -36,35 +45,50 @@ object AppLog {
         // 简单用锁：日志量低，争用可以忽略；synchronized 比并发容器更好保证
         // "判满丢弃" 与 "追加" 的原子性。
         synchronized(entries) {
+            val now = System.currentTimeMillis()
+            val key = tag + ": " + message
+            val last = lastSeen[key]
+            if (last != null && now - last < DEDUP_WINDOW_MS) return
+            // 消息里可能拼了异常描述，key 不是有限集；满了直接清空重来，
+            // 代价只是该轮折叠失效一次。
+            if (lastSeen.size >= MAX_ENTRIES) lastSeen.clear()
+            lastSeen[key] = now
             if (entries.size >= MAX_ENTRIES) entries.removeFirst()
-            entries.addLast(Entry(System.currentTimeMillis(), tag, message))
+            entries.addLast(Entry(now, tag, message))
         }
     }
 
     /**
-     * 导出内存中留存的全部日志，每条一行，格式与 logcat threadtime 对齐：
+     * 把内存中留存的全部日志写进给定输出流，每条一行，格式：
      * `MM-dd HH:mm:ss.SSS  D  tag: message`
+     *
+     * 直接写流而不落中转文件：导出走 SAF 的 openOutputStream，分享走管道型
+     * ContentProvider，两者都不需要在磁盘上先存一份。
+     *
+     * @return 写出的条目数，0 表示内存里没有日志。
      */
-    fun dumpTo(target: java.io.File): Boolean {
+    fun writeTo(out: java.io.OutputStream): Int {
         val snapshot: List<Entry>
         synchronized(entries) {
             snapshot = entries.toList()
         }
-        if (snapshot.isEmpty()) {
-            Log.d(TAG, "内存日志为空")
-            return false
+        val writer = out.bufferedWriter(Charsets.UTF_8)
+        for (e in snapshot) {
+            writer.write(timeFormat.format(java.util.Date(e.time)))
+            writer.write("  D  ")
+            writer.write(e.tag)
+            writer.write(": ")
+            writer.write(e.message)
+            writer.write("\n")
         }
-        return AtomicFileWriter.write(target) { out ->
-            val writer = out.bufferedWriter(Charsets.UTF_8)
-            for (e in snapshot) {
-                writer.write(timeFormat.format(java.util.Date(e.time)))
-                writer.write("  D  ")
-                writer.write(e.tag)
-                writer.write(": ")
-                writer.write(e.message)
-                writer.write("\n")
-            }
-            writer.flush()
-        }
+        writer.flush()
+        return snapshot.size
     }
+
+    fun isEmpty(): Boolean = synchronized(entries) { entries.isEmpty() }
+
+    /** 导出文件名，例如 `logcat-20261107-083300.txt`。 */
+    fun defaultFileName(): String =
+        "logcat-" + java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US)
+            .format(java.util.Date()) + ".txt"
 }

@@ -251,14 +251,24 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         if (intent?.action == ACTION_REQUEST_PROGRESS) {
             val mp = mediaPlayer
             val prepared = isPrepared && mp != null
-            var dur = if (prepared) try { mp.duration } catch (e: IllegalStateException) { 0 } else 0
+            var dur = if (prepared) try {
+                mp.duration
+            } catch (e: IllegalStateException) {
+                AppLog.d(TAG, "读取时长失败: ${e.message}")
+                0
+            } else 0
             if (dur <= 0) {
                 val bean = musicList?.getOrNull(currentPlayingIndex)
                 if (bean != null && bean.duration > 0) {
                     dur = bean.duration * 1000
                 }
             }
-            val cur = if (prepared) try { mp.currentPosition } catch (e: IllegalStateException) { 0 } else 0
+            val cur = if (prepared) try {
+                mp.currentPosition
+            } catch (e: IllegalStateException) {
+                AppLog.d(TAG, "读取播放状态失败")
+                0
+            } else 0
             val playing = isPlaying
             Intent(BROADCAST_PLAY_STATE).apply {
                 putExtra(EXTRA_CURRENT_POSITION, cur)
@@ -385,6 +395,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             DataFileUtils.loadBlockedWords()
         )
     } catch (e: Exception) {
+        AppLog.d(TAG, "加载屏蔽词失败，按空处理")
         emptyList()
     }
 
@@ -588,7 +599,12 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
 
         val resumePosition = if (isPrepared) {
-            try { mediaPlayer?.currentPosition ?: 0 } catch (_: IllegalStateException) { 0 }
+            try {
+                mediaPlayer?.currentPosition ?: 0
+            } catch (_: IllegalStateException) {
+                AppLog.d(TAG, "读取当前进度失败")
+                0
+            }
         } else 0
         val wasPlaying = mediaPlayer?.isPlaying == true
         val gen = playGeneration
@@ -662,6 +678,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             mediaPlayer?.isLooping = currentPlayMode == SpUtils.PlayMode.SINGLE_LOOP
             mediaPlayer?.prepareAsync()
         } catch (e: Exception) {
+            AppLog.d(TAG, "准备播放器失败，尝试下一首: ${e.message}")
             if (gen != playGeneration) return
             if (e is IOException || e is IllegalStateException) {
                 playNext()
@@ -703,6 +720,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             if (!wakeLock.isHeld) wakeLock.acquire()
             if (!wifiLock.isHeld) wifiLock.acquire()
         } catch (e: IOException) {
+            AppLog.d(TAG, "获取 WakeLock 失败，尝试下一首: ${e.message}")
             playNextFile()
         }
     }
@@ -1226,7 +1244,12 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     private fun currentLyricPosition(): Long {
         val mp = mediaPlayer ?: return 0L
         if (!isPrepared) return 0L
-        return try { mp.currentPosition.toLong() } catch (_: IllegalStateException) { 0L }
+        return try {
+            mp.currentPosition.toLong()
+        } catch (_: IllegalStateException) {
+            AppLog.d(TAG, "读取播放位置失败")
+            0L
+        }
     }
 
     private fun updateNotification(musicName: String, isPlaying: Boolean) {
@@ -1258,8 +1281,18 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         val mp = mediaPlayer ?: return
         val name = currentPlayingName ?: return
         mediaSessionManager.setTrackMetadata(name, resolveDurationMs(), force = true)
-        val playing = try { mp.isPlaying } catch (_: IllegalStateException) { false }
-        val pos = try { mp.currentPosition.toLong() } catch (_: IllegalStateException) { 0L }
+        val playing = try {
+            mp.isPlaying
+        } catch (_: IllegalStateException) {
+            AppLog.d(TAG, "读取播放状态失败")
+            false
+        }
+        val pos = try {
+            mp.currentPosition.toLong()
+        } catch (_: IllegalStateException) {
+            AppLog.d(TAG, "读取播放位置失败")
+            0L
+        }
         mediaSessionManager.updatePlaybackState(
             if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
             pos,
@@ -1448,6 +1481,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     private fun findBiliBeanByDisplayName(displayName: String): MusicBean? = try {
         BiliHistoryHelper.findByDisplayName(displayName)
     } catch (e: Exception) {
+        AppLog.d(TAG, "按显示名查找收藏歌曲失败: ${e.message}")
         null
     }
 

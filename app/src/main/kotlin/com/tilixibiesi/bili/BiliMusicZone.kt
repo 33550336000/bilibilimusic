@@ -234,6 +234,7 @@ object BiliMusicZone {
                 else -> 0
             }
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析时长失败: ${e.message}")
             0
         }
     }
@@ -247,7 +248,12 @@ object BiliMusicZone {
     }
 
     private fun encode(s: String): String =
-        try { java.net.URLEncoder.encode(s, "UTF-8") } catch (e: Exception) { s }
+        try {
+            java.net.URLEncoder.encode(s, "UTF-8")
+        } catch (e: Exception) {
+            AppLog.d(TAG, "URL 编码失败，回退原文: ${e.message}")
+            s
+        }
 
     /** 保存缓存；[nextPage] 记住下次该拉第几页（不靠条目数反推）。 */
     fun saveCache(list: List<MusicBean>, nextPage: Int = 1) {

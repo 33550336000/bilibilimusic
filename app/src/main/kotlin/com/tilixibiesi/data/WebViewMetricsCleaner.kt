@@ -90,6 +90,7 @@ object WebViewMetricsCleaner {
             if (purgeDeviceProtected(app)) deleted = true
             deleted
         } catch (_: Exception) {
+            AppLog.d(TAG, "清理 WebView 缓存失败")
             false
         }
     }
@@ -143,6 +144,7 @@ object WebViewMetricsCleaner {
         try {
             Files.isSymbolicLink(f.toPath())
         } catch (_: Exception) {
+            AppLog.d(TAG, "判断符号链接失败")
             false
         }
 

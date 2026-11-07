@@ -122,6 +122,7 @@ object HttpUtils {
             try {
                 return get(url, headers, connectTimeout, readTimeout)
             } catch (e: Exception) {
+                AppLog.d(TAG, "请求失败，准备重试: ${e.message}")
                 lastException = e
                 if (attempt < maxRetries) {
                     Thread.sleep(1000)

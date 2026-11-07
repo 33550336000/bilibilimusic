@@ -1,5 +1,6 @@
 package com.tilixibiesi.data
 
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.AtomicFileWriter
 import org.json.JSONArray
 
@@ -9,6 +10,7 @@ import org.json.JSONArray
  * 读取、新增、删除都直接落盘，不再走 SharedPreferences。
  */
 object SearchHistoryStore {
+    private const val TAG = "SearchHistoryStore"
 
     private const val HISTORY_FILE_REL =
         "system/axeron/long/Android/Appdata/history/search_history.json"
@@ -21,12 +23,14 @@ object SearchHistoryStore {
         val text = try {
             file.readText()
         } catch (e: Exception) {
+            AppLog.d(TAG, "读取搜索历史失败，回退为空")
             return JSONArray()
         }
         if (text.isBlank()) return JSONArray()
         return try {
             JSONArray(text)
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析搜索历史失败，回退为空")
             JSONArray()
         }
     }

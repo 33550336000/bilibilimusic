@@ -323,6 +323,7 @@ object BiliLoginHelper {
                 runCatching { conn.disconnect() }
             }
         } catch (_: Exception) {
+            AppLog.d(TAG, "获取登录信息失败")
             -1
         }
     }

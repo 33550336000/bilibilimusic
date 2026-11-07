@@ -224,6 +224,7 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
                     try {
                         Thread.sleep(RETRY_SLICE_MS)
                     } catch (e: InterruptedException) {
+                        AppLog.d(TAG, "封面重试等待被中断")
                         Thread.currentThread().interrupt()
                         finishInFlight(coverUrl)
                         return
