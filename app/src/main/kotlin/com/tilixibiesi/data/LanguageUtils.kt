@@ -39,6 +39,8 @@ object LanguageUtils {
         FOLLOW_SYSTEM to "跟随系统",
         BUILTIN_LANG to "简体中文",
         "zh-TW" to "繁體中文",
+        "yue" to "粵語",
+        "zh-HK" to "繁體中文（香港）",
         "en" to "English",
         "ja" to "日本語",
         "ru" to "Русский",
@@ -77,6 +79,7 @@ object LanguageUtils {
         "ms" to "Bahasa Melayu",
         "my" to "ဗမာစာ",
         "nb" to "Norsk bokmål",
+        "nn" to "Norsk nynorsk",
         "nl" to "Nederlands",
         "pa" to "ਪੰਜਾਬੀ",
         "pl" to "Język Polski",
@@ -84,6 +87,7 @@ object LanguageUtils {
         "sk" to "slovenčina",
         "sl" to "slovenščina",
         "sr" to "српски језик",
+        "sr-Latn" to "Srpski (latinica)",
         "sv" to "svenska",
         "sw" to "Kiswahili",
         "ta" to "தமிழ்",
@@ -102,7 +106,26 @@ object LanguageUtils {
         "sq" to "Shqip",
         "ne" to "नेपाली",
         "si" to "සිංහල",
-        "af" to "Afrikaans"
+        "af" to "Afrikaans",
+        "ha" to "Hausa",
+        "jv" to "Basa Jawa",
+        "su" to "Basa Sunda",
+        "gu" to "ગુજરાતી",
+        "ml" to "മലയാളം",
+        "or" to "ଓଡ଼ିଆ",
+        "ps" to "پښتو",
+        "ku" to "Kurdî (Kurmancî)",
+        "sd" to "سنڌي",
+        "lo" to "ລາວ",
+        "ceb" to "Cebuano",
+        "mg" to "Malagasy",
+        "so" to "Soomaali",
+        "yo" to "Yorùbá",
+        "ig" to "Igbo",
+        "zu" to "isiZulu",
+        "as" to "অসমীয়া",
+        "bho" to "भोजपुरी",
+        "mai" to "मैथिली"
     )
 
     fun getSupportedLanguages(context: Context): List<Pair<String, String>> {
@@ -309,6 +332,27 @@ object LanguageUtils {
             "sq" -> "sq"
             "ne" -> "ne"
             "si" -> "si"
+            "yue" -> "yue"
+            "nn" -> "nn"
+            "ha" -> "ha"
+            "jv" -> "jv"
+            "su" -> "su"
+            "gu" -> "gu"
+            "ml" -> "ml"
+            "or" -> "or"
+            "ps" -> "ps"
+            "ku" -> "ku"
+            "sd" -> "sd"
+            "lo" -> "lo"
+            "ceb" -> "ceb"
+            "mg" -> "mg"
+            "so" -> "so"
+            "yo" -> "yo"
+            "ig" -> "ig"
+            "zu" -> "zu"
+            "as" -> "as"
+            "bho" -> "bho"
+            "mai" -> "mai"
             "af" -> "af"
             else -> null
         }
@@ -327,6 +371,12 @@ object LanguageUtils {
                 country == "CV" || country == "GW" || country == "ST" ||
                 country == "TL" || country == "MO"
             ) "pt-PT" else "pt"
+            // 繁体中文（香港/澳门）单独成包；其余繁体走 zh-TW，简体走内置中文。
+            "zh" -> if (isTraditionalChinese(locale) &&
+                (country == "HK" || country == "MO")) "zh-HK" else null
+            // 塞尔维亚语拉丁字母变体；西里尔字母走主分支 "sr"。
+            "sr" -> if (locale.script.equals("Latn", ignoreCase = true))
+                "sr-Latn" else null
             else -> null
         }
     }
