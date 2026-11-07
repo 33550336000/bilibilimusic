@@ -1,9 +1,11 @@
 package com.tilixibiesi.bili
 
 import com.tilixibiesi.network.HttpUtils
+import com.tilixibiesi.util.AppLog
 import org.json.JSONObject
 
 object BiliSubtitleHelper {
+    private const val TAG = "BiliSubtitleHelper"
 
     private const val TIMEOUT_MS = 10_000
 
@@ -53,6 +55,7 @@ object BiliSubtitleHelper {
             }
             out
         } catch (_: Exception) {
+            AppLog.d(TAG, "解析弹幕字幕失败")
             emptyList()
         }
     }

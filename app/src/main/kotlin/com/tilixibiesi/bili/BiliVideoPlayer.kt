@@ -255,6 +255,7 @@ companion object {
                 try {
                     handleTouchEvent(ev)
                 } catch (_: Exception) {
+                    AppLog.d(TAG, "处理触摸事件失败")
                     false
                 }
             }
@@ -898,12 +899,14 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
     override fun getPosition(): Int = try {
         mediaPlayer?.currentPosition ?: 0
     } catch (_: IllegalStateException) {
+        AppLog.d(TAG, "读取播放进度失败")
         0
     }
 
     override fun getDuration(): Int = try {
         mediaPlayer?.duration ?: 0
     } catch (_: IllegalStateException) {
+        AppLog.d(TAG, "读取时长失败")
         0
     }
 
@@ -1129,6 +1132,7 @@ private fun setPlaybackSpeed(speed: Float) {
                 return PlayInfo(durl.getJSONObject(0).getString("url"), cid)
             }
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析播放信息失败: ${e.message}")
         }
         return null
     }
@@ -1214,6 +1218,7 @@ private fun setPlaybackSpeed(speed: Float) {
                 setDataSource(activity, Uri.parse(url), headers)
                 prepareAsync()
             } catch (e: Exception) {
+                AppLog.d(TAG, "设置播放数据源失败: ${e.message}")
                 releaseMediaPlayer()
             }
         }

@@ -4,11 +4,13 @@ import com.tilixibiesi.model.BiliVideo
 import com.tilixibiesi.model.MusicBean
 import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.StoragePaths
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.AtomicFileWriter
 import org.json.JSONArray
 import org.json.JSONObject
 
 object BiliHistoryHelper {
+    private const val TAG = "BiliHistoryHelper"
     private const val HISTORY_FILE_REL = "system/axeron/long/Android/Appdata/bilibili/history.json"
 
     private fun readJsonArray(): JSONArray {
@@ -16,7 +18,12 @@ object BiliHistoryHelper {
         if (!file.exists()) return JSONArray()
         val text = file.readText()
         if (text.isBlank()) return JSONArray()
-        return try { JSONArray(text) } catch (e: Exception) { JSONArray() }
+        return try {
+            JSONArray(text)
+        } catch (e: Exception) {
+            AppLog.d(TAG, "读取观看历史失败，回退为空列表")
+            JSONArray()
+        }
     }
 
     fun loadAll(): List<MusicBean> {

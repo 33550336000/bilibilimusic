@@ -9,54 +9,57 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 
-import java.io.File
+import java.io.OutputStream
 
 /**
- * 把 [LogExporter] 落盘的日志文件以 content:// 暴露出去，供 ACTION_SEND 分享。
+ * 把 [AppLog] 的内存日志以 content:// 暴露给 ACTION_SEND 分享。
  *
- * 项目没有依赖 androidx，用不了 FileProvider；而 API 24+ 的 EXTRA_STREAM 不能再用
- * file:// URI（FileUriExposedException），所以这里是最小的等价实现：
- * 只读、不导出、仅接受 filesDir/logs 下的文件，路径经 canonicalPath 校验防穿越。
+ * 不落中转文件：这里用一对管道（[ParcelFileDescriptor.createPipe]），接收方打开
+ * 时在后台线程把内存快照直接写进管道读端。项目没有依赖 androidx，用不了
+ * FileProvider；而 API 24+ 的 EXTRA_STREAM 不能再用 file:// URI，管道是最贴合的
+ * 等价实现——只读、不落盘、无临时文件残留。
  */
 class LogFileProvider : ContentProvider() {
 
     companion object {
-        private const val TAG = "LogFileProvider"
-
         private const val AUTHORITY_SUFFIX = ".logfiles"
 
         private const val MIME_TYPE = "text/plain"
 
-        fun authority(context: Context): String = context.packageName + AUTHORITY_SUFFIX
+        private const val TAG = "LogFileProvider"
 
-        fun uriFor(context: Context, file: File): Uri = Uri.Builder()
+        fun uriFor(context: Context, fileName: String): Uri = Uri.Builder()
             .scheme("content")
-            .authority(authority(context))
-            .appendPath(file.name)
+            .authority(context.packageName + AUTHORITY_SUFFIX)
+            .appendPath(fileName)
             .build()
-    }
-
-    private fun resolve(uri: Uri): File? {
-        val name = uri.lastPathSegment ?: return null
-        val dir = LogExporter.logDir(context ?: return null).canonicalFile
-        val file = File(dir, name).canonicalFile
-        if (file.parentFile != dir) {
-            AppLog.d(TAG, "拒绝越权路径: $name")
-            return null
-        }
-        return file
     }
 
     override fun onCreate(): Boolean = true
 
-    override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
+    override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
         if (mode != "r") {
-            AppLog.d(TAG, "只允许只读打开: $mode")
-            return null
+            throw UnsupportedOperationException("只支持只读打开: $mode")
         }
-        val file = resolve(uri) ?: return null
-        if (!file.isFile) return null
-        return ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+        if (AppLog.isEmpty()) {
+            throw java.io.FileNotFoundException("内存中暂无日志")
+        }
+        val pipe = ParcelFileDescriptor.createPipe()
+        val readFd = pipe[0]
+        val writeFd = pipe[1]
+
+        // 写端交给后台线程，拿不到日志的接收方也不会阻塞 provider 调用线程。
+        AppExecutors.io.execute {
+            val out = ParcelFileDescriptor.AutoCloseOutputStream(writeFd)
+            try {
+                AppLog.writeTo(out)
+            } catch (e: Exception) {
+                AppLog.d(TAG, "写日志管道失败: ${e.message}")
+            } finally {
+                runCatching { out.close() }
+            }
+        }
+        return readFd
     }
 
     override fun getType(uri: Uri): String = MIME_TYPE
@@ -67,16 +70,13 @@ class LogFileProvider : ContentProvider() {
         selection: String?,
         selectionArgs: Array<out String>?,
         sortOrder: String?
-    ): Cursor? {
-        val file = resolve(uri) ?: return null
-        val columns = projection ?: arrayOf(
-            OpenableColumns.DISPLAY_NAME,
-            OpenableColumns.SIZE
-        )
+    ): Cursor {
+        val name = uri.lastPathSegment ?: AppLog.defaultFileName()
+        val columns = projection ?: arrayOf(OpenableColumns.DISPLAY_NAME)
         val row = columns.map { column ->
             when (column) {
-                OpenableColumns.DISPLAY_NAME -> file.name
-                OpenableColumns.SIZE -> file.length()
+                OpenableColumns.DISPLAY_NAME -> name
+                OpenableColumns.SIZE -> null
                 else -> null
             }
         }

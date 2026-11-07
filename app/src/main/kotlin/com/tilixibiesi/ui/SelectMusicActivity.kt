@@ -4,6 +4,7 @@ import com.tilixibiesi.bili.BiliHistoryHelper
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.DataFileUtils
 import com.tilixibiesi.data.SpUtils
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.BackgroundHelper
 import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.WindowUtils
@@ -18,6 +19,7 @@ import android.view.*
 import android.widget.*
 
 class SelectMusicActivity : BaseActivity() {
+    private val TAG = "SelectMusicActivity"
     companion object {
         const val EXTRA_PLAYLIST_ID = "playlist_id"
         const val EXTRA_SELECTED_MUSIC = "selected_music_list"
@@ -109,6 +111,7 @@ class SelectMusicActivity : BaseActivity() {
         val bili = try {
             BiliHistoryHelper.loadAllNormalized()
         } catch (e: Exception) {
+            AppLog.d(TAG, "读取 B 站收藏失败: ${e.message}")
             emptyList()
         }
 

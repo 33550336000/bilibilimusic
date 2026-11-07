@@ -31,6 +31,7 @@ object FootprintUtils {
             if (file.exists()) file.readText()
             else LanguageUtils.getString(context, R.string.no_record)
         } catch (_: Exception) {
+            AppLog.d(TAG, "读取播放足迹失败")
             LanguageUtils.getString(context, R.string.read_failed)
         }
     }

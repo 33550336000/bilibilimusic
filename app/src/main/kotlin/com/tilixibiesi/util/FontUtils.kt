@@ -6,16 +6,19 @@ import android.content.Context
 import android.graphics.Color
 
 object FontUtils {
+    private const val TAG = "FontUtils"
 
     fun color(context: Context): Int = try {
         Color.parseColor(SpUtils.getFontColor(context))
     } catch (_: Exception) {
+        AppLog.d(TAG, "解析字体颜色失败，回退默认色")
         Color.parseColor(SpUtils.DEFAULT_FONT_COLOR)
     }
 
     fun color(context: Context, fallback: Int): Int = try {
         Color.parseColor(SpUtils.getFontColor(context))
     } catch (_: Exception) {
+        AppLog.d(TAG, "解析字体颜色失败，回退指定色")
         fallback
     }
 

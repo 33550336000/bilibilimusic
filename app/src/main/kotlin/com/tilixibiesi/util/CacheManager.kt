@@ -255,6 +255,7 @@ class CacheManager {
                 runCatching { conn.disconnect() }
             }
         } catch (e: Exception) {
+            AppLog.d(TAG, "下载封面失败: ${e.message}")
             false
         }
         if (ok && tempFile.length() > 0) {
@@ -305,6 +306,7 @@ class CacheManager {
             }
             map
         } catch (e: Exception) {
+            AppLog.d(TAG, "读取音质索引失败，回退空表: ${e.message}")
             emptyMap()
         }
     }

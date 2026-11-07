@@ -4,8 +4,10 @@ import com.tilixibiesi.util.AppExecutors
 
 import android.os.Handler
 import android.os.Looper
+import com.tilixibiesi.util.AppLog
 
 object BiliVideoMetaHelper {
+    private const val TAG = "BiliVideoMetaHelper"
 
     data class Meta(
         val coverUrl: String?,
@@ -29,6 +31,7 @@ object BiliVideoMetaHelper {
             val detail = try {
                 BiliSearchHelper.getVideoDetail(bvid)
             } catch (_: Exception) {
+                AppLog.d(TAG, "获取视频详情失败")
                 null
             }
             val meta = detail?.let {

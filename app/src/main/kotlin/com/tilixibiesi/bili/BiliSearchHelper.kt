@@ -3,10 +3,12 @@ import com.tilixibiesi.network.HttpUtils
 import com.tilixibiesi.model.BiliVideo
 
 import android.text.Html
+import com.tilixibiesi.util.AppLog
 import org.json.JSONObject
 import java.net.URLEncoder
 
 object BiliSearchHelper {
+    private const val TAG = "BiliSearchHelper"
     private const val AUDIO_RESOLVE_TIMEOUT_MS = 8_000
 
     private val cidCache = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -57,6 +59,7 @@ object BiliSearchHelper {
             val cid = obj.optJSONObject("data")?.optLong("cid", 0L) ?: 0L
             if (cid <= 0L) null else cid.also { cidCache[bvid] = it }
         } catch (e: Exception) {
+            AppLog.d(TAG, "获取 cid 失败: ${e.message}")
             null
         }
     }
@@ -110,6 +113,7 @@ object BiliSearchHelper {
                 }
             }
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析 dash 播放地址失败: ${e.message}")
             emptyList()
         }
         if (dashUrls.isNotEmpty()) return dashUrls.distinct()
@@ -129,6 +133,7 @@ object BiliSearchHelper {
                 listOf(normalizeUrl(durl.getJSONObject(0).getString("url")))
             } else emptyList()
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析 durl 播放地址失败: ${e.message}")
             emptyList()
         }
     }
@@ -172,6 +177,7 @@ object BiliSearchHelper {
             }
             SearchResult(list, page < numPages, 0)
         } catch (e: Exception) {
+            AppLog.d(TAG, "搜索请求失败: ${e.message}")
             SearchResult(emptyList(), false, -1)
         }
     }
@@ -196,7 +202,10 @@ object BiliSearchHelper {
                     ?.optString("title", "")
                     ?.takeIf { it.isNotEmpty() }
             )
-        } catch (e: Exception) { null }
+        } catch (e: Exception) {
+            AppLog.d(TAG, "解析视频详情失败")
+            null
+        }
     }
 
     fun getPlayUrls(bvid: String, cid: Long, cookie: String = ""): PlayUrlResult? {
@@ -251,7 +260,10 @@ object BiliSearchHelper {
                 }
             }
             PlayUrlResult(directUrl, videoQualities, audioQualities)
-        } catch (e: Exception) { null }
+        } catch (e: Exception) {
+            AppLog.d(TAG, "解析播放地址失败")
+            null
+        }
     }
 
 

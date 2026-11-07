@@ -1,12 +1,14 @@
 package com.tilixibiesi.data
 import com.tilixibiesi.util.AppExecutors
 
+import com.tilixibiesi.util.AppLog
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
 object ClickFxManager {
+    private const val TAG = "ClickFxManager"
 
     fun isReady(): Boolean {
         val f = AppPaths.clickFxFile()
@@ -42,6 +44,7 @@ object ClickFxManager {
                 false
             }
         } catch (e: Exception) {
+            AppLog.d(TAG, "下载点击特效失败: ${e.message}")
             runCatching { tmp.delete() }
             false
         }

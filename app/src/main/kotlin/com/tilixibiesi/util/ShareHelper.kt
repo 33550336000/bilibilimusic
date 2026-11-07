@@ -8,9 +8,9 @@ import com.tilixibiesi.model.PlaylistBean
 
 import android.content.Context
 import android.content.Intent
-import java.io.File
 
 object ShareHelper {
+    private const val TAG = "ShareHelper"
 
     private const val BILI_SHORT_LINK_PREFIX = "https://b23.tv/"
 
@@ -108,12 +108,11 @@ object ShareHelper {
         )
     }
 
-    fun shareLog(context: Context, file: File) {
-        val uri = LogFileProvider.uriFor(context, file)
+    fun shareLog(context: Context, fileName: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, file.name)
-            putExtra(Intent.EXTRA_STREAM, uri)
+            putExtra(Intent.EXTRA_SUBJECT, fileName)
+            putExtra(Intent.EXTRA_STREAM, LogFileProvider.uriFor(context, fileName))
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         launchChooser(
@@ -130,6 +129,7 @@ object ShareHelper {
         try {
             context.startActivity(chooser)
         } catch (e: Exception) {
+            AppLog.d(TAG, "启动分享失败: ${e.message}")
             ToastUtils.show(context, LanguageUtils.getString(context, R.string.now_playing_share_failed))
         }
     }

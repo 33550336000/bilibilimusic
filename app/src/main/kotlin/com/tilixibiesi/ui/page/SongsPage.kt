@@ -717,6 +717,7 @@ class SongsPage(base: Context) : BasePage(base) {
                     page.applyBiliBeans(biliBeans)
                 }
             } catch (e: Exception) {
+                AppLog.d(TAG, "加载 B 站观看历史失败: ${e.message}")
                 synchronized(biliHistoryLock) { isLoadingBiliHistory = false }
             }
         }

@@ -1,4 +1,5 @@
 package com.tilixibiesi.ui.page
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.ToastUtils
 
 import com.tilixibiesi.data.SettingsStore
@@ -28,11 +29,11 @@ import android.text.TextWatcher
 import android.view.*
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
-import java.io.File
 import java.util.Locale
 import android.graphics.Typeface
 
 class SettingsPage(base: Context) : BasePage(base) {
+    private val TAG = "SettingsPage"
     companion object {
         private const val CARD_CORNER_DP = 32f
         private const val CARD_BLUR_DP = 5f
@@ -65,7 +66,6 @@ class SettingsPage(base: Context) : BasePage(base) {
     private lateinit var btnSearchBtnStyle: Button
     private lateinit var btnSaveAsDefault: Button
     private lateinit var btnAutoLoadDefault: Button
-    internal var pendingLogFile: File? = null
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -175,6 +175,7 @@ class SettingsPage(base: Context) : BasePage(base) {
                     etFontColorSyncing = false
                     applyPickedFontColor(color, syncInput = false)
                 } catch (_: Exception) {
+                    AppLog.d(TAG, "解析字体颜色失败")
                     etFontColorSyncing = false
                 }
             }
@@ -497,6 +498,7 @@ class SettingsPage(base: Context) : BasePage(base) {
                         SpUtils.saveFontSize(this@SettingsPage, size)
                     }
                 } catch (e: NumberFormatException) {
+                    AppLog.d(TAG, "字体大小输入非法: ${e.message}")
                     etFontSizeInput.error = LanguageUtils.getString(this@SettingsPage, R.string.error_invalid_number)
                 }
             }

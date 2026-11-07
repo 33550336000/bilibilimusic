@@ -9,6 +9,7 @@ import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.ui.MainPagerActivity
 import com.tilixibiesi.ui.widget.LiquidGlassLayout
 import com.tilixibiesi.util.AppExecutors
+import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.DialogHelper
 import com.tilixibiesi.util.FontUtils
 import com.tilixibiesi.util.ToastUtils
@@ -30,6 +31,7 @@ import java.net.URL
  * 设置页只能从这里进入，所以本页同时是设置的唯一入口。
  */
 class MePage(base: Context) : BasePage(base) {
+    private val TAG = "MePage"
 
     private companion object {
         const val NAV_API = "https://api.bilibili.com/x/web-interface/nav"
@@ -207,6 +209,7 @@ class MePage(base: Context) : BasePage(base) {
             runCatching { conn.disconnect() }
         }
     } catch (_: Exception) {
+        AppLog.d(TAG, "拉取导航信息失败")
         NavResult(CODE_NETWORK_ERROR, null, null, 0L)
     }
 

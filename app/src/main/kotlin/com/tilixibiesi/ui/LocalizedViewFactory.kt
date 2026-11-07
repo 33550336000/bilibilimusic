@@ -44,6 +44,7 @@ class LocalizedViewFactory(
         val fromDelegate = try {
             delegate?.onCreateView(parent, name, context, attrs)
         } catch (_: Throwable) {
+            AppLog.d(TAG, "委托 LayoutInflater 创建 View 失败: $name")
             null
         }
         val view = fromDelegate ?: createView(name, attrs) ?: return null

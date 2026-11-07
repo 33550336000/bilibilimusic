@@ -99,6 +99,7 @@ object SettingsStore {
             AtomicFileWriter.writeText(file, json.toString())
             ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_settings_saved))
         } catch (e: Exception) {
+            AppLog.d(TAG, "保存默认设置失败: ${e.message}")
             ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_save_failed, e.message))
         }
     }
@@ -126,6 +127,7 @@ object SettingsStore {
         return try {
             JSONObject(file.readText())
         } catch (e: Exception) {
+            AppLog.d(TAG, "解析默认设置文件失败: ${e.message}")
             null
         }
     }
@@ -181,6 +183,7 @@ object SettingsStore {
             }
             true
         } catch (e: Exception) {
+            AppLog.d(TAG, "应用默认设置失败: ${e.message}")
             false
         }
     }
