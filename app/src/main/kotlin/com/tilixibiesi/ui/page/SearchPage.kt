@@ -181,9 +181,13 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     override fun onDestroy() {
-        dismissSearchHistory()
-        BiliVideoPlayer.stopCurrentVideo()
-        if (::biliVideoAdapter.isInitialized) biliVideoAdapter.shutdown()
+        // 每步独立 runCatching，最后一定要走到 super.onDestroy()：
+        // BasePage.onDestroy() 负责注销本页注册的 BroadcastReceiver，
+        // 旧实现漏了 super 调用，这些 receiver 会一直挂在 Activity 上。
+        runCatching { dismissSearchHistory() }
+        runCatching { BiliVideoPlayer.stopCurrentVideo() }
+        if (::biliVideoAdapter.isInitialized) runCatching { biliVideoAdapter.shutdown() }
+        super.onDestroy()
     }
 
     private fun registerVideoPredictiveBack() {

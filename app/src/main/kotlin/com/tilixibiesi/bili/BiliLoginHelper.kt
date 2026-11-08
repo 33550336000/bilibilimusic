@@ -30,6 +30,7 @@ import com.tilixibiesi.util.ActivityTracker
 import com.tilixibiesi.util.AppExecutors
 import com.tilixibiesi.util.PredictiveBack
 import com.tilixibiesi.util.WindowUtils
+import java.lang.ref.WeakReference
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -51,7 +52,15 @@ object BiliLoginHelper {
 
     private var webView: WebView? = null
 
-    private var activityRef: Activity? = null
+    /**
+     * 登录窗当前宿主 Activity。
+     *
+     * 旧实现是 `Activity?` 强引用：登录窗打开期间它会一直持有 Activity，
+     * 若用户在此期间直接离开（不点关闭），Activity 的整棵 View 树都无法回收。
+     * 改成 WeakReference 后，Activity 被系统销毁时这里自然失效，
+     * 不会凭空延长它的生命周期。
+     */
+    private var activityRef: WeakReference<Activity>? = null
 
     private var onLoginSuccess: (() -> Unit)? = null
 
@@ -80,7 +89,7 @@ object BiliLoginHelper {
     fun reauthenticate(activity: Activity?, onReady: (() -> Unit)? = null) {
         val target = activity ?: ActivityTracker.current()
         if (target == null || target.isFinishing) return
-        if (isShowing || activityRef != null) return
+        if (isShowing || activityRef?.get() != null) return
         onLoginSuccess = onReady
         showLogin(target)
     }
@@ -88,7 +97,7 @@ object BiliLoginHelper {
     fun showLogin(activity: Activity) {
         if (isShowing) return
         val root = activity.window.decorView as? ViewGroup ?: return
-        activityRef = activity
+        activityRef = WeakReference(activity)
         loggedInThisSession = false
 
         val density = activity.resources.displayMetrics.density
@@ -161,14 +170,14 @@ object BiliLoginHelper {
     }
 
     fun onActivityDestroyed(activity: Activity) {
-        if (activityRef !== activity) return
+        if (activityRef?.get() !== activity) return
         teardown()
     }
 
     private fun teardown() {
         val container = overlay
         val wv = webView
-        val activity = activityRef
+        val activity = activityRef?.get()
         overlay = null
         webView = null
         activityRef = null
@@ -240,7 +249,7 @@ object BiliLoginHelper {
     }
 
     private fun verifyLoggedIn() {
-        val activity = activityRef ?: return
+        val activity = activityRef?.get() ?: return
         AppExecutors.io.execute {
             val cookie = readWebViewCookie()
             if (cookie.isEmpty()) return@execute
@@ -255,7 +264,7 @@ object BiliLoginHelper {
      */
     private fun extractCookie() {
         if (loggedInThisSession || cookieCheckInFlight) return
-        val activity = activityRef ?: return
+        val activity = activityRef?.get() ?: return
         val cookie = readWebViewCookie()
         if (cookie.isEmpty()) return
         cookieCheckInFlight = true
@@ -268,7 +277,7 @@ object BiliLoginHelper {
             }
             mainHandler.post {
                 // 期间用户可能已关闭登录窗
-                if (activityRef === activity) finishLogin(activity, cookie)
+                if (activityRef?.get() === activity) finishLogin(activity, cookie)
             }
         }
     }

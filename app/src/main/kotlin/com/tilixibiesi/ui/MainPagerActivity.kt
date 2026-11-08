@@ -45,6 +45,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
         const val EXTRA_TARGET_PAGE = "target_page"
         const val EXTRA_ADJUST_SEARCH_BUTTON = "adjust_search_button"
         const val TAG_CLICK_FX = "click_fx_overlay"
+
     }
 
     private lateinit var pager: HorizontalPager
@@ -367,11 +368,18 @@ class MainPagerActivity : BaseActivity(), PageHost {
     }
 
     override fun onDestroy() {
-        PredictiveBack.unregister(this, PredictiveBack.TAG_PAGER)
-        BackgroundHelper.release(backgroundLayer)
-        pages.forEach { if (it.created) it.onDestroy() }
-        WebViewMetricsCleaner.removeBackgroundListener(backgroundFxReleaser)
-        fxOverlay?.pause()
+        // 兜底：先把这个 Activity 在 PredictiveBack 里的所有 tag 一次清干净，
+        // 不依赖各业务方是否都记得 unregister（历史上 TAG_NOW_PLAYING 就漏了）。
+        PredictiveBack.clearAll(this)
+        // 下面每一步都包 runCatching：旧实现只要其中一步抛异常，
+        // super.onDestroy() 就不会执行，AMS 侧的 finish 报不上来，
+        // Activity 会卡在 STOPPED finishing=false，连带整棵 View 树无法回收。
+        runCatching { BackgroundHelper.release(backgroundLayer) }
+        pages.forEach { page ->
+            if (page.created) runCatching { page.onDestroy() }
+        }
+        runCatching { WebViewMetricsCleaner.removeBackgroundListener(backgroundFxReleaser) }
+        runCatching { fxOverlay?.pause() }
         super.onDestroy()
     }
 

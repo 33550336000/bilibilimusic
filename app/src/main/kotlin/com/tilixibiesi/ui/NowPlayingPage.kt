@@ -695,6 +695,11 @@ class NowPlayingPage(
     private fun dp(value: Float): Int = (value * context.resources.displayMetrics.density).toInt()
 
     fun release() {
+        // 旧实现只 removeCallbacks + removeView，漏了 unregister：
+        // 用户打开「现在播放」后不按返回直接退出（或收到语言更新广播触发 recreate）时，
+        // TAG_NOW_PLAYING 会一直留在 PredictiveBack 的静态表里，把整个 Activity 钉住。
+        // hide() 里有这行，但 hide() 只在用户按返回时触发，覆盖不到上面两条路径。
+        PredictiveBack.unregister(activity, PredictiveBack.TAG_NOW_PLAYING)
         handler.removeCallbacksAndMessages(null)
         runCatching { (root.parent as? ViewGroup)?.removeView(root) }
     }

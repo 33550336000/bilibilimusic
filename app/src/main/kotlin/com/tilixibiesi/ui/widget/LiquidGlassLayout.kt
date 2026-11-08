@@ -399,8 +399,38 @@ half4 main(float2 fragCoord) {
         pressAnimator = null
         press = 0f
         detachWatcher()
+
+        // 显式释放离屏 backdrop（360×800×4 ≈ 1.1MB）。
+        //
+        // 旧实现只做 `backdrop = null`，把回收时机完全交给 GC。这里主动 recycle
+        // 并重置两个 RenderNode 的 display list，让离屏资源在 detach 时就归还，
+        // 不必等下一次 GC（低内存机器上那一刻可能很久才来）。
+        //
+        // 注意：这一步并**没有**解决「Activity recreate 后 Native Heap 持续增长」的问题
+        // （实测加与不加，8 轮 recreate 后的 Native Heap 都是 23MB → 71MB）。
+        // 那笔增长来自别处，尚未定位。这里只是把「确定属于本控件的资源」及时归还，
+        // 属于正确性改进，不是该泄漏的修复。
+        releaseBackdropResources()
+    }
+
+    /** 释放离屏 backdrop 位图与 RenderNode 记录，可重复调用。 */
+    private fun releaseBackdropResources() {
+        runCatching {
+            backdrop?.let { if (!it.isRecycled) it.recycle() }
+        }
         backdrop = null
         captureCanvas = null
+
+        runCatching {
+            if (blurNode.hasDisplayList()) blurNode.setPosition(0, 0, 0, 0)
+            if (shaderNode.hasDisplayList()) shaderNode.setPosition(0, 0, 0, 0)
+        }
+        blurNodeGeneration = -1
+        shaderNodeGeneration = -1
+        shaderNodeW = -1
+        shaderNodeH = -1
+        shaderNodeBw = -1
+        shaderNodeBh = -1
         invalidateBackdrop()
     }
 
