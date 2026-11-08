@@ -79,14 +79,16 @@ open class BaseActivity : Activity() {
     }
 
     override fun onDestroy() {
-        PredictiveBack.unregister(this, PredictiveBack.TAG_LOGIN)
+        // 兜底清理：把所有 tag 一次性从 PredictiveBack 的静态表里摘掉，
+        // 避免任一路径漏 unregister 就把整个 Activity 钉死在进程堆上。
+        PredictiveBack.clearAll(this)
         try {
             unregisterReceiver(languageUpdatedReceiver)
         } catch (_: Exception) {
             AppLog.d(TAG, "注销语言广播接收器失败，可能已注销")
         }
-        BiliLoginHelper.onActivityDestroyed(this)
-        ActivityTracker.onDestroyed(this)
+        runCatching { BiliLoginHelper.onActivityDestroyed(this) }
+        runCatching { ActivityTracker.onDestroyed(this) }
         super.onDestroy()
     }
 
