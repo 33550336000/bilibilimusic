@@ -241,7 +241,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
             scrollable.paddingRight,
             playerBarInset
         )
-        if (scrollable !== pageRoot) (scrollable as? ViewGroup)?.clipToPadding = false
+        (scrollable as? ViewGroup)?.clipToPadding = false
     }
 
     private fun findScrollContainer(root: View): View? {
