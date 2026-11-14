@@ -1,4 +1,5 @@
 package com.tilixibiesi.util
+import com.tilixibiesi.R
 import com.tilixibiesi.data.StoragePaths
 
 import android.content.Context
@@ -117,12 +118,12 @@ object BackgroundHelper {
         alphaPercent: Int
     ) {
         if (path.isEmpty() || !File(path).exists()) {
-            rootView.background = ColorDrawable(0xFF000000.toInt())
+            rootView.background = ColorDrawable(context.getColor(R.color.activity_bg))
             return
         }
         val bmp = obtainBackgroundBitmap(path)
         if (bmp == null) {
-            rootView.background = ColorDrawable(0xFF000000.toInt())
+            rootView.background = ColorDrawable(context.getColor(R.color.activity_bg))
             return
         }
         val drawable = BitmapDrawable(context.resources, bmp)
