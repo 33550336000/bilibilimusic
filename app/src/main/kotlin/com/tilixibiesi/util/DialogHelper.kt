@@ -154,8 +154,6 @@ object DialogHelper {
 
         window.setLayout(targetWidth(), ViewGroup.LayoutParams.WRAP_CONTENT)
         window.decorView.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            // 拖动期间窗口每帧都会 layout，这里再 setLayout 会跟拖拽互相触发抖动。
-            if (DialogDragHelper.isDragging()) return@addOnLayoutChangeListener
             val target = targetWidth()
             if (window.attributes?.width != target) {
                 window.setLayout(target, ViewGroup.LayoutParams.WRAP_CONTENT)
