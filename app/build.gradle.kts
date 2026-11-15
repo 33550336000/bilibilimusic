@@ -91,9 +91,6 @@ tasks.register("copyReleaseApk") {
     description = "将 release APK 复制为 tibao.apk 输出到模块目录"
     dependsOn("assembleRelease")
 
-    // 注意：所有变量都声明在任务配置块内部。
-    // .kts 中顶层 val 会被编译成脚本对象的属性，被 doLast 闭包捕获后
-    // 会导致 "cannot serialize Gradle script object references"（配置缓存失败）。
     val sourceFile: File = layout.buildDirectory.file("outputs/apk/release/app-release.apk").get().asFile
     val destFile: File = layout.projectDirectory.file("tibao.apk").asFile
 
