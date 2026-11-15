@@ -2,7 +2,6 @@ package com.tilixibiesi.util
 
 import android.annotation.SuppressLint
 import android.app.Dialog
-import android.graphics.Color
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -11,8 +10,6 @@ import android.view.ViewGroup
 import android.view.Window
 import android.widget.EditText
 import android.widget.FrameLayout
-import java.util.Collections
-import java.util.WeakHashMap
 import kotlin.math.hypot
 
 /**
@@ -38,64 +35,42 @@ object DialogDragHelper {
     /** 无标题弹窗的细热区高度。再小手指按不准，再大就会盖住内容。 */
     private const val EDGE_STRIP_HEIGHT_DP = 12
 
-    /** 已经挂过拖拽的 decorView，保证 attach() 幂等。弱引用，不拖住弹窗。 */
-    private val attachedViews: MutableSet<View> =
-        Collections.newSetFromMap(WeakHashMap<View, Boolean>())
-
     /**
-     * 当前是否正在拖动某个弹窗。
+     * 给一个已经 show() 的弹窗挂上拖拽。
      *
-     * DialogHelper.applyAdaptiveWidth 注册了布局变化监听，会在每次 layout 后
-     * 重新 setLayout 宽度。拖动期间每帧都会 layout，不短路的话两边互相触发。
-     */
-    @Volatile
-    private var dragging = false
-
-    fun isDragging(): Boolean = dragging
-
-    /**
-     * 给一个已经 show() 的弹窗挂上拖拽。重复调用无副作用。
-     *
-     * 内部等首帧布局完成再动手：只有那时才知道标题栏存不存在、
-     * 内容顶部到底有没有输入框。弹窗创建后立刻在别的线程 post 也能安全落地。
+     * show() 内部已走完 installContent，标题模板的显隐此刻已经确定，
+     * 所以标题那条可以同步判断。
      */
     fun attach(dialog: Dialog?) {
         val window = dialog?.window ?: return
         val decor = window.decorView as? ViewGroup ?: return
-        if (!attachedViews.add(decor)) return
 
-        decor.doOnLayoutOnce {
-            // 布局回调可能在弹窗已经关闭之后才跑（快速 show/dismiss）。
-            if (decor.windowToken == null) return@doOnLayoutOnce
-
-            val titlePanel = findTitlePanel(window)
-            if (titlePanel != null) {
-                attachDrag(window, titlePanel)
-            } else {
-                attachEdgeStrip(window, decor)
-            }
+        val titlePanel = findTitlePanel(window)
+        if (titlePanel != null) {
+            attachDrag(window, titlePanel)
+        } else {
+            // 内容顶部的输入框判定要读 getTop()，而 show() 返回时首帧布局
+            // 通常还没跑（此时所有 top 都是 0，会把任意一处 EditText 误判成
+            // 压在顶部）。post 出去等这一帧完成再判断。
+            decor.post { attachEdgeStrip(window, decor) }
         }
     }
 
-    /** 系统标题模板（含 alertTitle 的那条），既不存在也没高度时返回 null。 */
+    /** 系统标题模板（含 alertTitle 的那条），不存在或不可见时返回 null。 */
     @SuppressLint("DiscouragedApi")
     private fun findTitlePanel(window: Window): View? {
         val res = window.context.resources
         val templateId = res.getIdentifier("title_template", "id", "android")
         if (templateId != 0) {
             val template = window.findViewById<View>(templateId)
-            if (template != null && template.isShown && template.height > 0) {
-                return template
-            }
+            if (template != null && template.isShown) return template
         }
         // 退路：拿到标题文字本身，用它的父容器当热区。
         val titleId = res.getIdentifier("alertTitle", "id", "android")
         if (titleId != 0) {
             val title = window.findViewById<View>(titleId)
             val parent = title?.parent as? View
-            if (parent != null && parent.isShown && parent.height > 0) {
-                return parent
-            }
+            if (parent != null && parent.isShown) return parent
         }
         return null
     }
@@ -104,8 +79,7 @@ object DialogDragHelper {
     private fun attachEdgeStrip(window: Window, decor: ViewGroup) {
         if (decor !is FrameLayout) return
 
-        val density = decor.resources.displayMetrics.density
-        val heightPx = (EDGE_STRIP_HEIGHT_DP * density).toInt()
+        val heightPx = (EDGE_STRIP_HEIGHT_DP * decor.resources.displayMetrics.density).toInt()
         if (heightPx <= 0) return
 
         if (contentTopHasEditText(window, heightPx)) {
@@ -114,8 +88,6 @@ object DialogDragHelper {
         }
 
         val strip = View(decor.context).apply {
-            setBackgroundColor(Color.TRANSPARENT)
-            isClickable = true
             // 纯热区，别让读屏把它当成一个可聚焦的空白控件。
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         }
@@ -193,7 +165,6 @@ object DialogDragHelper {
                         // 没过阈值就当点击，不算拖动，避免手指轻微抖动就位移。
                         if (hypot(dx, dy) < slop) return@setOnTouchListener true
                         active = true
-                        dragging = true
                     }
                     attrs.x = startX + dx.toInt()
                     attrs.y = startY + dy.toInt()
@@ -203,50 +174,19 @@ object DialogDragHelper {
 
                 // 第二根手指落下会打断拖动，跟桌面窗口的多点行为保持一致。
                 MotionEvent.ACTION_POINTER_DOWN -> {
-                    finishDrag(v)
+                    v.parent?.requestDisallowInterceptTouchEvent(false)
                     active = false
                     true
                 }
 
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    val wasDragging = active
-                    finishDrag(v)
-                    active = false
+                    v.parent?.requestDisallowInterceptTouchEvent(false)
                     // 拖动过就吞掉 UP，免得在标题栏上抬手指时触发下层点击。
-                    wasDragging
+                    active.also { active = false }
                 }
 
                 else -> false
             }
         }
-    }
-
-    private fun finishDrag(target: View) {
-        dragging = false
-        target.parent?.requestDisallowInterceptTouchEvent(false)
-    }
-
-    /** 布局完成后再执行一次（尚未布局时挂监听，布局回调里摘掉）。 */
-    private inline fun View.doOnLayoutOnce(crossinline action: () -> Unit) {
-        if (isLaidOut && height > 0) {
-            action()
-            return
-        }
-        addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
-            override fun onLayoutChange(
-                v: View,
-                left: Int,
-                top: Int,
-                right: Int,
-                bottom: Int,
-                oldLeft: Int,
-                oldTop: Int,
-                oldRight: Int,
-                oldBottom: Int
-            ) {
-                v.removeOnLayoutChangeListener(this)
-                action()
-            }
-        })
     }
 }
