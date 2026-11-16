@@ -71,9 +71,9 @@ class SongsPage(base: Context) : BasePage(base) {
         private const val IC_PLAY = android.R.drawable.ic_media_play
         private const val IC_PAUSE = android.R.drawable.ic_media_pause
 
-        private const val IC_MODE_SEQUENCE = android.R.drawable.ic_menu_sort_by_size
-        private const val IC_MODE_RANDOM = android.R.drawable.ic_menu_rotate
-        private const val IC_MODE_SINGLE_LOOP = android.R.drawable.ic_menu_revert
+        private val IC_MODE_SEQUENCE = R.drawable.ic_play_mode_sequence
+        private val IC_MODE_RANDOM = R.drawable.ic_play_mode_random
+        private val IC_MODE_SINGLE_LOOP = R.drawable.ic_play_mode_single_loop
 
         private const val DEFAULT_SEEK_MAX = 100
     }

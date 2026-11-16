@@ -115,7 +115,7 @@
             android:layout_width="40dp"
             android:layout_height="40dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_revert"
+            android:src="@drawable/ic_play_mode_single_loop"
             android:tint="#FF000000"
             android:contentDescription="@string/play_mode" />
     </LinearLayout>
