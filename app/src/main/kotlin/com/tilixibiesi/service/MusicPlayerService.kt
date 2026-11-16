@@ -1225,7 +1225,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         builder
             .setContentTitle(musicName)
             .setContentText(contentText)
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(R.drawable.ic_media_play)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
@@ -1233,11 +1233,11 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             .setContentIntent(pendingContentIntent)
             .setStyle(style)
 
-        NotificationHelper.addAction(this, builder, android.R.drawable.ic_media_previous, LanguageUtils.getString(this, R.string.btn_previous_short), piPrev)
-        val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        NotificationHelper.addAction(this, builder, R.drawable.ic_media_previous, LanguageUtils.getString(this, R.string.btn_previous_short), piPrev)
+        val playPauseIcon = if (isPlaying) R.drawable.ic_media_pause else R.drawable.ic_media_play
         val playPauseTitle = if (isPlaying) LanguageUtils.getString(this, R.string.btn_pause) else LanguageUtils.getString(this, R.string.btn_play)
         NotificationHelper.addAction(this, builder, playPauseIcon, playPauseTitle, piPlay)
-        NotificationHelper.addAction(this, builder, android.R.drawable.ic_media_next, LanguageUtils.getString(this, R.string.btn_next_short), piNext)
+        NotificationHelper.addAction(this, builder, R.drawable.ic_media_next, LanguageUtils.getString(this, R.string.btn_next_short), piNext)
         return builder.build()
     }
 

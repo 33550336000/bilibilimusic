@@ -76,7 +76,7 @@ internal fun SettingsPage.sendCustomNotification(title: String, content: String)
     builder
         .setContentTitle(title)
         .setContentText(content)
-        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setSmallIcon(R.drawable.ic_stat_info)
         .setAutoCancel(true)
     nm.notify(id, builder.build())
     ToastUtils.show(this, LanguageUtils.getString(this, R.string.toast_notification_sent))

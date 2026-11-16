@@ -32,6 +32,7 @@
             android:layout_height="40dp"
             android:background="@android:color/transparent"
             android:src="@drawable/ic_plus_custom"
+            android:tint="#1A1B21"
             android:contentDescription="@string/add_playlist" />
     </LinearLayout>
     <ListView

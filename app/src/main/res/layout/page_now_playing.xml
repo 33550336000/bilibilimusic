@@ -168,7 +168,7 @@
                         android:layout_width="56dp"
                         android:layout_height="56dp"
                         android:background="?android:attr/selectableItemBackgroundBorderless"
-                        android:src="@android:drawable/ic_media_previous"
+                        android:src="@drawable/ic_media_previous"
                         android:contentDescription="@string/previous" />
 
                     <ImageButton
@@ -179,7 +179,7 @@
                         android:background="@drawable/play_pause_circle"
                         android:padding="20dp"
                         android:scaleType="fitCenter"
-                        android:src="@android:drawable/ic_media_play"
+                        android:src="@drawable/ic_media_play"
                         android:contentDescription="@string/play_pause" />
 
                     <ImageButton
@@ -187,7 +187,7 @@
                         android:layout_width="56dp"
                         android:layout_height="56dp"
                         android:background="?android:attr/selectableItemBackgroundBorderless"
-                        android:src="@android:drawable/ic_media_next"
+                        android:src="@drawable/ic_media_next"
                         android:contentDescription="@string/next" />
                 </LinearLayout>
             </LinearLayout>

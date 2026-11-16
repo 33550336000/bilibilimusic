@@ -449,7 +449,7 @@ class VideoPlaybackService : Service() {
                     lastContentText = it
                 }
             )
-            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setSmallIcon(R.drawable.ic_media_play)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
@@ -463,16 +463,16 @@ class VideoPlaybackService : Service() {
 
         NotificationHelper.addAction(
             this, builder,
-            android.R.drawable.ic_media_previous,
+            R.drawable.ic_media_previous,
             LanguageUtils.getString(this, R.string.btn_prev_video_short),
             piPrev
         )
-        val playPauseIcon = if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val playPauseIcon = if (playing) R.drawable.ic_media_pause else R.drawable.ic_media_play
         val playPauseLabel = if (playing) LanguageUtils.getString(this, R.string.btn_pause) else LanguageUtils.getString(this, R.string.btn_play)
         NotificationHelper.addAction(this, builder, playPauseIcon, playPauseLabel, piToggle)
         NotificationHelper.addAction(
             this, builder,
-            android.R.drawable.ic_media_next,
+            R.drawable.ic_media_next,
             LanguageUtils.getString(this, R.string.btn_next_video_short),
             piNext
         )

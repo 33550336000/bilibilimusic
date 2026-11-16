@@ -17,7 +17,6 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.TextView
 import com.tilixibiesi.bili.BiliCoverLoader
-import java.util.IdentityHashMap
 
 class MusicAdapter(
     private val context: Context,
@@ -29,29 +28,14 @@ class MusicAdapter(
     var onItemLongClickListener: OnItemLongClickListener? = null
     var onAddToPlaylistClickListener: OnAddToPlaylistClickListener? = null
     var onDeleteClickListener: OnDeleteClickListener? = null
-    var originalIndexProvider: ((MusicBean) -> Int)? = null
     var showAddButton: Boolean = true
     var showDeleteButton: Boolean = false
     var showCoverInsteadOfIndex: Boolean = false
 
-    // ---- 原列表序号缓存 ----
-    // 调用方传进来的 originalIndexProvider 通常是 allMusicList.indexOf(...)，
-    // 逐行调用会退化成 O(n²)。这里按 bean 身份做一次记忆化，notifyDataSetChanged 时失效。
-    private val indexCache = IdentityHashMap<MusicBean, Int>()
-
     override fun notifyDataSetChanged() {
-        indexCache.clear()
         // 设置页可能刚改过字体颜色/字号，下一次绑定重新读一次即可
         themeLoaded = false
         super.notifyDataSetChanged()
-    }
-
-    private fun originalIndex(bean: MusicBean): Int {
-        val provider = originalIndexProvider ?: return -1
-        indexCache[bean]?.let { return it }
-        val index = provider(bean)
-        indexCache[bean] = index
-        return index
     }
 
     // ---- 主题相关取值缓存 ----
@@ -87,7 +71,6 @@ class MusicAdapter(
         if (view == null) {
             view = LayoutInflater.from(context).inflate(R.layout.item_music, parent, false)
             holder = ViewHolder(
-                tvIndex = view.findViewById(R.id.tv_index),
                 ivIndexCover = view.findViewById(R.id.iv_index_cover),
                 tvMusicName = view.findViewById(R.id.tv_music_name),
                 tvAuthor = view.findViewById(R.id.tv_author),
@@ -118,18 +101,11 @@ class MusicAdapter(
         val musicBean = musicList[position]
         val coverUrl = musicBean.coverUrl
         if (showCoverInsteadOfIndex && musicBean.isBilibili && !coverUrl.isNullOrEmpty()) {
-            holder.tvIndex.visibility = View.GONE
             holder.ivIndexCover.visibility = View.VISIBLE
             BiliCoverLoader.load(holder.ivIndexCover, coverUrl)
         } else {
             holder.ivIndexCover.visibility = View.GONE
             holder.ivIndexCover.tag = null
-            holder.tvIndex.visibility = View.VISIBLE
-            holder.tvIndex.text = if (originalIndexProvider != null) {
-                (originalIndex(musicBean) + 1).toString()
-            } else {
-                (position + 1).toString()
-            }
         }
         val displayName = DataFileUtils.getDisplayName(musicBean.musicName)
         holder.tvMusicName.text = displayName
@@ -142,11 +118,9 @@ class MusicAdapter(
         }
 
         holder.tvMusicName.setTextColor(if (musicBean.isPlaying) playingColor else themeFontColor)
-        holder.tvIndex.setTextColor(themeFontColor)
         holder.tvAuthor.setTextColor(authorColor)
 
         holder.tvMusicName.textSize = themeFontSize.toFloat()
-        holder.tvIndex.textSize = (themeFontSize - 1).coerceAtLeast(1).toFloat()
         holder.tvAuthor.textSize = (themeFontSize - 3).coerceAtLeast(1).toFloat()
 
         holder.btnAddToPlaylist.visibility =
@@ -180,7 +154,6 @@ class MusicAdapter(
     }
 
     data class ViewHolder(
-        val tvIndex: TextView,
         val ivIndexCover: ImageView,
         val tvMusicName: TextView,
         val tvAuthor: TextView,

@@ -14,7 +14,6 @@ import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.WindowUtils
 import com.tilixibiesi.ui.adapter.MusicAdapter
 import com.tilixibiesi.service.MusicPlayerService
-import com.tilixibiesi.ui.page.SongsPage
 import com.tilixibiesi.ui.SelectMusicActivity
 import com.tilixibiesi.R
 
@@ -37,7 +36,6 @@ class PlaylistDetailActivity : BaseActivity() {
     private lateinit var musicAdapter: MusicAdapter
     private lateinit var musicList: MutableList<MusicBean>
     private var playlistId: String? = null
-    private lateinit var btnBack: ImageButton
     private lateinit var bgHost: View
     private var gestureDetector: GestureDetector? = null
     private var allMusicList: List<MusicBean> = emptyList()
@@ -64,7 +62,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
 
     bgHost = findViewById(R.id.detail_bg_host)
     lvMusic = findViewById(R.id.lv_music_detail)
-    btnBack = findViewById(R.id.btn_back)
     etSearch = findViewById(R.id.et_search)
     etSearch.setTextColor(FontUtils.color(this))
     etSearch.setHintTextColor(FontUtils.dimmed(this))
@@ -79,7 +76,6 @@ override fun onCreate(savedInstanceState: Bundle?) {
 
     musicAdapter = MusicAdapter(this, filteredMusicList).apply {
         showDeleteButton = true
-        originalIndexProvider = { bean -> SongsPage.musicList.indexOf(bean) }
         showMoveButton = true
         onMoveClickListener = object : MusicAdapter.OnMoveClickListener {
             override fun onMoveClick(position: Int, musicBean: MusicBean) {
@@ -125,7 +121,6 @@ lvMusic.onItemClickListener = AdapterView.OnItemClickListener { _, _, position, 
         }
     }
 
-    btnBack.setOnClickListener { finish() }
     initSwipeGesture()
 }
 

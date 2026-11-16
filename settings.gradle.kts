@@ -8,7 +8,6 @@ pluginManagement {
         google()
     }
 }
-
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
@@ -19,6 +18,5 @@ dependencyResolutionManagement {
         google()
     }
 }
-
 rootProject.name = "apks"
 include(":app")

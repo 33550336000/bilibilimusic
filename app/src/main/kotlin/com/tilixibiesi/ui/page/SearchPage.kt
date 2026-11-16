@@ -274,9 +274,7 @@ class SearchPage(base: Context) : BasePage(base) {
             setOnClickListener { etSearch.text.clear() }
         }
 
-        musicAdapter = MusicAdapter(this, searchResultList).apply {
-            originalIndexProvider = { bean -> allMusicList.indexOfFirst { it === bean } }
-        }
+        musicAdapter = MusicAdapter(this, searchResultList)
         lvSearchResult.adapter = musicAdapter
 
         biliVideoAdapter = BiliVideoGridAdapter(this)
@@ -346,14 +344,13 @@ class SearchPage(base: Context) : BasePage(base) {
         val layout = findViewById<FrameLayout>(R.id.layout_fullscreen_video)!!
         val vv = findViewById<TextureView>(R.id.vv_fullscreen)!!
 
-        val closeBtn = findViewById<ImageButton>(R.id.btn_close_video)!!
         val titleTv = findViewById<TextView>(R.id.tv_video_title)!!
         val playPauseBtn = findViewById<ImageButton>(R.id.btn_video_play_pause)!!
         val seekBar = findViewById<SeekBar>(R.id.sb_video_progress)!!
         val timeTv = findViewById<TextView>(R.id.tv_video_time)!!
 
         val btnAddToHistory = ImageButton(this).apply {
-            setImageResource(android.R.drawable.ic_input_add)
+            setImageResource(R.drawable.ic_add_circle)
             background = null
             setBackgroundColor(Color.TRANSPARENT)
             visibility = View.VISIBLE
@@ -377,25 +374,30 @@ class SearchPage(base: Context) : BasePage(base) {
                 }
             }
         }
-        val addBtnParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-            setMargins(16, 16, 16, 16)
-        }
-        layout.addView(btnAddToHistory, addBtnParams)
-
         danmakuView = findViewById<DanmakuView>(R.id.danmaku_view)!!
 
         val danmakuBtn = ImageButton(this).apply {
-            setImageResource(android.R.drawable.stat_notify_chat)
+            setImageResource(R.drawable.ic_danmaku)
             background = null
             setBackgroundColor(Color.TRANSPARENT)
             visibility = View.VISIBLE
         }
         btnDanmaku = danmakuBtn
-        val danmakuParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP or Gravity.END).apply {
-            val btnWidth = (48 * resources.displayMetrics.density).toInt()
-            setMargins(16, 16, btnWidth * 2 + 16, 16)
+        val videoTopBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        layout.addView(danmakuBtn, danmakuParams)
+        val btnSize = (44 * resources.displayMetrics.density).toInt()
+        val barParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP or Gravity.END
+        ).apply { setMargins(0, (8 * resources.displayMetrics.density).toInt(), (8 * resources.displayMetrics.density).toInt(), 0) }
+        videoTopBar.addView(btnAddToHistory, LinearLayout.LayoutParams(btnSize, btnSize).apply {
+            setMargins(0, 0, (8 * resources.displayMetrics.density).toInt(), 0)
+        })
+        videoTopBar.addView(danmakuBtn, LinearLayout.LayoutParams(btnSize, btnSize))
+        layout.addView(videoTopBar, barParams)
         updateDanmakuButton()
 
         val hostActivity = activity as? BaseActivity ?: return
@@ -432,7 +434,7 @@ class SearchPage(base: Context) : BasePage(base) {
                 }
             }
             initialize(
-                layout, vv, closeBtn, titleTv, playPauseBtn, seekBar, timeTv,
+                layout, vv, titleTv, playPauseBtn, seekBar, timeTv,
                 btnAddToHistory, danmakuView, danmakuBtn,
                 findViewById(R.id.layout_switch_preview),
                 findViewById(R.id.iv_switch_cover),

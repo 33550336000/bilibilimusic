@@ -525,8 +525,8 @@ class NowPlayingPage(
 
     fun updateProgress(positionMs: Int?, durationMs: Int?, isPlaying: Boolean) {
         btnPlay.setImageResource(
-            if (isPlaying) android.R.drawable.ic_media_pause
-            else android.R.drawable.ic_media_play
+            if (isPlaying) R.drawable.ic_media_pause
+            else R.drawable.ic_media_play
         )
         btnPlay.setColorFilter(Color.BLACK)
 

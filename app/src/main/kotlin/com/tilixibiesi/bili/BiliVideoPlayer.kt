@@ -56,7 +56,6 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
     private val context: Context = activity
     private lateinit var layoutFullscreen: FrameLayout
     private lateinit var textureView: TextureView
-    private lateinit var btnClose: ImageButton
     private lateinit var tvTitle: TextView
     private lateinit var btnPlayPause: ImageButton
     private lateinit var seekBar: SeekBar
@@ -162,7 +161,6 @@ companion object {
     fun initialize(
         layoutFullscreenVideo: FrameLayout,
         textureViewVideo: TextureView,
-        closeBtn: ImageButton,
         titleTv: TextView,
         playPauseBtn: ImageButton,
         progressBar: SeekBar,
@@ -178,7 +176,6 @@ companion object {
     ) {
         layoutFullscreen = layoutFullscreenVideo
         textureView = textureViewVideo
-        btnClose = closeBtn
         tvTitle = titleTv
         btnPlayPause = playPauseBtn
         seekBar = progressBar
@@ -205,8 +202,6 @@ companion object {
         releaseMediaPlayer()
 
         layoutFullscreen.setBackgroundColor(Color.BLACK)
-        btnClose.background = null
-        btnClose.setBackgroundColor(Color.TRANSPARENT)
         btnPlayPause.background = null
         btnPlayPause.setBackgroundColor(Color.TRANSPARENT)
 
@@ -215,9 +210,6 @@ companion object {
         textureView.isClickable = false
         textureView.isFocusable = false
 
-        btnClose.setOnClickListener {
-            close()
-        }
         btnPlayPause.setOnClickListener {
             togglePlayPause()
         }
@@ -792,14 +784,14 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         val mp = mediaPlayer ?: return
         if (mp.isPlaying) {
             mp.pause()
-            btnPlayPause.setImageResource(android.R.drawable.ic_media_play)
+            btnPlayPause.setImageResource(R.drawable.ic_media_play)
             stopProgressUpdater()
             danmakuView?.setPaused(true)
             saveCurrentProgress()
             flushProgress(sync = true)
         } else {
             mp.start()
-            btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
+            btnPlayPause.setImageResource(R.drawable.ic_media_pause)
             startProgressUpdater()
             danmakuView?.updatePosition(mp.currentPosition.toLong())
             danmakuView?.setPaused(false)
@@ -969,10 +961,9 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
     }
 
     private fun showAllControls() {
-        btnClose.visibility = View.VISIBLE
-        tvTitle.visibility = View.VISIBLE
         btnPlayPause.visibility = View.VISIBLE
         seekBar.visibility = View.VISIBLE
+        tvTitle.visibility = View.VISIBLE
         tvTime.visibility = View.VISIBLE
         btnAddToHistory?.visibility = View.VISIBLE
         btnDanmakuToggle?.visibility = View.VISIBLE
@@ -980,10 +971,9 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
     }
 
     private fun hideAllControls() {
-        btnClose.visibility = View.GONE
-        tvTitle.visibility = View.GONE
         btnPlayPause.visibility = View.GONE
         seekBar.visibility = View.GONE
+        tvTitle.visibility = View.GONE
         tvTime.visibility = View.GONE
         btnAddToHistory?.visibility = View.GONE
         btnDanmakuToggle?.visibility = View.GONE
@@ -1087,7 +1077,7 @@ private fun setPlaybackSpeed(speed: Float) {
     private fun isTouchOnControl(ev: MotionEvent): Boolean {
         val rawX = ev.rawX.toInt()
         val rawY = ev.rawY.toInt()
-        val controls = mutableListOf<View>(btnClose, btnPlayPause, seekBar)
+        val controls = mutableListOf<View>(btnPlayPause, seekBar)
         btnAddToHistory?.let { controls.add(it) }
         btnDanmakuToggle?.let { controls.add(it) }
         for (c in controls) {
@@ -1168,7 +1158,7 @@ private fun setPlaybackSpeed(speed: Float) {
                     mp.seekTo(actualStartPos)
                 }
                 mp.start()
-                btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
+                btnPlayPause.setImageResource(R.drawable.ic_media_pause)
                 onVideoSwitched(firstFrameReady = false)
                 attachVideoNotification()
                 seekBar.max = mp.duration
@@ -1193,7 +1183,7 @@ private fun setPlaybackSpeed(speed: Float) {
                     VideoProgressStore.remove(activity, bvid)
                     flushProgress(sync = false)
                 }
-                btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
+                btnPlayPause.setImageResource(R.drawable.ic_media_pause)
                 seekBar.progress = 0
                 tvTime.text = context.getString(
                     R.string.player_time_placeholder,

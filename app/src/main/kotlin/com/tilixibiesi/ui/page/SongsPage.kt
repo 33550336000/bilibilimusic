@@ -68,8 +68,8 @@ class SongsPage(base: Context) : BasePage(base) {
 
         private const val MUSIC_DIR_REL = "system/axeron/long/Android/TilixiBiesiMusic"
 
-        private const val IC_PLAY = android.R.drawable.ic_media_play
-        private const val IC_PAUSE = android.R.drawable.ic_media_pause
+        private val IC_PLAY = R.drawable.ic_media_play
+        private val IC_PAUSE = R.drawable.ic_media_pause
 
         private val IC_MODE_SEQUENCE = R.drawable.ic_play_mode_sequence
         private val IC_MODE_RANDOM = R.drawable.ic_play_mode_random
@@ -211,7 +211,7 @@ class SongsPage(base: Context) : BasePage(base) {
         (activity as? MainPagerActivity)?.invalidateGlassBackdrop()
     }
 
-    /** “我的”页切换数据源后调用：重新加载列表并立即换掉封面/序号表现。 */
+    /** “我的”页切换数据源后调用：重新加载列表并立即换掉封面表现。 */
     internal fun onMainSourceChanged() {
         if (!::musicAdapter.isInitialized) return
         applyMainRowButtonSettings()
