@@ -34,7 +34,7 @@ object DownloadNotifier {
     fun showProgress(context: Context, notifyId: Int, title: String, content: String, progress: Int) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notification: Notification = Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setSmallIcon(R.drawable.ic_stat_download)
             .setContentTitle(title)
             .setContentText(content)
             .setOngoing(true)
@@ -51,7 +51,7 @@ object DownloadNotifier {
     fun showComplete(context: Context, notifyId: Int, title: String, content: String) {
         val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         val notification: Notification = Notification.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.stat_sys_download_done)
+            .setSmallIcon(R.drawable.ic_stat_download_done)
             .setContentTitle(title)
             .setContentText(content)
             .setOngoing(false)

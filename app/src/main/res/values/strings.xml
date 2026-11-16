@@ -211,7 +211,6 @@
     <string name="searching">正在搜索中，请稍后…</string>
     <string name="sort">排序</string>
     <string name="default_time_range">00:00 / 00:00</string>
-    <string name="close_login_dialog">关闭登录窗口</string>
 
     <string name="mode_sequence">顺序播放</string>
     <string name="mode_random">随机播放</string>

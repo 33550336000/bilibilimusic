@@ -4,9 +4,6 @@ build/
 app/build/
 .kotlin/
 
-# Local configuration file (sdk path, etc)
-local.properties
-
 # IDE-generated Gradle daemon JVM criteria (not required for builds)
 gradle/gradle-daemon-jvm.properties
 

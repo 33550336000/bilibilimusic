@@ -13,15 +13,6 @@
     android:keepScreenOn="true">
 
     <ImageButton
-        android:id="@+id/btn_back"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:background="@android:color/transparent"
-        android:src="@android:drawable/ic_menu_revert"
-        android:layout_margin="8dp"
-        android:contentDescription="@string/back" />
-
-    <ImageButton
         android:id="@+id/btn_add_playlist"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

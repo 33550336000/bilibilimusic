@@ -18,7 +18,6 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
-import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.Toast
 import com.tilixibiesi.R
@@ -113,19 +112,6 @@ object BiliLoginHelper {
             )
         }
 
-        val closeBtn = ImageButton(activity).apply {
-            setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-            setColorFilter(Color.WHITE)
-            setBackgroundColor(Color.TRANSPARENT)
-            contentDescription = LanguageUtils.getString(activity, R.string.close_login_dialog)
-            layoutParams = FrameLayout.LayoutParams(
-                (48 * density).toInt(),
-                (48 * density).toInt(),
-                Gravity.TOP or Gravity.END
-            ).apply { setMargins(0, (12 * density).toInt(), (12 * density).toInt(), 0) }
-            setOnClickListener { closeLogin(extract = true) }
-        }
-
         val wv = WebView(activity).apply {
             layoutParams = FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -137,7 +123,6 @@ object BiliLoginHelper {
 
         container.addView(wv)
         container.addView(progress)
-        container.addView(closeBtn)
         root.addView(container, ViewGroup.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
