@@ -395,13 +395,13 @@
     <string name="me_status_ok_detail">登录凭证有效，可使用完整 B站源</string>
     <string name="me_status_expired_detail">登录凭证已失效，请重新登录后再使用完整 B站源</string>
     <string name="me_status_limited_detail">请求被 B站 接口限制，搜索与播放可能失败，请稍后再试</string>
+    <string name="me_status_limited_search_detail">账号登录状态正常，但搜索接口已被 B站 限流；主页面刷新与搜索可能失败，稍后会自动重试</string>
     <string name="me_status_offline_detail">无法连接 B站 服务器，请检查网络后重试</string>
     <string name="me_status_unknown_detail">接口返回未知状态码:%1$d</string>
     <string name="me_logout">退出登录</string>
     <string name="me_logout_title">退出登录</string>
     <string name="me_logout_message">退出后将清除已保存的 B站 登录凭证，确定退出吗？</string>
     <string name="me_logout_done">已退出登录</string>
-    <string name="btn_me_main_source">主页面数据源</string>
     <string name="btn_me_main_source_zone">主页面数据源:B站音乐分区</string>
     <string name="btn_me_main_source_builtin">主页面数据源:内置歌曲列表</string>
     <string name="dialog_title_me_main_source">主页面数据源</string>

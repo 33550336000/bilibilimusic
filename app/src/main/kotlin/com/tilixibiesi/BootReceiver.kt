@@ -9,11 +9,7 @@ class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-
-            val serviceIntent = Intent(context, MusicPlayerService::class.java)
-
-            context.startForegroundService(serviceIntent)
-
+            MusicPlayerService.startSilentlyFromBoot(context)
         }
     }
 }

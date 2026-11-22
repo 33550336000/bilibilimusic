@@ -303,6 +303,10 @@ class SearchPage(base: Context) : BasePage(base) {
             override fun afterTextChanged(s: Editable?) {}
         })
 
+        // 这里只监听“点了一下输入框”来收起/展开搜索历史，返回 false 让 EditText 继续走自己的
+        // 触摸处理（聚焦、光标定位），真正的 click 由框架在 super.onTouchEvent 里触发，
+        // 再补一次 performClick() 会让无障碍点击事件重复上报，故此处不做调用。
+        @Suppress("ClickableViewAccessibility")
         etSearch.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_UP) {
                 if (historyOverlay?.visibility == View.VISIBLE) dismissSearchHistory()
@@ -541,13 +545,18 @@ class SearchPage(base: Context) : BasePage(base) {
             showDeleteHistoryDialog(keyword)
             true
         }
-        overlay.setOnTouchListener { _, event ->
+        // 遮罩是纯框架 FrameLayout，无法覆写 performClick；这里已经在消费手势后显式调用了
+        // performClick()，读屏走的是历史列表项自身的可访问节点，遮罩本身不需要额外语义。
+        @Suppress("ClickableViewAccessibility")
+        overlay.setOnTouchListener { view, event ->
             if (event.actionMasked == MotionEvent.ACTION_UP) {
                 dismissSearchHistory()
                 if (!isTouchInside(etSearch, event.rawX, event.rawY)) {
                     hideSoftKeyboard()
                     etSearch.clearFocus()
                 }
+                // 该遮罩自己消费了整段手势，点击语义要显式上报给无障碍服务。
+                view.performClick()
             }
             true
         }

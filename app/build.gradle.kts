@@ -12,9 +12,6 @@ android {
         targetSdk = 37
         versionCode = 13
         versionName = "33550336"
-        ndk {
-            abiFilters += "arm64-v8a"
-        }
     }
 
     kotlin {
@@ -86,10 +83,10 @@ android {
 dependencies {
 }
 
-tasks.register("copyReleaseApk") {
+val copyReleaseApk = tasks.register("copyReleaseApk") {
     group = "build"
     description = "将 release APK 复制为 tibao.apk 输出到模块目录"
-    dependsOn("assembleRelease")
+    dependsOn(tasks.named("assembleRelease"))
 
     val sourceFile: File = layout.buildDirectory.file("outputs/apk/release/app-release.apk").get().asFile
     val destFile: File = layout.projectDirectory.file("tibao.apk").asFile
@@ -105,5 +102,5 @@ tasks.register("copyReleaseApk") {
 }
 
 tasks.matching { it.name == "assembleRelease" }.configureEach {
-    finalizedBy("copyReleaseApk")
+    finalizedBy(copyReleaseApk)
 }

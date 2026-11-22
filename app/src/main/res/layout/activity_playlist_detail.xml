@@ -17,6 +17,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:src="@drawable/ic_plus_custom"
+        android:tint="#1A1B21"
         android:background="@android:color/transparent"
         android:layout_gravity="end"
         android:layout_marginEnd="8dp"

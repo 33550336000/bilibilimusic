@@ -139,11 +139,18 @@ class PullToRefreshLayout @JvmOverloads constructor(
                     startRefresh()
                 } else {
                     collapse()
+                    // 未达到触发距离即视为一次普通点击：交给 performClick 走无障碍点击事件。
+                    if (ev.actionMasked == MotionEvent.ACTION_UP) performClick()
                 }
                 return true
             }
         }
         return super.onTouchEvent(ev)
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
     }
 
     private fun applyPullVisual() {

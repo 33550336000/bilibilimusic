@@ -157,8 +157,10 @@ object BiliSearchHelper {
             val obj = JSONObject(json)
             val code = obj.optInt("code", -1)
             if (code != 0) {
+                if (BiliRateLimit.isRateLimitCode(code)) BiliRateLimit.markLimited()
                 return SearchResult(emptyList(), false, code)
             }
+            BiliRateLimit.markOk()
             val data = obj.getJSONObject("data")
             val numPages = data.optInt("numPages", 0)
             val result = data.getJSONArray("result")
@@ -178,6 +180,7 @@ object BiliSearchHelper {
             SearchResult(list, page < numPages, 0)
         } catch (e: Exception) {
             AppLog.d(TAG, "搜索请求失败: ${e.message}")
+            if (BiliRateLimit.isRateLimitMessage(e.message)) BiliRateLimit.markLimited()
             SearchResult(emptyList(), false, -1)
         }
     }

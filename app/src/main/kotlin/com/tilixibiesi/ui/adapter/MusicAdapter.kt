@@ -102,7 +102,7 @@ class MusicAdapter(
         val coverUrl = musicBean.coverUrl
         if (showCoverInsteadOfIndex && musicBean.isBilibili && !coverUrl.isNullOrEmpty()) {
             holder.ivIndexCover.visibility = View.VISIBLE
-            BiliCoverLoader.load(holder.ivIndexCover, coverUrl)
+            BiliCoverLoader.load(holder.ivIndexCover, coverUrl, BiliCoverLoader.THUMBNAIL_WIDTH)
         } else {
             holder.ivIndexCover.visibility = View.GONE
             holder.ivIndexCover.tag = null

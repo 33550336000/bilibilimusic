@@ -1,5 +1,6 @@
 package com.tilixibiesi
 
+import com.tilixibiesi.bili.BiliRateLimit
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SettingsStore
 import com.tilixibiesi.data.SpUtils
@@ -18,6 +19,7 @@ class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         StoragePaths.init(this)
+        BiliRateLimit.init(this)
         SpUtils.migrateLiquidGlassCardsSetting(this)
         loadLocalSettings()
         LanguageUtils.refreshLanguageMap(this)

@@ -41,6 +41,10 @@ object SpUtils {
     private const val KEY_CLICK_FX_ENABLED = "click_fx_enabled"
     private const val KEY_COLLAPSED_SECTIONS = "collapsed_sections"
     private const val KEY_STORAGE_ROOT = "storage_root"
+    private const val KEY_BILI_RATE_LIMITED_AT = "bili_rate_limited_at"
+    private const val KEY_BILI_RATE_LIMIT_OK_AT = "bili_rate_limit_ok_at"
+    private const val KEY_BILI_RATE_LIMIT_NEXT_PROBE_AT = "bili_rate_limit_next_probe_at"
+    private const val KEY_BILI_RATE_LIMIT_BACKOFF_MS = "bili_rate_limit_backoff_ms"
     private const val KEY_DANMAKU_ENABLED = "danmaku_enabled"
     private const val KEY_VIDEO_NOTIFY_PROGRESS = "video_notify_progress"
     const val AUDIO_FOCUS_CALL_LEVEL = 0
@@ -258,6 +262,33 @@ object SpUtils {
     }
 
     fun getBiliCookie(context: Context): String = BiliCookieStore.get(context)
+
+    fun getBiliRateLimitedAt(context: Context): Long =
+        getSp(context).getLong(KEY_BILI_RATE_LIMITED_AT, 0L)
+
+    fun getBiliRateLimitOkAt(context: Context): Long =
+        getSp(context).getLong(KEY_BILI_RATE_LIMIT_OK_AT, 0L)
+
+    fun getBiliRateLimitNextProbeAt(context: Context): Long =
+        getSp(context).getLong(KEY_BILI_RATE_LIMIT_NEXT_PROBE_AT, 0L)
+
+    fun getBiliRateLimitBackoffMs(context: Context): Long =
+        getSp(context).getLong(KEY_BILI_RATE_LIMIT_BACKOFF_MS, 60_000L)
+
+    fun saveBiliRateLimitState(
+        context: Context,
+        limitedAt: Long,
+        okAt: Long,
+        nextProbeAt: Long,
+        backoffMs: Long
+    ) {
+        getSp(context).edit()
+            .putLong(KEY_BILI_RATE_LIMITED_AT, limitedAt)
+            .putLong(KEY_BILI_RATE_LIMIT_OK_AT, okAt)
+            .putLong(KEY_BILI_RATE_LIMIT_NEXT_PROBE_AT, nextProbeAt)
+            .putLong(KEY_BILI_RATE_LIMIT_BACKOFF_MS, backoffMs)
+            .apply()
+    }
 
     fun saveBiliCookie(context: Context, cookie: String) = BiliCookieStore.save(context, cookie)
 

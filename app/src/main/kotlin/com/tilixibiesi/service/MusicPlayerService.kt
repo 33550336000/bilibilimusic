@@ -80,6 +80,35 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
         /** 划掉任务后自拉起用的空转 action：只保证进程/服务活着，不触碰播放状态。 */
         const val ACTION_KEEP_ALIVE = "com.tilixibiesi.ACTION_KEEP_ALIVE"
+
+        /** 开机广播里启动服务用的 action：只恢复状态，不做前台提升。 */
+        private const val ACTION_BOOT_START = "com.tilixibiesi.ACTION_BOOT_START"
+
+        /**
+         * 前台提升是否被推迟。
+         *
+         * Android 15 起，从 BOOT_COMPLETED 广播起步的 mediaPlayback 服务不允许调用
+         * startForeground()，系统会抛 ForegroundServiceStartNotAllowedException 打死进程。
+         * 所以开机这一路只做普通服务，等用户交互（再次从 UI 拉起服务）时再补提升。
+         */
+        @Volatile
+        private var foregroundDeferred = false
+
+        /**
+         * 开机拉起：只以普通服务恢复播放状态，不做前台提升。
+         *
+         * 必须在 startService() 之前置 [foregroundDeferred]：服务的 onCreate() 里
+         * restorePlayState() 会立刻尝试 startForeground()，那正是被系统拦下的地方。
+         */
+        fun startSilentlyFromBoot(context: Context) {
+            foregroundDeferred = true
+            runCatching {
+                context.startService(Intent(context, MusicPlayerService::class.java).apply {
+                    action = ACTION_BOOT_START
+                })
+            }.onFailure { AppLog.d(TAG, "开机启动服务失败: ${it.message}") }
+        }
+
         const val ACTION_UPDATE_AUDIO_QUALITY = "com.tilixibiesi.ACTION_UPDATE_AUDIO_QUALITY"
         var isPlaying = false
         var currentPlayingName: String? = null
@@ -228,6 +257,10 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // 除开机那一路以外，启动都来自用户交互：解除开机阶段对前台提升的推迟。
+        // intent 为 null 是系统的 START_STICKY 重启，此时 App 仍在后台，保持推迟。
+        if (intent != null && intent.action != ACTION_BOOT_START) foregroundDeferred = false
+
         // 自拉起标记：只维持前台状态，不重建列表、不重置播放状态。
         //
         // 注意必须调用 startForeground()：通过 startForegroundService() 启动后，
@@ -1274,7 +1307,14 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
     private fun startForegroundWithType(id: Int, notification: Notification) {
-        NotificationHelper.startForegroundWithMediaPlayback(this, id, notification)
+        // 开机那一路不允许把 mediaPlayback 服务提为前台，此时直接跳过。
+        if (foregroundDeferred) return
+        // 兜底：某些后台场景下系统会把这次提升拒掉（抛
+        // ForegroundServiceStartNotAllowedException）。抛出前系统已清掉 fgRequired 并取消
+        // 5 秒计时，所以吞掉异常不会引发二次崩溃，只是服务暂时留在后台。
+        runCatching {
+            NotificationHelper.startForegroundWithMediaPlayback(this, id, notification)
+        }.onFailure { AppLog.d(TAG, "进入前台失败: ${it.message}") }
     }
 
     private fun refreshProgressDisplay() {

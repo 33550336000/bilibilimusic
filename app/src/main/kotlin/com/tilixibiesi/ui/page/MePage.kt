@@ -3,6 +3,7 @@ package com.tilixibiesi.ui.page
 import com.tilixibiesi.R
 import com.tilixibiesi.bili.BiliCoverLoader
 import com.tilixibiesi.bili.BiliLoginHelper
+import com.tilixibiesi.bili.BiliRateLimit
 import com.tilixibiesi.data.BiliProfileStore
 import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SpUtils
@@ -35,6 +36,14 @@ class MePage(base: Context) : BasePage(base) {
 
     private companion object {
         const val NAV_API = "https://api.bilibili.com/x/web-interface/nav"
+
+        /**
+         * 限流探测用的轻量请求：与主页面/搜索页同端点，但只取 1 条。
+         *
+         * 不能用 nav 当探针——nav 对限流几乎不敏感，正是“首页限流、我的页正常”的成因。
+         */
+        const val PROBE_API = "https://api.bilibili.com/x/web-interface/search/type" +
+            "?search_type=video&keyword=%E9%9F%B3%E4%B9%90&page=1&page_size=1"
 
         const val CODE_OK = 0
         const val CODE_NOT_LOGIN = BiliLoginHelper.CODE_NOT_LOGIN
@@ -161,6 +170,8 @@ class MePage(base: Context) : BasePage(base) {
 
         AppExecutors.io.execute {
             val nav = fetchNav(cookie)
+            // 限流状态下按退避节奏发一次轻量探测：通过就立刻解除，否则续期并拉长下次间隔。
+            if (BiliRateLimit.shouldProbeNow()) probeRateLimit(cookie)
             // 只有身份信息真的变了才写文件，避免每次进页都刷一遍磁盘。
             val sameAsCache = nav.code == CODE_OK && !nav.uname.isNullOrEmpty() &&
                 cachedProfile?.let {
@@ -181,8 +192,38 @@ class MePage(base: Context) : BasePage(base) {
         }
     }
 
-    private fun fetchNav(cookie: String): NavResult = try {
-        val conn = URL(NAV_API).openConnection() as HttpURLConnection
+    /**
+     * 探测搜索类接口是否已经解除限流。
+     *
+     * 只看 HTTP 状态码与业务 code，不解析结果：200 + code 0 说明限流窗口已过。
+     * 失败时由 [BiliRateLimit.markProbeFailed] 退避，避免探测本身加重限流。
+     */
+    private fun probeRateLimit(cookie: String) {
+        val ok = try {
+            val conn = URL(PROBE_API).openConnection() as HttpURLConnection
+            try {
+                conn.requestMethod = "GET"
+                conn.connectTimeout = 8000
+                conn.readTimeout = 8000
+                conn.setRequestProperty("Cookie", cookie)
+                conn.setRequestProperty("Referer", "https://www.bilibili.com/")
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+                if (conn.responseCode != 200) {
+                    false
+                } else {
+                    val text = conn.inputStream.bufferedReader().readText()
+                    JSONObject(text).optInt("code", -1) == 0
+                }
+            } finally {
+                runCatching { conn.disconnect() }
+            }
+        } catch (_: Exception) {
+            false
+        }
+        if (ok) BiliRateLimit.markOk() else BiliRateLimit.markProbeFailed()
+    }
+
+    private fun fetchNav(cookie: String): NavResult = try {        val conn = URL(NAV_API).openConnection() as HttpURLConnection
         try {
             conn.requestMethod = "GET"
             conn.connectTimeout = 8000
@@ -275,6 +316,17 @@ class MePage(base: Context) : BasePage(base) {
         val status = tvStatus ?: return
         val detail = tvStatusDetail
         bindSyncStatus()
+        // nav 正常但搜索类接口被限流时，nav 的结论会掩盖真实情况（首页刷新失败而这里显示“正常”）。
+        // 限流状态独立维护，优先级高于 nav：它有自己的 TTL 与探测恢复机制。
+        // 只在 nav 判为正常/限流时覆盖；未登录、凭证过期、网络异常这些结论更明确，保持原样。
+        val navAllowsRateLimitOverride = code == CODE_OK ||
+            code == CODE_RATE_LIMITED || code == CODE_FORBIDDEN
+        if (navAllowsRateLimitOverride && BiliRateLimit.isLimited()) {
+            status.text = LanguageUtils.getString(this, R.string.me_status_limited)
+            status.setTextColor(COLOR_WARN)
+            detail?.text = LanguageUtils.getString(this, R.string.me_status_limited_search_detail)
+            return
+        }
         when (code) {
             null -> {
                 status.text = LanguageUtils.getString(this, R.string.me_not_logged_in)

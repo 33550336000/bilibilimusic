@@ -26,10 +26,13 @@ object BiliCoverLoader {
     /** 解码上限：封面显示尺寸在 1080p 屏上不超过 1080px，2560 会白白多占 5 倍内存。 */
     private const val MAX_DECODE_DIMENSION = 1280
 
-    /** 缓存额度 = 运行时最大内存的 1/16，且不小于 8MB、不大于 32MB（单位 KB）。 */
+    /** 列表行、浮动播放条这类小尺寸控件用的缩略图宽度（同时也是它们的解码上限）。 */
+    const val THUMBNAIL_WIDTH = 320
+
+    /** 缓存额度 = 运行时最大内存的 1/8，且不小于 16MB、不大于 64MB（单位 KB）。 */
     private val CACHE_BUDGET_KB: Int = run {
         val maxKb = (Runtime.getRuntime().maxMemory() / 1024).toInt()
-        (maxKb / 16).coerceIn(8 * 1024, 32 * 1024)
+        (maxKb / 8).coerceIn(16 * 1024, 64 * 1024)
     }
 
     private val cache = object : LruCache<String, Bitmap>(CACHE_BUDGET_KB) {
@@ -46,13 +49,13 @@ object BiliCoverLoader {
 
     private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
-    fun load(imageView: ImageView, coverUrl: String) {
+    fun load(imageView: ImageView, coverUrl: String, reqWidth: Int = 0) {
         if (coverUrl.isEmpty()) {
             imageView.tag = null
             imageView.setImageDrawable(null)
             return
         }
-        val url = normalize(coverUrl)
+        val url = variantUrl(coverUrl, reqWidth)
         val previous = imageView.tag as? String
         imageView.tag = url
         val cached = cache.get(url)
@@ -67,7 +70,7 @@ object BiliCoverLoader {
         if (previous != url) imageView.setImageResource(R.drawable.ic_cover_placeholder)
         if (isFailed(url)) return
         AppExecutors.io.execute {
-            val bitmap = runCatching { download(url) }
+            val bitmap = runCatching { download(url, decodeLimit(reqWidth)) }
                 .onFailure { AppLog.d(TAG, "封面下载失败 $url: ${it.message}") }
                 .getOrNull()
             if (bitmap == null) {
@@ -81,12 +84,12 @@ object BiliCoverLoader {
         }
     }
 
-    fun fetch(coverUrl: String, onDone: (Bitmap?) -> Unit) {
+    fun fetch(coverUrl: String, reqWidth: Int = 0, onDone: (Bitmap?) -> Unit) {
         if (coverUrl.isEmpty()) {
             mainHandler.post { onDone(null) }
             return
         }
-        val url = normalize(coverUrl)
+        val url = variantUrl(coverUrl, reqWidth)
         val cached = cache.get(url)
         if (cached != null) {
             mainHandler.post { onDone(cached) }
@@ -97,28 +100,44 @@ object BiliCoverLoader {
             return
         }
         AppExecutors.io.execute {
-            val bitmap = runCatching { download(url) }.getOrNull()
+            val bitmap = runCatching { download(url, decodeLimit(reqWidth)) }.getOrNull()
             if (bitmap != null) cache.put(url, bitmap) else markFailed(url)
             mainHandler.post { onDone(bitmap) }
         }
     }
 
-    fun loadForBean(imageView: ImageView, bean: MusicBean?, onBitmap: ((Bitmap?) -> Unit)? = null) {
+    fun loadForBean(
+        imageView: ImageView,
+        bean: MusicBean?,
+        reqWidth: Int = 0,
+        onBitmap: ((Bitmap?) -> Unit)? = null
+    ) {
         val previous = imageView.tag as? MusicBean
         imageView.tag = bean
-        if (previous != bean) imageView.setImageResource(R.drawable.ic_cover_placeholder)
         if (bean == null) {
+            if (previous != null) imageView.setImageResource(R.drawable.ic_cover_placeholder)
             onBitmap?.invoke(null)
             return
         }
+        // 列表行已经通过 load() 把封面放进内存缓存，点击播放/打开详情时若仍先铺占位图，
+        // 会闪一下占位图再换回来。命中缓存就直接用，不再清空现有图片。
+        val cached = bean.coverUrl?.takeIf { it.isNotEmpty() }
+            ?.let { cache.get(variantUrl(it, reqWidth)) }
+        if (cached != null) {
+            imageView.setImageBitmap(cached)
+            onBitmap?.invoke(cached)
+            return
+        }
+        if (previous != bean) imageView.setImageResource(R.drawable.ic_cover_placeholder)
         val baseName = CacheManager.baseNameOf(bean)
+        val maxDimension = decodeLimit(reqWidth)
         AppExecutors.io.execute {
-            val local = if (isPlayingLocalCache(bean)) loadLocalFile(baseName) else null
+            val local = if (isPlayingLocalCache(bean)) loadLocalFile(baseName, maxDimension) else null
             val direct = bean.coverUrl?.takeIf { it.isNotEmpty() }
             val bvid = bean.bvid?.takeIf { it.isNotEmpty() }
             when {
                 local != null -> mainHandler.post { applyCover(imageView, bean, local, onBitmap) }
-                direct != null -> fetch(direct) { applyCover(imageView, bean, it, onBitmap) }
+                direct != null -> fetch(direct, reqWidth) { applyCover(imageView, bean, it, onBitmap) }
                 bvid == null -> mainHandler.post { applyCover(imageView, bean, null, onBitmap) }
                 else -> BiliVideoMetaHelper.fetch(bvid) { meta ->
                     val url = meta?.coverUrl
@@ -126,7 +145,7 @@ object BiliCoverLoader {
                         applyCover(imageView, bean, null, onBitmap)
                     } else {
                         bean.coverUrl = url
-                        fetch(url) { applyCover(imageView, bean, it, onBitmap) }
+                        fetch(url, reqWidth) { applyCover(imageView, bean, it, onBitmap) }
                     }
                 }
             }
@@ -175,7 +194,22 @@ object BiliCoverLoader {
 
     private fun normalize(original: String): String = highestQualityUrl(original)
 
-    fun loadLocalFile(displayName: String): Bitmap? {
+    /**
+     * 按用途取图：`reqWidth > 0`（列表行、浮动播放条）用 B 站图片服务的 `@320w.webp` 缩略图，
+     * 省带宽也省解码内存；`reqWidth == 0` 保持原图（播放页、视频切换预览、头像）。
+     * 同时用它作为内存缓存 key，原图与缩略图不会互相顶掉。
+     */
+    private fun variantUrl(original: String, reqWidth: Int): String {
+        val full = normalize(original)
+        if (reqWidth <= 0 || full.isEmpty()) return full
+        return "$full@${reqWidth}w.webp"
+    }
+
+    /** 对应 [variantUrl] 的解码上限：缩略图按请求宽度解码，原图仍走 [MAX_DECODE_DIMENSION]。 */
+    private fun decodeLimit(reqWidth: Int): Int =
+        if (reqWidth > 0) reqWidth else MAX_DECODE_DIMENSION
+
+    fun loadLocalFile(displayName: String, maxDimension: Int = MAX_DECODE_DIMENSION): Bitmap? {
         val file = localCoverFile(displayName)
         if (!file.isFile || file.length() <= 0) return null
         return try {
@@ -183,7 +217,7 @@ object BiliCoverLoader {
             BitmapFactory.decodeFile(file.absolutePath, bounds)
             var sample = 1
             var longest = maxOf(bounds.outWidth, bounds.outHeight)
-            while (longest / sample > MAX_DECODE_DIMENSION) sample *= 2
+            while (longest / sample > maxDimension) sample *= 2
             BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply {
                 inSampleSize = sample
             })
@@ -223,7 +257,7 @@ object BiliCoverLoader {
         return map
     }
 
-    private fun download(url: String): Bitmap? {
+    private fun download(url: String, maxDimension: Int = MAX_DECODE_DIMENSION): Bitmap? {
         val conn = URL(url).openConnection() as HttpURLConnection
         return try {
             conn.connectTimeout = 10000
@@ -239,18 +273,18 @@ object BiliCoverLoader {
                     out.toByteArray()
                 }
             }
-            decodeCapped(bytes)
+            decodeCapped(bytes, maxDimension)
         } finally {
             runCatching { conn.disconnect() }
         }
     }
 
-    private fun decodeCapped(bytes: ByteArray): Bitmap? {
+    private fun decodeCapped(bytes: ByteArray, maxDimension: Int = MAX_DECODE_DIMENSION): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
         var sample = 1
         var longest = maxOf(bounds.outWidth, bounds.outHeight)
-        while (longest / sample > MAX_DECODE_DIMENSION) sample *= 2
+        while (longest / sample > maxDimension) sample *= 2
         val options = BitmapFactory.Options().apply { inSampleSize = sample }
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
     }

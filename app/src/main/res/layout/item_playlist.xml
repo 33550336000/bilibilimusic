@@ -29,6 +29,7 @@
         android:layout_centerVertical="true"
         android:background="@android:color/transparent"
         android:src="@drawable/ic_plus_custom"
+        android:tint="#1A1B21"
         android:focusable="false"
         android:focusableInTouchMode="false"
         android:clickable="true"

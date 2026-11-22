@@ -894,7 +894,7 @@ class SongsPage(base: Context) : BasePage(base) {
     private fun syncControlCover() {
         val bean = resolveCurrentBean()
         if (ivControlCover.tag == bean) return
-        BiliCoverLoader.loadForBean(ivControlCover, bean)
+        BiliCoverLoader.loadForBean(ivControlCover, bean, BiliCoverLoader.THUMBNAIL_WIDTH)
     }
 
     private fun ensureNowPlaying(): NowPlayingPage {

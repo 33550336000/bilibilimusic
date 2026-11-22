@@ -44,7 +44,9 @@ object BiliMusicZone {
     private const val PAGES_PER_COMBO = 8
 
     /** 轮换关键词，覆盖歌单、电台、日常听歌等不同聚合面。 */
-    private val KEYWORDS = arrayOf("音乐推荐", "听歌", "歌单", "歌曲", "音乐", "电台")
+    private val KEYWORDS = arrayOf(
+        "VOCALOID", "术力口", "音乐推荐", "听歌", "歌单", "歌曲", "音乐", "电台"
+    )
 
     /**
      * 轮换排序方式。空串表示接口默认排序。
@@ -164,13 +166,21 @@ object BiliMusicZone {
             )
         } catch (e: Exception) {
             AppLog.d(TAG, "搜索「$keyword/$order」第 $pageInCombo 页请求失败: ${e.message}")
+            if (BiliRateLimit.isRateLimitMessage(e.message)) BiliRateLimit.markLimited()
             return emptyList()
         }
 
         return try {
             val obj = JSONObject(json)
-            if (obj.optInt("code") != 0) emptyList()
-            else parseResults(obj.optJSONObject("data")?.optJSONArray("result"))
+            val code = obj.optInt("code", -1)
+            if (code != 0) {
+                if (BiliRateLimit.isRateLimitCode(code)) BiliRateLimit.markLimited()
+                emptyList()
+            } else {
+                // 搜索接口正常返回即说明限流已解除
+                BiliRateLimit.markOk()
+                parseResults(obj.optJSONObject("data")?.optJSONArray("result"))
+            }
         } catch (e: Exception) {
             AppLog.d(TAG, "解析「$keyword/$order」第 $pageInCombo 页失败: ${e.message}")
             emptyList()
