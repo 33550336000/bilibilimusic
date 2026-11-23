@@ -431,14 +431,27 @@ class NowPlayingPage(
             PredictiveBack.TAG_NOW_PLAYING,
             onInvoke = { if (isVisible) handleBack() },
             onProgress = { progress ->
-                if (!isVisible || isLyricsVisible) return@register
-                root.animate().cancel()
-                root.translationY = hiddenOffset() * progress
+                if (!isVisible) return@register
+                if (isLyricsVisible) {
+                    lyricsPane.animate().cancel()
+                    playerPane.visibility = View.VISIBLE
+                    lyricsPane.translationY = hiddenOffset() * progress
+                } else {
+                    root.animate().cancel()
+                    root.translationY = hiddenOffset() * progress
+                }
             },
             onCancel = {
                 if (!isVisible) return@register
-                root.animate().translationY(0f).setDuration(ANIM_MS)
-                    .setInterpolator(DecelerateInterpolator()).start()
+                if (isLyricsVisible) {
+                    lyricsPane.animate().translationY(0f).setDuration(ANIM_MS)
+                        .setInterpolator(DecelerateInterpolator())
+                        .withEndAction { if (isLyricsVisible) playerPane.visibility = View.GONE }
+                        .start()
+                } else {
+                    root.animate().translationY(0f).setDuration(ANIM_MS)
+                        .setInterpolator(DecelerateInterpolator()).start()
+                }
             }
         )
     }
@@ -549,12 +562,20 @@ class NowPlayingPage(
     private fun showLyrics() {
         isLyricsVisible = true
         playerPane.visibility = View.GONE
+        lyricsPane.animate().cancel()
         lyricsPane.visibility = View.VISIBLE
+        lyricsPane.translationY = hiddenOffset()
+        lyricsPane.animate()
+            .translationY(0f)
+            .setDuration(ANIM_MS)
+            .setInterpolator(DecelerateInterpolator())
+            .start()
         loadLyrics(bean)
     }
 
     private fun showPlayerPane() {
         isLyricsVisible = false
+        lyricsPane.animate().cancel()
         lyricsPane.visibility = View.GONE
         playerPane.visibility = View.VISIBLE
     }

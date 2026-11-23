@@ -60,6 +60,7 @@
         android:background="#00000000"
         android:divider="@null"
         android:dividerHeight="0dp"
+        android:scrollbars="none"
         android:visibility="gone"/>
 
     <EditText
@@ -79,6 +80,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
+        android:scrollbars="none"
         android:background="#00000000" />
 </LinearLayout>
 

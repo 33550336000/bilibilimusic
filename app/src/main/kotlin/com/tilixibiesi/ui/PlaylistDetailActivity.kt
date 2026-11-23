@@ -544,7 +544,6 @@ inner class SubPlaylistAdapter(
             val intent = Intent(context, PlaylistDetailActivity::class.java)
             intent.putExtra("playlist_id", sub.id)
             startActivity(intent)
-            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left)
         }
 
         view.setOnLongClickListener {
