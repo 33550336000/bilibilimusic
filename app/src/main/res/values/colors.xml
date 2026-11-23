@@ -1,5 +1,5 @@
 <resources>
-    <color name="activity_bg">#E9E9E9</color>
+    <color name="activity_bg">#FFFFFF</color>
     <color name="dialog_translucent_bg">#CCFFFFFF</color> 
 <color name="white">#FFFFFFFF</color>
 </resources>

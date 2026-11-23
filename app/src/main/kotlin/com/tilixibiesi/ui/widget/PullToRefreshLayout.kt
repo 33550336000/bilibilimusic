@@ -66,7 +66,7 @@ class PullToRefreshLayout @JvmOverloads constructor(
             layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL).apply {
                 topMargin = dp(46f).toInt()
             }
-            setTextColor(0xFFFFFFFF.toInt())
+            setTextColor(0xFF1A1B21.toInt())
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
         container.addView(bar)

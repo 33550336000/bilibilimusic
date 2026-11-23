@@ -1,121 +1,93 @@
 package com.tilixibiesi.bili
 
-import com.tilixibiesi.data.SpUtils
+import com.tilixibiesi.data.StoragePaths
+import com.tilixibiesi.util.AtomicFileWriter
+import com.tilixibiesi.util.AppLog
 
-import android.content.Context
+import java.io.File
 
 /**
  * B站搜索类接口的限流状态。
  *
- * 背景：主页面下拉刷新失败时会显示“刷新失败”，但“我的”页只看 `x/web-interface/nav`，
- * 那个接口对限流几乎不敏感，于是出现“首页被限流、我的页仍显示正常”的矛盾。
+ * 状态只有一个存放处：文本文件
  *
- * 这里把限流当成一个独立状态维护，判定只看两个时间戳：
- * 最近一次确认被限流 [limitedAt] 与最近一次搜索请求成功 [okAt]，
- * **nav 的成功不参与清除**，只有搜索侧的成功才说明限流解除。
+ * ```
+ * <存储根>/system/axeron/long/Android/Appdata/cookie/state/state.txt
+ *   0   ← [TEXT_OK]       未处于限流
+ *   1   ← [TEXT_LIMITED]  已处于限流
+ * ```
  *
- * 解除方式按优先级：
- * 1. 被动恢复：任何搜索请求成功即 [markOk]；
- * 2. 主动探测：状态有效期内允许“我的”页发一次轻量探测请求，
- *    失败则 [markProbeFailed] 把下次探测间隔翻倍（1→2→4…封顶 10 分钟），
- *    避免探测本身延长限流窗口；
- * 3. 超时兜底：[isLimited] 超过 [TTL_MS] 自动失效，回落到 nav 的结论，
- *    不会出现“永久限流”假象。
+ * 所有用到 Cookie 的请求（搜索页搜索、主页面刷新、下滑翻页）遇到限流就写 `1`，
+ * 搜索成功就写回 `0`；“我的”页进入时直接读它显示账号状态，不再额外发任何探测请求。
+ *
+ * 20 分钟窗口用文件修改时间判断：最后一次确认限流后超过 [TTL_MS] 未再确认，
+ * 即使文件内容还是 `1` 也按正常显示——限流窗口已经过去，
+ * 不必等下一次搜索成功才恢复。
  */
 object BiliRateLimit {
 
-    /** 状态有效期：最后一次确认限流后这么久仍未解除，就回落到 nav 结论。 */
-    private const val TTL_MS = 30 * 60 * 1000L
+    private const val TAG = "BiliRateLimit"
 
-    /** 首次探测间隔（同时也是新的限流事件发生后允许立刻探测一次）。 */
-    private const val BASE_PROBE_DELAY_MS = 60 * 1000L
+    private const val FILE_REL = "system/axeron/long/Android/Appdata/cookie/state/state.txt"
 
-    /** 探测退避上限。 */
-    private const val MAX_PROBE_DELAY_MS = 10 * 60 * 1000L
+    const val TEXT_OK = "0"
 
-    /** 落盘节流：状态未发生变化时，最多这么写一次磁盘。 */
-    private const val PERSIST_THROTTLE_MS = 60 * 1000L
+    const val TEXT_LIMITED = "1"
 
-    @Volatile
-    private var limitedAt = 0L
+    /** 限流状态有效期：超过这么久没有再确认限流，就当作已经恢复。 */
+    private const val TTL_MS = 20 * 60 * 1000L
 
-    @Volatile
-    private var okAt = 0L
+    /** 限流持续期间刷新时间戳的最小间隔，避免每个失败的分页都写一次磁盘。 */
+    private const val REWRITE_INTERVAL_MS = 60 * 1000L
 
-    @Volatile
-    private var nextProbeAt = 0L
+    private fun file(): File = StoragePaths.resolveWrite(FILE_REL)
 
-    @Volatile
-    private var probeBackoffMs = BASE_PROBE_DELAY_MS
-
-    @Volatile
-    private var loaded = false
-
-    private var appContext: Context? = null
-
-    /** 进程启动时调用一次，用于跨进程重启保留状态。 */
-    fun init(context: Context) {
-        appContext = context.applicationContext
-        ensureLoaded()
+    private fun read(): String {
+        val f = file()
+        if (!f.isFile || f.length() <= 0L) return ""
+        return runCatching { f.readText() }.getOrDefault("").trim()
     }
 
-    private fun ensureLoaded() {
-        if (loaded) return
-        val context = appContext ?: return
-        loaded = true
-        limitedAt = SpUtils.getBiliRateLimitedAt(context)
-        okAt = SpUtils.getBiliRateLimitOkAt(context)
-        nextProbeAt = SpUtils.getBiliRateLimitNextProbeAt(context)
-        probeBackoffMs = SpUtils.getBiliRateLimitBackoffMs(context)
+    private fun write(text: String) {
+        val f = file()
+        val ok = AtomicFileWriter.writeText(f, text)
+        if (!ok) {
+            AppLog.d(TAG, "限流状态写入失败: ${f.absolutePath}")
+            return
+        }
+        // 20 分钟窗口按 mtime 判断，但部分 ROM 上重命名替换不会刷新 mtime（实测只有 ctime 变），
+        // 这里显式打一次时间戳，保证“限流期间每次确认都能把窗口往后推”。
+        runCatching { f.setLastModified(System.currentTimeMillis()) }
     }
 
-    private fun persist() {
-        val context = appContext ?: return
-        SpUtils.saveBiliRateLimitState(context, limitedAt, okAt, nextProbeAt, probeBackoffMs)
-    }
-
-    /** 被动发现限流（请求异常/业务 code 表明被限制）。允许随后立刻探测一次。 */
-    fun markLimited() {
-        ensureLoaded()
-        val now = System.currentTimeMillis()
-        // 连续失败时不必每次都落盘：状态没变就不写，减少磁盘 IO。
-        val changed = limitedAt <= okAt || now - limitedAt > PERSIST_THROTTLE_MS
-        limitedAt = now
-        nextProbeAt = now
-        probeBackoffMs = BASE_PROBE_DELAY_MS
-        if (changed) persist()
-    }
-
-    /** 探测仍未通过：续期并按退避拉长下次探测时间。 */
-    fun markProbeFailed() {
-        ensureLoaded()
-        val now = System.currentTimeMillis()
-        limitedAt = now
-        nextProbeAt = now + probeBackoffMs
-        probeBackoffMs = (probeBackoffMs * 2).coerceAtMost(MAX_PROBE_DELAY_MS)
-        persist()
-    }
-
-    /** 搜索请求成功：限流解除。 */
-    fun markOk() {
-        ensureLoaded()
-        val now = System.currentTimeMillis()
-        // 正常浏览时每个分页成功都会走到这里，只在状态真的发生变化时落盘。
-        val changed = limitedAt > okAt || now - okAt > PERSIST_THROTTLE_MS
-        okAt = now
-        nextProbeAt = 0L
-        probeBackoffMs = BASE_PROBE_DELAY_MS
-        if (changed) persist()
+    /** 文件不存在（首次使用或用户手动删除）时就地创建为 `0`，保证它始终可读可见。 */
+    private fun ensureFile(): File {
+        val f = file()
+        if (!f.isFile) write(TEXT_OK)
+        return f
     }
 
     fun isLimited(): Boolean {
-        ensureLoaded()
-        if (limitedAt <= okAt) return false
-        return System.currentTimeMillis() - limitedAt < TTL_MS
+        val f = ensureFile()
+        // 超过窗口就按正常显示，不依赖任何成功请求来清除。
+        if (System.currentTimeMillis() - f.lastModified() >= TTL_MS) return false
+        return read() == TEXT_LIMITED
     }
 
-    fun shouldProbeNow(): Boolean =
-        isLimited() && System.currentTimeMillis() >= nextProbeAt
+    /** 请求被限流（异常/业务 code 表明受限）：写入 `1` 并刷新时间窗口。 */
+    fun markLimited() {
+        val f = file()
+        val refreshing = f.isFile &&
+            System.currentTimeMillis() - f.lastModified() < REWRITE_INTERVAL_MS
+        if (refreshing && read() == TEXT_LIMITED) return
+        write(TEXT_LIMITED)
+    }
+
+    /** 搜索请求成功：限流解除。内容已是 `0` 就不落盘（翻页会频繁走到这里）。 */
+    fun markOk() {
+        if (read() == TEXT_OK) return
+        write(TEXT_OK)
+    }
 
     /** 业务错误码是否属于限流/风控。 */
     fun isRateLimitCode(code: Int): Boolean = code == -412 || code == -799 || code == -352

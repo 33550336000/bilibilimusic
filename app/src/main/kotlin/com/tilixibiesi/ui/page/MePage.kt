@@ -37,14 +37,6 @@ class MePage(base: Context) : BasePage(base) {
     private companion object {
         const val NAV_API = "https://api.bilibili.com/x/web-interface/nav"
 
-        /**
-         * 限流探测用的轻量请求：与主页面/搜索页同端点，但只取 1 条。
-         *
-         * 不能用 nav 当探针——nav 对限流几乎不敏感，正是“首页限流、我的页正常”的成因。
-         */
-        const val PROBE_API = "https://api.bilibili.com/x/web-interface/search/type" +
-            "?search_type=video&keyword=%E9%9F%B3%E4%B9%90&page=1&page_size=1"
-
         const val CODE_OK = 0
         const val CODE_NOT_LOGIN = BiliLoginHelper.CODE_NOT_LOGIN
         const val CODE_RATE_LIMITED = -412
@@ -170,8 +162,6 @@ class MePage(base: Context) : BasePage(base) {
 
         AppExecutors.io.execute {
             val nav = fetchNav(cookie)
-            // 限流状态下按退避节奏发一次轻量探测：通过就立刻解除，否则续期并拉长下次间隔。
-            if (BiliRateLimit.shouldProbeNow()) probeRateLimit(cookie)
             // 只有身份信息真的变了才写文件，避免每次进页都刷一遍磁盘。
             val sameAsCache = nav.code == CODE_OK && !nav.uname.isNullOrEmpty() &&
                 cachedProfile?.let {
@@ -190,37 +180,6 @@ class MePage(base: Context) : BasePage(base) {
                 renderNav(nav, forceAvatar = !sameAsCache)
             }
         }
-    }
-
-    /**
-     * 探测搜索类接口是否已经解除限流。
-     *
-     * 只看 HTTP 状态码与业务 code，不解析结果：200 + code 0 说明限流窗口已过。
-     * 失败时由 [BiliRateLimit.markProbeFailed] 退避，避免探测本身加重限流。
-     */
-    private fun probeRateLimit(cookie: String) {
-        val ok = try {
-            val conn = URL(PROBE_API).openConnection() as HttpURLConnection
-            try {
-                conn.requestMethod = "GET"
-                conn.connectTimeout = 8000
-                conn.readTimeout = 8000
-                conn.setRequestProperty("Cookie", cookie)
-                conn.setRequestProperty("Referer", "https://www.bilibili.com/")
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0")
-                if (conn.responseCode != 200) {
-                    false
-                } else {
-                    val text = conn.inputStream.bufferedReader().readText()
-                    JSONObject(text).optInt("code", -1) == 0
-                }
-            } finally {
-                runCatching { conn.disconnect() }
-            }
-        } catch (_: Exception) {
-            false
-        }
-        if (ok) BiliRateLimit.markOk() else BiliRateLimit.markProbeFailed()
     }
 
     private fun fetchNav(cookie: String): NavResult = try {        val conn = URL(NAV_API).openConnection() as HttpURLConnection
@@ -255,22 +214,52 @@ class MePage(base: Context) : BasePage(base) {
     }
 
     private fun showStatusChecking(clearDetail: Boolean) {
+        bindSyncStatus()
+        // 进入页面先按状态文件给结论：已限流就不必等 nav 回来再改口（断网时也是这个结论）。
+        if (BiliRateLimit.isLimited()) {
+            tvStatus?.text = LanguageUtils.getString(this, R.string.me_status_limited)
+            tvStatus?.setTextColor(COLOR_WARN)
+            if (clearDetail) {
+                tvStatusDetail?.text =
+                    LanguageUtils.getString(this, R.string.me_status_limited_search_detail)
+            }
+            return
+        }
         tvStatus?.text = LanguageUtils.getString(this, R.string.me_status_checking)
         tvStatus?.setTextColor(COLOR_NEUTRAL)
         if (clearDetail) tvStatusDetail?.text = ""
-        bindSyncStatus()
     }
 
     private fun renderNav(nav: NavResult, forceAvatar: Boolean) {
         val name = nav.uname
-        if (nav.code == CODE_OK && !name.isNullOrEmpty()) {
-            expired = false
-            renderLoggedIn(name, nav.face, nav.mid, forceAvatar)
-        } else {
-            expired = nav.code == CODE_NOT_LOGIN
-            renderLoggedOut()
+        when {
+            nav.code == CODE_OK && !name.isNullOrEmpty() -> {
+                expired = false
+                renderLoggedIn(name, nav.face, nav.mid, forceAvatar)
+            }
+            // 只有服务端明确说“未登录”才算身份失效。
+            // 网络异常/限流/未知码都说明不了账号有效性，继续用本地缓存的头像与昵称，
+            // 否则断网时会莫名其妙变成“未登录 + 登录B站账号”按钮。
+            nav.code == CODE_NOT_LOGIN -> {
+                expired = true
+                renderLoggedOut()
+            }
+            else -> keepCachedIdentity()
         }
         bindStatus(nav.code)
+    }
+
+    /**
+     * 保留本地缓存的昵称与头像，只让状态行去说明网络异常/限流。
+     * 缓存缺失（首次登录尚未补齐）时退回未登录样式，否则会显示一片空白。
+     */
+    private fun keepCachedIdentity() {
+        val cached = cachedProfile
+        if (cached != null && cached.isComplete) {
+            renderLoggedIn(cached.uname, cached.face, cached.mid)
+        } else {
+            renderLoggedOut()
+        }
     }
 
     private fun renderLoggedIn(
@@ -317,7 +306,7 @@ class MePage(base: Context) : BasePage(base) {
         val detail = tvStatusDetail
         bindSyncStatus()
         // nav 正常但搜索类接口被限流时，nav 的结论会掩盖真实情况（首页刷新失败而这里显示“正常”）。
-        // 限流状态独立维护，优先级高于 nav：它有自己的 TTL 与探测恢复机制。
+        // 限流状态来自搜索侧写入的状态文件，优先级高于 nav，超过 20 分钟窗口后自动失效。
         // 只在 nav 判为正常/限流时覆盖；未登录、凭证过期、网络异常这些结论更明确，保持原样。
         val navAllowsRateLimitOverride = code == CODE_OK ||
             code == CODE_RATE_LIMITED || code == CODE_FORBIDDEN
