@@ -76,7 +76,7 @@
             android:padding="0dp"
             android:src="@drawable/ic_plus_custom"
             android:tint="#1A1B21"
-            android:contentDescription="@string/join_playlist" />
+            android:contentDescription="@string/add_to_playlist_title" />
         <TextView
             android:id="@+id/btn_delete"
             android:layout_width="40dp"

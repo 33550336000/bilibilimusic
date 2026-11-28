@@ -51,14 +51,6 @@ object BiliLoginHelper {
 
     private var webView: WebView? = null
 
-    /**
-     * 登录窗当前宿主 Activity。
-     *
-     * 旧实现是 `Activity?` 强引用：登录窗打开期间它会一直持有 Activity，
-     * 若用户在此期间直接离开（不点关闭），Activity 的整棵 View 树都无法回收。
-     * 改成 WeakReference 后，Activity 被系统销毁时这里自然失效，
-     * 不会凭空延长它的生命周期。
-     */
     private var activityRef: WeakReference<Activity>? = null
 
     private var onLoginSuccess: (() -> Unit)? = null
@@ -84,7 +76,6 @@ object BiliLoginHelper {
         reauthenticate(target, onReady)
     }
 
-    /** 无条件打开登录窗：已登录也重新走一遍，供“重新认证”使用。 */
     fun reauthenticate(activity: Activity?, onReady: (() -> Unit)? = null) {
         val target = activity ?: ActivityTracker.current()
         if (target == null || target.isFinishing) return
@@ -242,11 +233,6 @@ object BiliLoginHelper {
         }
     }
 
-    /**
-     * 校验并落地 Cookie。
-     * 该方法会被 onPageFinished / closeLogin 这两个**主线程**回调触发，
-     * 所以网络校验必须挪到 IO 线程——否则每次页面跳转都会阻塞 UI 最多 8 秒。
-     */
     private fun extractCookie() {
         if (loggedInThisSession || cookieCheckInFlight) return
         val activity = activityRef?.get() ?: return
@@ -261,7 +247,7 @@ object BiliLoginHelper {
                 return@execute
             }
             mainHandler.post {
-                // 期间用户可能已关闭登录窗
+
                 if (activityRef?.get() === activity) finishLogin(activity, cookie)
             }
         }

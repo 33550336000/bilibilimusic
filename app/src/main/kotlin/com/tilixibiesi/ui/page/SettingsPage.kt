@@ -211,7 +211,7 @@ class SettingsPage(base: Context) : BasePage(base) {
 
             showMaterialDialog(
                 AlertDialog.Builder(this)
-                    .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.dialog_title_auto_load_default))
+                    .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.btn_auto_load_default))
                     .setMessage(message)
                     .setPositiveButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_ok)) { _, _ ->
                         SpUtils.setAutoLoadDefaultEnabled(this, !current)
@@ -229,7 +229,7 @@ class SettingsPage(base: Context) : BasePage(base) {
                             }
                         }
 
-                        ToastUtils.show(this@SettingsPage, 
+                        ToastUtils.show(this@SettingsPage,
                             if (!current) LanguageUtils.getString(this@SettingsPage, R.string.toast_auto_load_default_enabled)
                             else LanguageUtils.getString(this@SettingsPage, R.string.toast_auto_load_default_disabled)
                         )
@@ -442,12 +442,12 @@ class SettingsPage(base: Context) : BasePage(base) {
                 LanguageUtils.getString(this@SettingsPage, R.string.dialog_msg_confirm_enable_auto_cache)
             showMaterialDialog(
                 AlertDialog.Builder(this)
-                    .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.dialog_title_auto_cache))
+                    .setTitle(LanguageUtils.getString(this@SettingsPage, R.string.btn_auto_cache))
                     .setMessage(message)
                     .setPositiveButton(LanguageUtils.getString(this@SettingsPage, R.string.btn_ok)) { _, _ ->
                         SpUtils.setAutoCacheEnabled(this, !current)
                         updateAutoCacheButtonText()
-                        ToastUtils.show(this@SettingsPage, 
+                        ToastUtils.show(this@SettingsPage,
                             if (!current) LanguageUtils.getString(this@SettingsPage, R.string.toast_auto_cache_enabled)
                             else LanguageUtils.getString(this@SettingsPage, R.string.toast_auto_cache_disabled)
                         )
@@ -521,7 +521,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             override fun onStopTrackingTouch(seekBar: SeekBar) {}
         })
 
-
         btnRestoreDefault.setOnClickListener { restoreDefaultSettings() }
         findViewById<Button>(R.id.btn_switch_language)!!.setOnClickListener {
             showLanguageDialog()
@@ -550,7 +549,7 @@ class SettingsPage(base: Context) : BasePage(base) {
                             LanguageUtils.getString(this@SettingsPage, R.string.btn_show_today_duration_on)
                         else
                             LanguageUtils.getString(this@SettingsPage, R.string.btn_show_today_duration_off)
-                        ToastUtils.show(this@SettingsPage, 
+                        ToastUtils.show(this@SettingsPage,
                             if (!current) LanguageUtils.getString(this@SettingsPage, R.string.toast_today_duration_on)
                             else LanguageUtils.getString(this@SettingsPage, R.string.toast_today_duration_off)
                         )
@@ -559,7 +558,6 @@ class SettingsPage(base: Context) : BasePage(base) {
             )
         }
     }
-
 
     private fun initVideoNotifyProgressButton() {
         val btn = findViewById<Button>(R.id.btn_video_notify_progress) ?: return
@@ -584,7 +582,7 @@ class SettingsPage(base: Context) : BasePage(base) {
                             LanguageUtils.getString(this@SettingsPage, R.string.btn_video_notify_progress_on)
                         else
                             LanguageUtils.getString(this@SettingsPage, R.string.btn_video_notify_progress_off)
-                        ToastUtils.show(this@SettingsPage, 
+                        ToastUtils.show(this@SettingsPage,
                             if (newMode) LanguageUtils.getString(this@SettingsPage, R.string.toast_video_notify_progress_on)
                             else LanguageUtils.getString(this@SettingsPage, R.string.toast_video_notify_progress_off)
                         )

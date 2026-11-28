@@ -98,7 +98,7 @@ class StorageDialogs(
                     .setMessage(
                         LanguageUtils.getString(context, R.string.dialog_msg_delete_music_format, displayName)
                     )
-                    .setPositiveButton(LanguageUtils.getString(context, R.string.btn_delete)) { _, _ ->
+                    .setPositiveButton(LanguageUtils.getString(context, R.string.delete)) { _, _ ->
                         file.delete()
                         BiliLyricStore.delete(actualName)
                         BiliCoverLoader.localCoverFile(actualName).delete()
@@ -183,7 +183,7 @@ class StorageDialogs(
                             context, R.string.dialog_msg_delete_word_format, blockedWords[pos]
                         )
                     )
-                    .setPositiveButton(LanguageUtils.getString(context, R.string.btn_delete)) { _, _ ->
+                    .setPositiveButton(LanguageUtils.getString(context, R.string.delete)) { _, _ ->
                         DataFileUtils.removeBlockedWord(blockedWords[pos])
                         blockedWords.removeAt(pos)
                         adapter.notifyDataSetChanged()

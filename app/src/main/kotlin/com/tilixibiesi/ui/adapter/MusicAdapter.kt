@@ -6,7 +6,6 @@ import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.ViewUtils
 import com.tilixibiesi.R
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
 import android.view.LayoutInflater
@@ -33,14 +32,11 @@ class MusicAdapter(
     var showCoverInsteadOfIndex: Boolean = false
 
     override fun notifyDataSetChanged() {
-        // 设置页可能刚改过字体颜色/字号，下一次绑定重新读一次即可
+
         themeLoaded = false
         super.notifyDataSetChanged()
     }
 
-    // ---- 主题相关取值缓存 ----
-    // 每次 getView 都读 SharedPreferences + parseColor 是列表滚动/每秒重绑时的主要开销，
-    // 这里缓存一份；notifyDataSetChanged() 时失效重读。
     private var themeFontColor: Int = Color.WHITE
     private var themeFontSize: Int = 15
     private var themeLoaded = false

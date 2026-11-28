@@ -71,7 +71,6 @@ class BiliVideoPlayer(private val activity: BaseActivity) : VideoPlaybackControl
     private var touchDownRawY = 0f
     private var gestureActive = false
 
-
     private var layoutSwitchPreview: FrameLayout? = null
     private var ivSwitchCover: ImageView? = null
     private var tvSwitchTitle: TextView? = null
@@ -506,7 +505,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         isSeekingByGesture = false
     }
 
-
     private fun updateSwitchDrag(dy: Float) {
         if (switchCommitted) return
         if (layoutFullscreen.height <= 0) return
@@ -662,7 +660,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         )
     }
 
-
     fun isDanmakuEnabled(): Boolean = danmakuEnabled
 
     fun setDanmakuEnabled(enabled: Boolean) {
@@ -798,7 +795,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         syncVideoNotificationState()
     }
 
-
     private fun attachVideoNotification() {
         if (videoNotificationActive) return
         videoNotificationActive = true
@@ -821,7 +817,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
         if (!videoNotificationActive) return
         VideoPlaybackService.updateState(activity, mediaPlayer?.isPlaying == true)
     }
-
 
     private fun loadLyric(bvid: String, cid: Long, durationSec: Int, requestId: Int) {
         if (lyricInFlight) return
@@ -865,8 +860,6 @@ fun handleTouchEvent(ev: MotionEvent): Boolean {
     }
 
     private var lyricInFlight = false
-
-
 
     override fun pause() {
         runOnUiThread { if (mediaPlayer?.isPlaying == true) togglePlayPause() }
@@ -1003,7 +996,7 @@ private fun setPlaybackSpeed(speed: Float) {
             override fun run() {
                 val mp = mediaPlayer
                 if (mp == null) {
-                    // 播放器暂时为空不代表播放结束，仍然续上轮询链，避免进度永久停在旧值
+
                     handler.postDelayed(this, 500)
                     return
                 }
@@ -1031,8 +1024,7 @@ private fun setPlaybackSpeed(speed: Float) {
     }
 
     private fun releaseMediaPlayer() {
-        // MediaPlayer 处于 error 态时 isPlaying()/stop() 会抛 IllegalStateException，
-        // 而错误回调恰恰会把播放器推进 error 态，所以整段必须包起来。
+
         val mp = mediaPlayer
         mediaPlayer = null
         if (mp != null) {

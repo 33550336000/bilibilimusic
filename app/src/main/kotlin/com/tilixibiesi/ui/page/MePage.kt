@@ -27,10 +27,6 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 
-/**
- * “我的”页：顶部 B站 头像与昵称，下面显示账号状态（已过期 / 已限流等），
- * 设置页只能从这里进入，所以本页同时是设置的唯一入口。
- */
 class MePage(base: Context) : BasePage(base) {
     private val TAG = "MePage"
 
@@ -43,7 +39,6 @@ class MePage(base: Context) : BasePage(base) {
         const val CODE_FORBIDDEN = -799
         const val CODE_NETWORK_ERROR = -1
 
-        /** onResume 与 onPageShow 几乎同时触发，用它合并同一次进入的重复请求。 */
         const val DEDUP_INTERVAL_MS = 2_000L
 
         val COLOR_OK = 0xFF2E7D32.toInt()
@@ -71,11 +66,11 @@ class MePage(base: Context) : BasePage(base) {
     private var statusChecked = false
     private var statusLoading = false
     private var lastCheckAt = 0L
-    /** Cookie 被服务端判为失效时为 true，点登录按钮需要先清掉死 Cookie。 */
+
     private var expired = false
-    /** 本页缓存的位置信息，用于判断网络结果是否需要落盘。 */
+
     private var cachedProfile: BiliProfileStore.Profile? = null
-    /** 当前头像对应的地址，避免同一张头像重复解码/下载。 */
+
     private var shownAvatarUrl: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -104,16 +99,12 @@ class MePage(base: Context) : BasePage(base) {
         if (SpUtils.getBiliCookie(this).isEmpty()) {
             renderLoggedOut()
         } else {
-            // 先用本地缓存铺满界面，网络结果回来再按需覆盖，避免昵称/头像位置空一截。
+
             bindFromCache()
             showStatusChecking(clearDetail = true)
         }
     }
 
-    /**
-     * 先用本地缓存渲染身份信息与头像，网络结果回来后再比对。
-     * 本地文件缺失（首次登录/升级上来）时保持“检查中”占位，等网络补齐。
-     */
     private fun bindFromCache() {
         val profile = BiliProfileStore.load()
         cachedProfile = profile
@@ -136,11 +127,6 @@ class MePage(base: Context) : BasePage(base) {
         refreshAccount(force = false)
     }
 
-    /**
-     * 进入本页就拉一次最新账号信息，与本地缓存比对：
-     * 一致 → 继续用本地文件（头像不解码网络图）；不一致 → 用网络结果覆盖缓存并重绘。
-     * 每次进入都要比对，所以这里只用一个很短的窗口消掉 onResume/onPageShow 的重复请求。
-     */
     private fun refreshAccount(force: Boolean) {
         val cookie = SpUtils.getBiliCookie(this)
         if (cookie.isEmpty()) {
@@ -162,7 +148,7 @@ class MePage(base: Context) : BasePage(base) {
 
         AppExecutors.io.execute {
             val nav = fetchNav(cookie)
-            // 只有身份信息真的变了才写文件，避免每次进页都刷一遍磁盘。
+
             val sameAsCache = nav.code == CODE_OK && !nav.uname.isNullOrEmpty() &&
                 cachedProfile?.let {
                     it.isComplete && it.mid == nav.mid &&
@@ -176,7 +162,7 @@ class MePage(base: Context) : BasePage(base) {
                 statusLoading = false
                 lastCheckAt = System.currentTimeMillis()
                 if (pageView == null) return@runOnUiThread
-                // 与缓存一致时头像保持本地文件，不去重新下载。
+
                 renderNav(nav, forceAvatar = !sameAsCache)
             }
         }
@@ -215,7 +201,7 @@ class MePage(base: Context) : BasePage(base) {
 
     private fun showStatusChecking(clearDetail: Boolean) {
         bindSyncStatus()
-        // 进入页面先按状态文件给结论：已限流就不必等 nav 回来再改口（断网时也是这个结论）。
+
         if (BiliRateLimit.isLimited()) {
             tvStatus?.text = LanguageUtils.getString(this, R.string.me_status_limited)
             tvStatus?.setTextColor(COLOR_WARN)
@@ -237,9 +223,7 @@ class MePage(base: Context) : BasePage(base) {
                 expired = false
                 renderLoggedIn(name, nav.face, nav.mid, forceAvatar)
             }
-            // 只有服务端明确说“未登录”才算身份失效。
-            // 网络异常/限流/未知码都说明不了账号有效性，继续用本地缓存的头像与昵称，
-            // 否则断网时会莫名其妙变成“未登录 + 登录B站账号”按钮。
+
             nav.code == CODE_NOT_LOGIN -> {
                 expired = true
                 renderLoggedOut()
@@ -249,10 +233,6 @@ class MePage(base: Context) : BasePage(base) {
         bindStatus(nav.code)
     }
 
-    /**
-     * 保留本地缓存的昵称与头像，只让状态行去说明网络异常/限流。
-     * 缓存缺失（首次登录尚未补齐）时退回未登录样式，否则会显示一片空白。
-     */
     private fun keepCachedIdentity() {
         val cached = cachedProfile
         if (cached != null && cached.isComplete) {
@@ -300,14 +280,11 @@ class MePage(base: Context) : BasePage(base) {
         bindStatus(null)
     }
 
-    /** [code] 为 null 表示还没校验过（没有 Cookie），只展示未登录提示。 */
     private fun bindStatus(code: Int?) {
         val status = tvStatus ?: return
         val detail = tvStatusDetail
         bindSyncStatus()
-        // nav 正常但搜索类接口被限流时，nav 的结论会掩盖真实情况（首页刷新失败而这里显示“正常”）。
-        // 限流状态来自搜索侧写入的状态文件，优先级高于 nav，超过 20 分钟窗口后自动失效。
-        // 只在 nav 判为正常/限流时覆盖；未登录、凭证过期、网络异常这些结论更明确，保持原样。
+
         val navAllowsRateLimitOverride = code == CODE_OK ||
             code == CODE_RATE_LIMITED || code == CODE_FORBIDDEN
         if (navAllowsRateLimitOverride && BiliRateLimit.isLimited()) {
@@ -352,10 +329,6 @@ class MePage(base: Context) : BasePage(base) {
         }
     }
 
-    /**
-     * “最近同步”展示的是**最近一次登录成功的时间**，不是最近一次调用业务接口的时间。
-     * 时间跟着账号信息一起存在 cookie 目录里，未登录时整行隐藏。
-     */
     private fun bindSyncStatus() {
         val tv = tvSyncStatus ?: return
         if (SpUtils.getBiliCookie(this).isEmpty()) {
@@ -378,10 +351,6 @@ class MePage(base: Context) : BasePage(base) {
         tv.setTextColor(COLOR_OK)
     }
 
-    /**
-     * 头像取用顺序：本地文件（且地址未变）→ 网络。
-     * [face] 与本地记录的地址一致时直接解本地图，只有换了头像才重新下载并覆盖缓存。
-     */
     private fun showAvatar(face: String?, forceDownload: Boolean) {
         val view = ivAvatar ?: return
         val url = face.orEmpty()
@@ -410,7 +379,7 @@ class MePage(base: Context) : BasePage(base) {
     }
 
     private fun startLogin() {
-        // Cookie 已失效时先清掉，否则 ensureLoggedIn 看到有 Cookie 会直接回调，登录窗根本不弹。
+
         if (expired) SpUtils.saveBiliCookie(this, "")
         BiliLoginHelper.ensureLoggedIn(activity) {
             runOnUiThread {
@@ -420,7 +389,6 @@ class MePage(base: Context) : BasePage(base) {
         }
     }
 
-    /** 已登录状态下的“重新认证”：无条件重开登录窗，用于凭证过期或账号切换。 */
     private fun startReauth() {
         BiliLoginHelper.reauthenticate(activity) {
             runOnUiThread {
@@ -434,7 +402,7 @@ class MePage(base: Context) : BasePage(base) {
         DialogHelper.createStyledDialog(
             activity,
             AlertDialog.Builder(this)
-                .setTitle(LanguageUtils.getString(this, R.string.me_logout_title))
+                .setTitle(LanguageUtils.getString(this, R.string.me_logout))
                 .setMessage(LanguageUtils.getString(this, R.string.me_logout_message))
                 .setPositiveButton(LanguageUtils.getString(this, R.string.btn_ok)) { _, _ ->
                     SpUtils.saveBiliCookie(this, "")
@@ -461,7 +429,6 @@ class MePage(base: Context) : BasePage(base) {
         )
     }
 
-    /** 卡片最下方按钮：在主页面「B站音乐分区」与旧的「内置歌曲列表」之间二选一。 */
     private fun showMainSourceDialog() {
         val biliZone = SpUtils.isMainSourceBiliZone(this)
         DialogHelper.createStyledDialog(

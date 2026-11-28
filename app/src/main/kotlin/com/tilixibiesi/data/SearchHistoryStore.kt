@@ -4,11 +4,6 @@ import com.tilixibiesi.util.AppLog
 import com.tilixibiesi.util.AtomicFileWriter
 import org.json.JSONArray
 
-/**
- * 搜索历史：<存储根>/system/axeron/long/Android/Appdata/history/search_history.json
- *
- * 读取、新增、删除都直接落盘，不再走 SharedPreferences。
- */
 object SearchHistoryStore {
     private const val TAG = "SearchHistoryStore"
 

@@ -32,7 +32,7 @@ internal fun SettingsPage.showExportLogDialog() {
     val page = this
     showMaterialDialog(
         AlertDialog.Builder(page)
-            .setTitle(LanguageUtils.getString(page, R.string.dialog_title_export_log))
+            .setTitle(LanguageUtils.getString(page, R.string.btn_export_log))
             .setMessage(LanguageUtils.getString(page, R.string.dialog_msg_export_log))
             .setPositiveButton(LanguageUtils.getString(page, R.string.btn_export)) { _, _ ->
                 page.exportLogToDocument()
@@ -134,7 +134,7 @@ internal fun SettingsPage.restoreDefaultSettings() {
     val page = this
     page.showMaterialDialog(
         AlertDialog.Builder(page)
-            .setTitle(LanguageUtils.getString(page, R.string.dialog_title_restore_default))
+            .setTitle(LanguageUtils.getString(page, R.string.btn_restore_default))
             .setMessage(LanguageUtils.getString(page, R.string.dialog_msg_restore_default))
             .setPositiveButton(LanguageUtils.getString(page, R.string.btn_ok)) { _, _ ->
                 val defaultBg = SpUtils.getDefaultBackgroundPath(page)

@@ -63,4 +63,3 @@ class ColorTrackDrawable(private val cornerRadiusPx: Float) : Drawable() {
 
     override fun getIntrinsicWidth(): Int = -1
 }
-

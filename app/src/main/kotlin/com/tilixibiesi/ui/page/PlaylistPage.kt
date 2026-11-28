@@ -96,7 +96,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
             AlertDialog.Builder(this)
                 .setTitle(R.string.new_playlist_title)
                 .setView(input)
-                .setPositiveButton(R.string.confirm) { _, _ ->
+                .setPositiveButton(R.string.btn_ok) { _, _ ->
                     val name = input.text.toString().trim()
                     if (name.isEmpty()) {
                         Toast.makeText(this, R.string.rename_empty_error, Toast.LENGTH_SHORT).show()
@@ -106,7 +106,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
                     loadPlaylists()
                     adapter.notifyDataSetChanged()
                 }
-                .setNegativeButton(R.string.cancel, null)
+                .setNegativeButton(R.string.btn_cancel, null)
         )
     }
 
@@ -147,7 +147,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
             AlertDialog.Builder(this)
                 .setTitle(R.string.rename_playlist_title)
                 .setView(input)
-                .setPositiveButton(R.string.confirm) { _, _ ->
+                .setPositiveButton(R.string.btn_ok) { _, _ ->
                     val newName = input.text.toString().trim()
                     if (newName.isEmpty()) {
                         Toast.makeText(this, R.string.rename_empty_error, Toast.LENGTH_SHORT).show()
@@ -162,16 +162,16 @@ class PlaylistPage(base: Context) : BasePage(base) {
                                     playlist.name, newName
                                 )
                             )
-                            .setPositiveButton(R.string.confirm) { _, _ ->
+                            .setPositiveButton(R.string.btn_ok) { _, _ ->
                                 PlaylistManager.renamePlaylist(this, playlist.id, newName)
                                 loadPlaylists()
                                 adapter.notifyDataSetChanged()
                                 Toast.makeText(this, R.string.rename_success, Toast.LENGTH_SHORT).show()
                             }
-                            .setNegativeButton(R.string.cancel, null)
+                            .setNegativeButton(R.string.btn_cancel, null)
                     )
                 }
-                .setNegativeButton(R.string.cancel, null)
+                .setNegativeButton(R.string.btn_cancel, null)
         )
     }
 
@@ -190,7 +190,7 @@ class PlaylistPage(base: Context) : BasePage(base) {
                     adapter.notifyDataSetChanged()
                     Toast.makeText(this, R.string.playlist_deleted, Toast.LENGTH_SHORT).show()
                 }
-                .setNegativeButton(R.string.cancel, null)
+                .setNegativeButton(R.string.btn_cancel, null)
         )
     }
 

@@ -181,9 +181,7 @@ class SearchPage(base: Context) : BasePage(base) {
     }
 
     override fun onDestroy() {
-        // 每步独立 runCatching，最后一定要走到 super.onDestroy()：
-        // BasePage.onDestroy() 负责注销本页注册的 BroadcastReceiver，
-        // 旧实现漏了 super 调用，这些 receiver 会一直挂在 Activity 上。
+
         runCatching { dismissSearchHistory() }
         runCatching { BiliVideoPlayer.stopCurrentVideo() }
         if (::biliVideoAdapter.isInitialized) runCatching { biliVideoAdapter.shutdown() }
@@ -303,9 +301,6 @@ class SearchPage(base: Context) : BasePage(base) {
             override fun afterTextChanged(s: Editable?) {}
         })
 
-        // 这里只监听“点了一下输入框”来收起/展开搜索历史，返回 false 让 EditText 继续走自己的
-        // 触摸处理（聚焦、光标定位），真正的 click 由框架在 super.onTouchEvent 里触发，
-        // 再补一次 performClick() 会让无障碍点击事件重复上报，故此处不做调用。
         @Suppress("ClickableViewAccessibility")
         etSearch.setOnTouchListener { _, event ->
             if (event.actionMasked == MotionEvent.ACTION_UP) {
@@ -373,7 +368,7 @@ class SearchPage(base: Context) : BasePage(base) {
                                 recordBiliEntry(video)
                                 Toast.makeText(this@SearchPage, R.string.history_added, Toast.LENGTH_SHORT).show()
                             }
-                            .setNegativeButton(R.string.cancel, null)
+                            .setNegativeButton(R.string.btn_cancel, null)
                     )
                 }
             }
@@ -485,7 +480,7 @@ class SearchPage(base: Context) : BasePage(base) {
     private fun updateBiliButtonState() {
         btnBiliToggle.text = LanguageUtils.getString(
             this@SearchPage,
-            if (isBiliMode) R.string.bili_toggle_on else R.string.bili_toggle_off
+            if (isBiliMode) R.string.state_on else R.string.bili_toggle_off
         )
     }
 
@@ -526,9 +521,7 @@ class SearchPage(base: Context) : BasePage(base) {
         glass.blurRadiusDp = 5f
         glass.tiltEnabled = false
         glass.pressEnabled = false
-        // 采样分两层：底层用活动背景层（视频/图片背景），再把页面内容根叠上去。
-        // 只采 backgroundLayer 时，搜索结果里的视频封面会被"无视"，玻璃直接透出更底层的背景。
-        // 页面内容根不含下拉框自身，因此不会把玻璃自己采进去。
+
         val host = activity as? MainPagerActivity
         glass.backdropSource = host?.backgroundLayer
         glass.overlaySource = findViewById<View>(R.id.layout_search_root)
@@ -545,8 +538,7 @@ class SearchPage(base: Context) : BasePage(base) {
             showDeleteHistoryDialog(keyword)
             true
         }
-        // 遮罩是纯框架 FrameLayout，无法覆写 performClick；这里已经在消费手势后显式调用了
-        // performClick()，读屏走的是历史列表项自身的可访问节点，遮罩本身不需要额外语义。
+
         @Suppress("ClickableViewAccessibility")
         overlay.setOnTouchListener { view, event ->
             if (event.actionMasked == MotionEvent.ACTION_UP) {
@@ -555,7 +547,7 @@ class SearchPage(base: Context) : BasePage(base) {
                     hideSoftKeyboard()
                     etSearch.clearFocus()
                 }
-                // 该遮罩自己消费了整段手势，点击语义要显式上报给无障碍服务。
+
                 view.performClick()
             }
             true
@@ -615,11 +607,11 @@ class SearchPage(base: Context) : BasePage(base) {
                 .setMessage(
                     LanguageUtils.getString(this@SearchPage, R.string.delete_history_message, keyword)
                 )
-                .setPositiveButton(LanguageUtils.getString(this@SearchPage, R.string.ok)) { _, _ ->
+                .setPositiveButton(LanguageUtils.getString(this@SearchPage, R.string.btn_ok)) { _, _ ->
                     SearchHistoryStore.remove(keyword)
                     refreshSearchHistory()
                 }
-                .setNegativeButton(LanguageUtils.getString(this@SearchPage, R.string.cancel), null)
+                .setNegativeButton(LanguageUtils.getString(this@SearchPage, R.string.btn_cancel), null)
         )
     }
 
@@ -905,7 +897,7 @@ class SearchPage(base: Context) : BasePage(base) {
                     AlertDialog.Builder(this)
                         .setTitle(R.string.quality_select_title)
                         .setView(scrollView)
-                        .setPositiveButton(R.string.ok) { _, _ ->
+                        .setPositiveButton(R.string.btn_ok) { _, _ ->
                             if (selectedSubtitleIndices.isNotEmpty()) {
                                 downloadSubtitles(detail.title, subtitleTracks, selectedSubtitleIndices.sorted(), cookie)
                             }
@@ -929,7 +921,7 @@ class SearchPage(base: Context) : BasePage(base) {
                                     ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.select_at_least_one_quality))
                             }
                         }
-                        .setNegativeButton(R.string.cancel, null)
+                        .setNegativeButton(R.string.btn_cancel, null)
                 )
             }
         }
@@ -954,10 +946,10 @@ class SearchPage(base: Context) : BasePage(base) {
                     saved.isEmpty() ->
                         ToastUtils.show(this@SearchPage, LanguageUtils.getString(this@SearchPage, R.string.subtitle_failed))
                     saved.size == 1 ->
-                        ToastUtils.show(this@SearchPage, 
+                        ToastUtils.show(this@SearchPage,
                             LanguageUtils.getString(this@SearchPage, R.string.subtitle_complete, saved[0])
                         )
-                    else -> ToastUtils.show(this@SearchPage, 
+                    else -> ToastUtils.show(this@SearchPage,
                         LanguageUtils.getString(
                             this@SearchPage,
                             R.string.subtitle_complete_multi,

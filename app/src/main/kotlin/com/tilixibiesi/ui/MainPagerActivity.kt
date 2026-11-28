@@ -66,7 +66,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
     private var currentPosition = PAGE_SONGS
     private var started = false
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -202,7 +201,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
         }
     }
 
-
     private fun notifyPageShown(position: Int) {
         val page = pages.getOrNull(position) ?: return
         if (!page.created) return
@@ -311,7 +309,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
         }
     }
 
-
     private fun applyBackground() {
         BackgroundHelper.applyBackground(this, backgroundLayer, SpUtils.getBackgroundAlpha(this))
     }
@@ -355,7 +352,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
     private fun onBackProgressPreview(progress: Float) {
         if (currentPosition == PAGE_SONGS) return
         val from = pager.pageScrollX(currentPosition) ?: return
-        // 设置页是从“我的”进来的，返回时预览也要朝“我的”滑，而不是朝歌曲页。
+
         val backTarget = if (currentPosition == PAGE_SETTINGS) PAGE_ME else PAGE_SONGS
         val to = pager.pageScrollX(backTarget) ?: return
         invalidateGlassBackdrop()
@@ -368,12 +365,9 @@ class MainPagerActivity : BaseActivity(), PageHost {
     }
 
     override fun onDestroy() {
-        // 兜底：先把这个 Activity 在 PredictiveBack 里的所有 tag 一次清干净，
-        // 不依赖各业务方是否都记得 unregister（历史上 TAG_NOW_PLAYING 就漏了）。
+
         PredictiveBack.clearAll(this)
-        // 下面每一步都包 runCatching：旧实现只要其中一步抛异常，
-        // super.onDestroy() 就不会执行，AMS 侧的 finish 报不上来，
-        // Activity 会卡在 STOPPED finishing=false，连带整棵 View 树无法回收。
+
         runCatching { BackgroundHelper.release(backgroundLayer) }
         pages.forEach { page ->
             if (page.created) runCatching { page.onDestroy() }
@@ -486,7 +480,6 @@ class MainPagerActivity : BaseActivity(), PageHost {
         }
     }
 
-
     private var pendingResultTarget: BasePage? = null
 
     override fun setPage(position: Int, smooth: Boolean) {
@@ -501,12 +494,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
         if (target != currentPosition) handlePageChanged(target)
     }
 
-    /** 设置页不在底部导航里，只能从“我的”页进入。 */
     fun openSettingsPage() {
         setPage(PAGE_SETTINGS, true)
     }
 
-    /** “我的”页切换主页面数据源后，立即让歌曲页重新加载列表。 */
     fun onMainSourceChanged() {
         (pages.getOrNull(PAGE_SONGS) as? SongsPage)
             ?.takeIf { it.created }
@@ -523,7 +514,7 @@ class MainPagerActivity : BaseActivity(), PageHost {
         pager.clearTemporaryVisible(PAGE_SEARCH)
         pager.clearPendingTemporaryClear()
         applySearchPageAvailability()
-        // 设置页不在可见顺序里，重建导航时要以临时页保留，否则会被踢回上一页。
+
         if (currentPosition == PAGE_SETTINGS) {
             pager.markTemporaryVisible(PAGE_SETTINGS, takeFocus = false)
         }
@@ -551,11 +542,10 @@ class MainPagerActivity : BaseActivity(), PageHost {
 
     private fun isPageAvailable(page: Int): Boolean = when (page) {
         PAGE_SEARCH -> SpUtils.getSearchMode(this)
-        // 设置页不在底部导航里，只能从“我的”进入，所以平时不参与左右滑动。
+
         PAGE_SETTINGS -> false
         else -> true
     }
-
 
     private fun applySearchPageAvailability() {
         pager.pageAvailability = { page -> isPageAvailable(page) }

@@ -20,11 +20,9 @@ class ClickFxOverlay(context: Context) : WebView(context) {
 
     private val handler = Handler(Looper.getMainLooper())
 
-    /** 复用缓冲区与 StringBuilder，避免每次触摸都新建 14B ByteBuffer + 拼接 JS 字符串。 */
     private val pointerBuffer = ByteBuffer.allocate(14).order(ByteOrder.LITTLE_ENDIAN)
     private val jsBuilder = StringBuilder(256)
 
-    /** markReady 的延时任务句柄，用于取消重复投递。 */
     private var markReadyRunnable: Runnable? = null
 
     private var ready = false
@@ -88,8 +86,7 @@ class ClickFxOverlay(context: Context) : WebView(context) {
             return
         }
         loadUrl("file://" + file.absolutePath)
-        // onPageFinished 不一定触发（WebView 复用时会跳过），所以保留一个兜底定时器；
-        // 但记录句柄，重复 load 时先取消，避免叠加多个 markReady。
+
         markReadyRunnable?.let { handler.removeCallbacks(it) }
         val r = Runnable { markReady() }
         markReadyRunnable = r
@@ -215,7 +212,6 @@ class ClickFxOverlay(context: Context) : WebView(context) {
     companion object {
         private const val FRAME_INTERVAL_MS = 16L
 
-        /** onPageFinished 未触发时的兜底延时。 */
         private const val READY_FALLBACK_MS = 600L
     }
 }

@@ -9,16 +9,6 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 
-import java.io.OutputStream
-
-/**
- * 把 [AppLog] 的内存日志以 content:// 暴露给 ACTION_SEND 分享。
- *
- * 不落中转文件：这里用一对管道（[ParcelFileDescriptor.createPipe]），接收方打开
- * 时在后台线程把内存快照直接写进管道读端。项目没有依赖 androidx，用不了
- * FileProvider；而 API 24+ 的 EXTRA_STREAM 不能再用 file:// URI，管道是最贴合的
- * 等价实现——只读、不落盘、无临时文件残留。
- */
 class LogFileProvider : ContentProvider() {
 
     companion object {
@@ -48,7 +38,6 @@ class LogFileProvider : ContentProvider() {
         val readFd = pipe[0]
         val writeFd = pipe[1]
 
-        // 写端交给后台线程，拿不到日志的接收方也不会阻塞 provider 调用线程。
         AppExecutors.io.execute {
             val out = ParcelFileDescriptor.AutoCloseOutputStream(writeFd)
             try {

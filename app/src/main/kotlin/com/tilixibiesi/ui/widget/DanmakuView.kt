@@ -95,7 +95,7 @@ class DanmakuView @JvmOverloads constructor(
     }
 
     companion object {
-        /** 超过这个条数才按字号分组，少量弹幕直接绘制更快。 */
+
         private const val BUCKET_THRESHOLD = 12
 
         private const val SCROLL_DURATION_MS = 8000L
@@ -269,7 +269,7 @@ class DanmakuView @JvmOverloads constructor(
             if (dispatched) markDirty()
         }
         if (actives.isNotEmpty()) {
-            // 一次遍历 + 原地压缩，避免逐个 removeAt 触发 O(n) 数组搬移
+
             var write = 0
             for (read in actives.indices) {
                 val dm = actives[read]
@@ -392,7 +392,6 @@ class DanmakuView @JvmOverloads constructor(
         trackCount = count
     }
 
-    /** 绘制时按字号分组的下标缓冲，复用避免每帧分配。 */
     private val drawBuckets = HashMap<Float, MutableList<ActiveDanmaku>>()
 
     override fun onDraw(canvas: Canvas) {
@@ -400,8 +399,6 @@ class DanmakuView @JvmOverloads constructor(
         if (actives.isEmpty() || width <= 0 || height <= 0) return
         if (trackCount <= 0) recalcTracks()
 
-        // 同字号连续绘制，Paint 的 textSize / strokeWidth 只在换桶时设置，
-        // 避免每条弹幕都打断 TextLayout 缓存（弹幕字号通常只有 1~3 种）。
         if (actives.size <= BUCKET_THRESHOLD) {
             for (dm in actives) drawOne(canvas, dm)
             return

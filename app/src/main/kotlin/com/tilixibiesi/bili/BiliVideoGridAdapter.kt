@@ -37,7 +37,6 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
 
     private val maxMemoryKb = (Runtime.getRuntime().maxMemory() / 1024).toInt()
 
-    /** 网格封面额度：最大内存的 1/16，限制在 8MB~24MB，避免低端机被图片吃掉一半堆。 */
     private val cacheSize = (maxMemoryKb / 16).coerceIn(8 * 1024, 24 * 1024)
 
     private val coverCache = object : LruCache<String, Bitmap>(cacheSize) {
@@ -159,7 +158,7 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
                 try {
                     imageLoadExecutor.execute { loadImageWithRetry(coverUrl, maxRetries = 2) }
                 } catch (e: Exception) {
-                    // 线程池已关闭（页面销毁）时静默放弃本次加载
+
                     inFlight.remove(coverUrl)
                     AppLog.d(TAG, "封面加载任务被拒绝: ${e.message}")
                 }
@@ -169,8 +168,6 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
         return view
     }
 
-
-    /** 按目标尺寸降采样解码，避免把 4K 封面整张读进内存。 */
     private fun decodeCapped(input: java.io.InputStream): Bitmap? {
         val bytes = input.readBytes()
         if (bytes.isEmpty()) return null
@@ -216,7 +213,7 @@ class BiliVideoGridAdapter(private val context: Context) : BaseAdapter() {
                 finishInFlight(coverUrl)
                 return
             }
-            // 分片等待代替整段 Thread.sleep：页面销毁后立刻退出，不会把池线程钉住
+
             if (retries < maxRetries) {
                 var waited = 0L
                 val totalWait = 1000L * (retries + 1)

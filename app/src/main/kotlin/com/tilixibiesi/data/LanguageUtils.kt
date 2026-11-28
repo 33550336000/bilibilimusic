@@ -358,10 +358,6 @@ object LanguageUtils {
         }
     }
 
-    /**
-     * 西班牙语/葡萄牙语有地区变体，中文/塞尔维亚语有文字变体，单靠 language 不够，
-     * 这里在精确匹配失败时按 region/script 再细分一次。
-     */
     private fun resolveRegionalVariant(locale: Locale): String? {
         val lang = locale.language.lowercase(Locale.ROOT)
         val country = locale.country.uppercase(Locale.ROOT)
@@ -371,10 +367,10 @@ object LanguageUtils {
                 country == "CV" || country == "GW" || country == "ST" ||
                 country == "TL" || country == "MO"
             ) "pt-PT" else "pt"
-            // 繁体中文（香港/澳门）单独成包；其余繁体走 zh-TW，简体走内置中文。
+
             "zh" -> if (isTraditionalChinese(locale) &&
                 (country == "HK" || country == "MO")) "zh-HK" else null
-            // 塞尔维亚语拉丁字母变体；西里尔字母走主分支 "sr"。
+
             "sr" -> if (locale.script.equals("Latn", ignoreCase = true))
                 "sr-Latn" else null
             else -> null

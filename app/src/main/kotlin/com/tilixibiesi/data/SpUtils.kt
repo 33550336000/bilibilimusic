@@ -104,7 +104,6 @@ object SpUtils {
         return getSp(context).getString(KEY_CURRENT_MUSIC_NAME, null)
     }
 
-
     fun savePlayMode(context: Context, mode: Int) {
         getSp(context).edit().putInt(KEY_PLAY_MODE, mode).apply()
     }
@@ -175,7 +174,6 @@ object SpUtils {
         getSp(context).edit().putBoolean(KEY_MAIN_DELETE_BUTTON_VISIBLE, visible).apply()
     }
 
-    /** 主页面数据源：true = B站音乐分区（默认），false = 旧的服务器内置歌曲列表。 */
     fun isMainSourceBiliZone(context: Context): Boolean =
         getSp(context).getBoolean(KEY_MAIN_SOURCE_BILI_ZONE, true)
 
@@ -200,7 +198,6 @@ object SpUtils {
         getSp(context).edit().putInt(KEY_APP_ORIENTATION, orientation).apply()
     }
 
-    /** 把应用方向设置换算成 ActivityInfo 的 screenOrientation 常量。 */
     fun getScreenOrientation(context: Context): Int = when (getAppOrientation(context)) {
         APP_ORIENTATION_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         APP_ORIENTATION_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT

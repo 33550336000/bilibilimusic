@@ -22,7 +22,7 @@
             android:id="@+id/btn_cancel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/cancel"
+            android:text="@string/btn_cancel"
             android:textColor="#FFFFFF"
             android:background="@android:color/transparent"/>
 
@@ -35,7 +35,7 @@
             android:id="@+id/btn_confirm"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/confirm"
+            android:text="@string/btn_ok"
             android:textColor="#FFFFFF"
             android:background="@android:color/transparent"/>
     </LinearLayout>

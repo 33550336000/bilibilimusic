@@ -195,12 +195,6 @@ half4 main(float2 fragCoord) {
             invalidate()
         }
 
-    /**
-     * 抓图时叠在 [backdropSource] 之上一起画的上层视图，用来补上只采背景层时漏掉的页面内容
-     * （比如搜索结果里的视频封面）。
-     *
-     * 与 [backdropSource] 在同一窗口内时共用同一个 ViewTreeObserver，监听由 backdropSource 负责。
-     */
     var overlaySource: View? = null
         set(value) {
             if (field === value) return
@@ -280,14 +274,10 @@ half4 main(float2 fragCoord) {
     private var lastSignature = Int.MIN_VALUE
     private var lastPreDrawSignature = Int.MIN_VALUE
 
-    /** 每次真正重绘 backdrop 时自增，用于判断 RenderNode 的录制缓存是否失效。 */
     private var backdropGeneration = 0
 
-
-    /** 采样用的行缓冲，避免每次捕获都新建数组。 */
     private var lumaRows: IntArray? = null
 
-    /** 光斑渐变缓存，避免每帧新建 LinearGradient。 */
     private var specGradient: LinearGradient? = null
     private var specGradientKey = 0L
 
@@ -400,20 +390,9 @@ half4 main(float2 fragCoord) {
         press = 0f
         detachWatcher()
 
-        // 显式释放离屏 backdrop（360×800×4 ≈ 1.1MB）。
-        //
-        // 旧实现只做 `backdrop = null`，把回收时机完全交给 GC。这里主动 recycle
-        // 并重置两个 RenderNode 的 display list，让离屏资源在 detach 时就归还，
-        // 不必等下一次 GC（低内存机器上那一刻可能很久才来）。
-        //
-        // 注意：这一步并**没有**解决「Activity recreate 后 Native Heap 持续增长」的问题
-        // （实测加与不加，8 轮 recreate 后的 Native Heap 都是 23MB → 71MB）。
-        // 那笔增长来自别处，尚未定位。这里只是把「确定属于本控件的资源」及时归还，
-        // 属于正确性改进，不是该泄漏的修复。
         releaseBackdropResources()
     }
 
-    /** 释放离屏 backdrop 位图与 RenderNode 记录，可重复调用。 */
     private fun releaseBackdropResources() {
         runCatching {
             backdrop?.let { if (!it.isRecycled) it.recycle() }
@@ -566,7 +545,6 @@ half4 main(float2 fragCoord) {
         val bh = bmp.height
         recordBlurNode(bmp, bw, bh)
 
-        // shaderNode 的记录内容只依赖尺寸和 backdrop 代次，同样做缓存
         val reuseShaderNode = shaderNodeW == width && shaderNodeH == height &&
             shaderNodeBw == bw && shaderNodeBh == bh &&
             shaderNodeGeneration == backdropGeneration &&
@@ -623,8 +601,7 @@ half4 main(float2 fragCoord) {
     @SuppressLint("NewApi")
     private fun recordBlurNode(bmp: Bitmap, bw: Int, bh: Int) {
         val radius = blurRadiusDp * density / DOWNSCALE
-        // 只在尺寸 / 内容代次 / 半径变化时重录 display list，
-        // 静止画面下每帧的 beginRecording+endRecording 是可以完全省掉的
+
         val reused = blurNodeW == bw && blurNodeH == bh &&
             blurNodeGeneration == backdropGeneration && blurEffectRadius == radius &&
             blurNode.hasDisplayList()
@@ -667,7 +644,7 @@ half4 main(float2 fragCoord) {
 
         val cx = width * (0.5f + tiltX * 0.42f)
         val cy = height * (0.35f + tiltY * 0.30f)
-        // 光斑位置只随倾斜角变化，用整数化后的 key 命中缓存，避免每帧新建 Shader
+
         val key = (cx.toInt().toLong() shl 32) or (cy.toInt().toLong() and 0xFFFFFFFFL)
         val gradient = specGradient
         if (gradient == null || specGradientKey != key) {
@@ -694,12 +671,6 @@ half4 main(float2 fragCoord) {
         val signature = backdropSignature(src)
         if (signature == lastSignature) return backdrop
 
-        // 注意：这里不能做节流。
-        // 玻璃的效果是"实时采样背景"，backdrop 必须与当前滚动偏移严格同步；
-        // 一旦跳过某一帧返回旧快照，玻璃里显示的就是上一个滚动位置的画面，
-        // 滚动时表现为内容不在正确位置、整体颤抖。性能靠捕获本身的开销控制，
-        // 而不是靠跳帧（下方 RenderNode 缓存已覆盖静止场景）。
-
         val bw = (width / DOWNSCALE).coerceAtLeast(8)
         val bh = (height / DOWNSCALE).coerceAtLeast(4)
         var bmp = backdrop
@@ -724,9 +695,7 @@ half4 main(float2 fragCoord) {
         captureDepth++
         try {
             src.draw(c)
-            // 只采 backgroundSource 会漏掉页面内容（搜索结果里的视频封面等），
-            // 这里把上层内容补画到同一张位图上。画布此时已按 src 平移过，
-            // 因此只需补上 overlay 相对 src 的偏移。
+
             val overlay = overlaySource
             if (overlay != null && overlay !== src && overlay.isShown) {
                 val saveOverlay = c.save()
@@ -765,8 +734,6 @@ half4 main(float2 fragCoord) {
         val stepX = (w / SAMPLE_COLS).coerceAtLeast(1)
         val stepY = (h / SAMPLE_ROWS).coerceAtLeast(1)
 
-        // 只拷需要采样的那几行：12 次 getPixels，而不是 144 次 getPixel 逐像素 JNI，
-        // 也不会像整块 getPixels 那样为几万个像素做一次多余的大块拷贝。
         var row = lumaRows
         if (row == null || row.size < w) {
             row = IntArray(w)

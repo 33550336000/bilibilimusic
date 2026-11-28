@@ -21,7 +21,6 @@ import android.os.Build
 import android.os.Bundle
 import com.tilixibiesi.util.AppLog
 import android.view.Gravity
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -61,10 +60,9 @@ open class BaseActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // 应用方向对全部页面生效：每个 Activity 创建时按设置锁一次屏幕方向。
+
         requestedOrientation = SpUtils.getScreenOrientation(this)
         LocalizedViewFactory.install(layoutInflater)
-        LocalizedViewFactory.install(LayoutInflater.from(this))
         lastLanguageCode = LanguageUtils.getEffectiveLanguage(applicationContext)
         registerLanguageReceiver()
     }
@@ -74,15 +72,14 @@ open class BaseActivity : Activity() {
         if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(languageUpdatedReceiver, langFilter, Context.RECEIVER_EXPORTED)
         } else {
-            // API 33 以下没有 flag 参数；此分支仅在旧系统执行。
+
             @SuppressLint("UnspecifiedRegisterReceiverFlag")
             registerReceiver(languageUpdatedReceiver, langFilter)
         }
     }
 
     override fun onDestroy() {
-        // 兜底清理：把所有 tag 一次性从 PredictiveBack 的静态表里摘掉，
-        // 避免任一路径漏 unregister 就把整个 Activity 钉死在进程堆上。
+
         PredictiveBack.clearAll(this)
         try {
             unregisterReceiver(languageUpdatedReceiver)
@@ -173,12 +170,12 @@ open class BaseActivity : Activity() {
             Gravity.BOTTOM
         ))
 
-        addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.nav_playlist), MainPagerActivity.PAGE_PLAYLIST, R.drawable.ic_nav_playlist)
+        addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.playlist), MainPagerActivity.PAGE_PLAYLIST, R.drawable.ic_nav_playlist)
         addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.nav_songs), MainPagerActivity.PAGE_SONGS, R.drawable.ic_nav_songs)
         if (SpUtils.getSearchMode(this)) {
-            addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.nav_search), MainPagerActivity.PAGE_SEARCH, R.drawable.ic_nav_search)
+            addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.search), MainPagerActivity.PAGE_SEARCH, R.drawable.ic_nav_search)
         }
-        addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.nav_me), MainPagerActivity.PAGE_ME, R.drawable.ic_nav_me)
+        addPagerNavButton(navBar, LanguageUtils.getString(this, R.string.me_title), MainPagerActivity.PAGE_ME, R.drawable.ic_nav_me)
     }
 
     private fun addPagerNavButton(navBar: LinearLayout, label: String, page: Int, iconRes: Int) {

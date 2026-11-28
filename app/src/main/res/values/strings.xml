@@ -64,7 +64,6 @@
     <string name="btn_manage_files">管理文件</string>
     <string name="btn_send_notification">发送通知</string>
     <string name="btn_export_log">导出日志</string>
-    <string name="dialog_title_export_log">导出日志</string>
     <string name="dialog_msg_export_log">是否将本次运行日志导出？</string>
     <string name="btn_export">导出</string>
     <string name="toast_log_export_saved">日志已导出</string>
@@ -111,7 +110,6 @@
     <string name="toast_dir_empty">目录为空</string>
     <string name="toast_file_invalid">文件已失效</string>
     <string name="toast_playing_format">正在播放:%s</string>
-    <string name="toast_search_mode_changed">已切换</string>
     <string name="toast_no_file_picker">未检测到可用的文件选择器，无法选择默认背景</string>
     <string name="toast_today_duration_on">已开启</string>
     <string name="toast_today_duration_off">已关闭</string>
@@ -120,7 +118,6 @@
     <string name="toast_default_bg_set">默认背景已设置</string>
     <string name="toast_content_empty">内容不能为空</string>
 
-    <string name="dialog_title_auto_cache">自动下载</string>
     <string name="dialog_title_confirm_clear">确认清除</string>
     <string name="dialog_title_switch_search_mode">切换搜索模式</string>
     <string name="dialog_title_blocked_words">全局屏蔽字管理</string>
@@ -131,10 +128,8 @@
     <string name="dialog_title_delete_word">删除屏蔽字</string>
     <string name="dialog_title_saved_music">已保存歌曲</string>
     <string name="saved_music_bili_format">B站 · %1$s</string>
-    <string name="dialog_title_send_notification">发送通知</string>
     <string name="dialog_title_today_duration">今日播放时长显示</string>
     <string name="dialog_title_search_btn_style">搜索按钮样式</string>
-    <string name="dialog_title_restore_default">恢复默认设置</string>
     <string name="dialog_title_footprint_playlist">歌单歌曲足迹</string>
 
     <string name="dialog_msg_confirm_disable_auto_cache">确定要关闭自动下载吗</string>
@@ -154,10 +149,8 @@
     <string name="dialog_msg_restore_default">确定要恢复所有设置为默认值吗？</string>
 
     <string name="state_on">开</string>
-    <string name="state_off">关</string>
     <string name="btn_ok">确定</string>
     <string name="btn_cancel">取消</string>
-    <string name="btn_delete">删除</string>
     <string name="btn_clear_all">清除全部记录</string>
     <string name="btn_clear_all_music">清除全部</string>
     <string name="btn_complete">完成</string>
@@ -190,7 +183,6 @@
     <string name="add_to_playlist">添加到歌单</string>
     <string name="sub_playlist">子歌单</string>
     <string name="search_in_playlist">搜索歌单内歌曲</string>
-    <string name="confirm">确定</string>
     <string name="search_song_hint">搜索歌曲</string>
     <string name="block_songs_title">要禁止哪些指定的歌曲？</string>
     <string name="block_word_hint">输入屏蔽字</string>
@@ -203,13 +195,11 @@
     <string name="video_cover">视频封面</string>
     <string name="arrow_right">></string>
     <string name="move">移动</string>
-    <string name="join_playlist">加入歌单</string>
     <string name="plus_sign">+</string>
     <string name="delete">删除</string>
     <string name="add_song_to_playlist">添加歌曲到该歌单</string>
     <string name="search_song_by_name">输入歌名搜索</string>
     <string name="clear_search">清空搜索</string>
-    <string name="bili_toggle_on">开</string>
     <string name="bili_toggle_off">关</string>
     <string name="add_to_main_page">加入主页面</string>
     <string name="add_to_target_title">添加到</string>
@@ -224,18 +214,14 @@
     <string name="mode_random">随机播放</string>
     <string name="mode_single_loop">单曲循环</string>
 
-    <string name="ok">确定</string>
-    <string name="cancel">取消</string>
     <string name="yes">是</string>
     <string name="no">否</string>
-    <string name="close">关闭</string>
     <string name="back">返回</string>
     <string name="btn_close">关闭</string>
     <string name="select_song_first">请先选择歌曲</string>
     <string name="seek_not_available">无法获取音频时长，暂不支持拖动</string>
 
     <string name="delete_song_title">删除歌曲</string>
-    <string name="delete_song_message">确定要移除《%1$s》吗？</string>
     <string name="delete_restricted_title">操作受限</string>
     <string name="delete_restricted_message">该歌曲《%1$s》不允许删除。</string>
     <string name="delete_success">已永久删除:%1$s</string>
@@ -258,13 +244,11 @@
     <string name="no_playlist">暂无歌单，请先去歌单页创建</string>
     <string name="confirm_add_title">确认添加</string>
     <string name="confirm_add_message">将《%1$s》添加到歌单《%2$s》吗？</string>
-    <string name="added">已添加</string>
 
     <string name="detail_no_record">暂无播放记录</string>
     <string name="detail_title">播放详情（点击歌曲查看每日）</string>
     <string name="song_no_record">该歌曲暂无记录</string>
 
-    <string name="timer_title">定时</string>
     <string name="timer_start">将在 %1$s 后停止播放</string>
     <string name="timer_end">定时结束，已停止播放</string>
     <string name="timer_cancel">已取消定时</string>
@@ -303,7 +287,6 @@
 <string name="remove">移除</string>
 <string name="remove_from_playlist_message">确定从歌单中删除《%1$s》吗？</string>
 <string name="removed_from_playlist">已从歌单移除</string>
-<string name="rename_restricted_title">操作受限</string> 
 <string name="rename_restricted_message">该歌曲《%1$s》不支持重命名。</string>
 
 <string name="create_sub_playlist_title">创建子歌单</string>
@@ -313,7 +296,6 @@
 <string name="sub_playlist_created">子歌单「%1$s」已创建</string>
 
 <string name="sub_playlist_delete">删除子歌单</string>
-<string name="sub_playlist_delete_title">删除子歌单</string>
 <string name="sub_playlist_delete_message">确定删除子歌单「%1$s」吗？</string>
 <string name="sub_playlist_deleted">子歌单已删除</string>
 <string name="playlist_share_empty">该歌单暂无可分享的内容</string>
@@ -321,7 +303,6 @@
     <string name="toast_file_copied">文件已复制到目标路径</string>
     <string name="toast_file_copy_failed">文件复制失败，目标路径不存在或源文件不可读</string>
     <string name="btn_save_as_default">保存为默认设置</string>
-    <string name="dialog_title_save_default">保存为默认设置</string>
     <string name="dialog_msg_save_default">确定要将当前设置保存为默认设置吗？</string>
     <string name="toast_settings_saved">默认设置已保存</string>
     <string name="toast_save_failed">保存设置失败:%s</string>
@@ -336,7 +317,6 @@
 <string name="btn_auto_load_default">自动加载默认设置</string>
 <string name="btn_auto_load_default_on">自动加载默认设置-开</string>
 <string name="btn_auto_load_default_off">自动加载默认设置-关</string>
-<string name="dialog_title_auto_load_default">自动加载默认设置</string>
 <string name="dialog_msg_auto_load_default_on">确定关闭自动加载默认设置吗？</string>
 <string name="dialog_msg_auto_load_default_off">确定开启自动加载默认设置吗？</string>
 <string name="toast_auto_load_default_enabled">自动加载默认设置已开启</string>
@@ -378,9 +358,6 @@
     <string name="toast_main_delete_button_enabled">主页面「×」已显示</string>
     <string name="toast_main_delete_button_disabled">主页面「×」已隐藏</string>
 <string name="nav_songs">歌曲</string>
-<string name="nav_search">搜索</string>
-<string name="nav_playlist">歌单</string>
-<string name="nav_me">我的</string>
 
     <string name="me_title">我的</string>
     <string name="me_avatar">头像</string>
@@ -388,7 +365,6 @@
     <string name="me_uid_format">UID: %1$s</string>
     <string name="me_login">登录 B站账号</string>
     <string name="me_relogin">重新登录</string>
-    <string name="btn_me_settings">设置</string>
     <string name="btn_reauth">重新认证</string>
     <string name="bili_sync_idle">最近同步:尚无记录</string>
     <string name="bili_sync_ok">最近同步:%1$s</string>
@@ -407,7 +383,6 @@
     <string name="me_status_offline_detail">无法连接 B站 服务器，请检查网络后重试</string>
     <string name="me_status_unknown_detail">接口返回未知状态码:%1$d</string>
     <string name="me_logout">退出登录</string>
-    <string name="me_logout_title">退出登录</string>
     <string name="me_logout_message">退出后将清除已保存的 B站 登录凭证，确定退出吗？</string>
     <string name="me_logout_done">已退出登录</string>
     <string name="btn_me_main_source_zone">主页面数据源:B站音乐分区</string>
@@ -438,8 +413,6 @@
     <string name="video_url_unavailable">无法获取视频播放地址</string>
     <string name="text_playing">正在播放</string>
     <string name="text_paused">已暂停</string>
-    <string name="btn_previous_short">上一首</string>
-    <string name="btn_next_short">下一首</string>
     <string name="btn_pause">暂停</string>
     <string name="btn_play">播放</string>
     <string name="no_playing">无播放</string>
@@ -456,8 +429,6 @@
     <string name="no_record">暂无记录</string>
     <string name="read_failed">读取失败</string>
 
-    <string name="op_restricted">操作受限</string>
-    <string name="delete_restricted_song">该歌曲《%1$s》不允许删除。</string>
 
     <string name="perm_partial">部分权限被拒绝</string>
     <string name="perm_need">需要存储权限</string>
@@ -472,17 +443,13 @@
 
     <string name="loading_video">正在加载视频…</string>
     <string name="get_link_failed">获取播放链接失败</string>
-    <string name="video_url_unavailable_bili">视频链接不可用</string>
     <string name="download_desc">下载 %1$s …</string>
     <string name="download_complete_name">下载完成: %1$s</string>
     <string name="mux_failed_keep_video">音视频合并失败，已保存为无音频视频: %1$s</string>
-    <string name="audio_url_unavailable">音频链接不可用</string>
     <string name="download_http_code">下载失败，HTTP状态码:%d</string>
-    <string name="download_failed_class">下载失败:%1$s</string>
 
     <string name="songs_added_format">已添加 %1$d 首歌到歌单</string>
     <string name="playlist_item_format">%1$s（%2$d 首）</string>
-    <string name="sub_playlist_item_format">%1$s（%2$d 首）</string>
     <string name="music_list_updated">已更新 %1$d 首歌曲到歌单</string>
     <string name="zone_fetch_fail">音乐分区获取失败</string>
 
@@ -501,7 +468,6 @@
     <string name="now_playing_unknown_album">未知专辑</string>
     <string name="now_playing_view_lyrics">查看歌词</string>
     <string name="now_playing_no_lyrics">暂无歌词</string>
-    <string name="now_playing_collapse">收起</string>
     <string name="now_playing_cover">封面</string>
     <string name="now_playing_share">分享</string>
     <string name="now_playing_share_chooser">分享到</string>

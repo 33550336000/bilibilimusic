@@ -44,10 +44,8 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     companion object {
         private const val TAG = "MusicPlayerService"
 
-        /** 进度 tick 周期。 */
         private const val TICK_INTERVAL_MS = 1000L
 
-        /** 播放位置回退超过这个阈值才视作用户拖动，否则忽略（解码器抖动）。 */
         private const val SEEK_BACK_TOLERANCE_MS = 2_000L
 
         const val CHANNEL_ID = "com.tilixibiesi.MUSIC_CHANNEL"
@@ -78,28 +76,13 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         const val ACTION_PAUSE_FOR_VIDEO = "com.tilixibiesi.ACTION_PAUSE_FOR_VIDEO"
         const val ACTION_REFRESH_PROGRESS_SETTING = "com.tilixibiesi.ACTION_REFRESH_PROGRESS_SETTING"
 
-        /** 划掉任务后自拉起用的空转 action：只保证进程/服务活着，不触碰播放状态。 */
         const val ACTION_KEEP_ALIVE = "com.tilixibiesi.ACTION_KEEP_ALIVE"
 
-        /** 开机广播里启动服务用的 action：只恢复状态，不做前台提升。 */
         private const val ACTION_BOOT_START = "com.tilixibiesi.ACTION_BOOT_START"
 
-        /**
-         * 前台提升是否被推迟。
-         *
-         * Android 15 起，从 BOOT_COMPLETED 广播起步的 mediaPlayback 服务不允许调用
-         * startForeground()，系统会抛 ForegroundServiceStartNotAllowedException 打死进程。
-         * 所以开机这一路只做普通服务，等用户交互（再次从 UI 拉起服务）时再补提升。
-         */
         @Volatile
         private var foregroundDeferred = false
 
-        /**
-         * 开机拉起：只以普通服务恢复播放状态，不做前台提升。
-         *
-         * 必须在 startService() 之前置 [foregroundDeferred]：服务的 onCreate() 里
-         * restorePlayState() 会立刻尝试 startForeground()，那正是被系统拦下的地方。
-         */
         fun startSilentlyFromBoot(context: Context) {
             foregroundDeferred = true
             runCatching {
@@ -189,7 +172,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     private var currentBvid: String? = null
     private var currentMusicBean: MusicBean? = null
 
-
     private var currentLyric: BiliLyric? = null
 
     private var lyricLoadingBvid: String? = null
@@ -218,21 +200,22 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         restorePlayState()
     }
 
+    private fun mediaAudioAttributes(): AudioAttributes {
+        val usage = if (SpUtils.getAudioFocusMode(this) == SpUtils.AUDIO_FOCUS_CALL_LEVEL) {
+            AudioAttributes.USAGE_VOICE_COMMUNICATION
+        } else {
+            AudioAttributes.USAGE_MEDIA
+        }
+        return AudioAttributes.Builder()
+            .setUsage(usage)
+            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+            .build()
+    }
+
     private fun initMediaPlayer() {
         mediaPlayer?.release()
-        val usage = when (SpUtils.getAudioFocusMode(this)) {
-            SpUtils.AUDIO_FOCUS_CALL_LEVEL   -> AudioAttributes.USAGE_VOICE_COMMUNICATION
-            SpUtils.AUDIO_FOCUS_FULL_EXCLUSIVE -> AudioAttributes.USAGE_MEDIA
-            SpUtils.AUDIO_FOCUS_TRANSIENT    -> AudioAttributes.USAGE_MEDIA
-            else -> AudioAttributes.USAGE_MEDIA
-        }
         mediaPlayer = MediaPlayer().apply {
-            setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(usage)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                    .build()
-            )
+            setAudioAttributes(mediaAudioAttributes())
             setOnPreparedListener(this@MusicPlayerService)
             setOnCompletionListener(this@MusicPlayerService)
             setOnErrorListener(this@MusicPlayerService)
@@ -257,14 +240,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // 除开机那一路以外，启动都来自用户交互：解除开机阶段对前台提升的推迟。
-        // intent 为 null 是系统的 START_STICKY 重启，此时 App 仍在后台，保持推迟。
+
         if (intent != null && intent.action != ACTION_BOOT_START) foregroundDeferred = false
 
-        // 自拉起标记：只维持前台状态，不重建列表、不重置播放状态。
-        //
-        // 注意必须调用 startForeground()：通过 startForegroundService() 启动后，
-        // 若 5 秒内没有进入前台，系统会抛 ForegroundServiceDidNotStartInTimeException。
         if (intent?.action == ACTION_KEEP_ALIVE) {
             val name = currentPlayingName ?: LanguageUtils.getString(this, R.string.no_playing)
             startForegroundWithType(NOTIFICATION_ID, buildNotification(name, isPlaying()))
@@ -387,7 +365,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         return START_STICKY
     }
 
-
     private fun playSavedBiliMusic() {
         AppExecutors.io.execute {
             val bean = findBiliBeanByDisplayName(currentPlayingName ?: "")
@@ -402,8 +379,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     }
 
     private fun buildFullList(): MutableList<MusicBean> {
-        // 主页面数据源切到 B站音乐分区时，列表就是分区内容本身（分区接口不覆盖本地歌曲库），
-        // 因此这里优先返回分区缓存；缓存为空（首次启动/未拉取成功）时回落到旧的内置列表。
+
         if (SpUtils.isMainSourceBiliZone(this)) {
             val zone = BiliMusicZone.loadCached()
             if (zone.isNotEmpty()) {
@@ -560,7 +536,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-
     private fun updateBiliCacheForQualityIfNeeded(bean: MusicBean) {
         if (!bean.isBilibili) return
         if (!SpUtils.isAutoCacheEnabled(this@MusicPlayerService)) return
@@ -578,11 +553,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     private fun biliCookie(): String = SpUtils.getBiliCookie(this)
 
-    /**
-     * 取某个 B站条目的可用音频 URL。
-     *
-     * 所有来源（搜索、播放历史、音乐分区）的条目都带 bvid，统一走 bvid 解析。
-     */
     private fun biliAudioUrls(bean: MusicBean?, preferredId: Int): List<String> {
         if (bean == null || !bean.isBilibili) return emptyList()
         val bvid = bean.bvid?.takeIf { it.isNotEmpty() } ?: return emptyList()
@@ -685,7 +655,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         currentBvid = null
         currentMusicBean = null
     }
-
 
     private fun buildFilePlayList(): List<String> =
         CacheManager.listAudioFiles().map { it.absolutePath }
@@ -872,7 +841,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
 
-
     override fun onCompletion(mp: MediaPlayer) {
         flushStatsIfReady()
         stopProgressUpdates()
@@ -1041,7 +1009,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         return true
     }
 
-
     override fun onAudioFocusChange(focusChange: Int) {
         when (focusChange) {
             AudioManager.AUDIOFOCUS_GAIN -> {
@@ -1075,7 +1042,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             }
         }
     }
-
 
     private fun toggleCurrentPlayback() {
         when {
@@ -1158,7 +1124,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         isPrepared = false
         isPaused = false
     }
-
 
     private fun notificationContentText(isPlaying: Boolean, positionMs: Long): String {
         val lyric = currentLyric
@@ -1266,11 +1231,11 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             .setContentIntent(pendingContentIntent)
             .setStyle(style)
 
-        NotificationHelper.addAction(this, builder, R.drawable.ic_media_previous, LanguageUtils.getString(this, R.string.btn_previous_short), piPrev)
+        NotificationHelper.addAction(this, builder, R.drawable.ic_media_previous, LanguageUtils.getString(this, R.string.previous), piPrev)
         val playPauseIcon = if (isPlaying) R.drawable.ic_media_pause else R.drawable.ic_media_play
         val playPauseTitle = if (isPlaying) LanguageUtils.getString(this, R.string.btn_pause) else LanguageUtils.getString(this, R.string.btn_play)
         NotificationHelper.addAction(this, builder, playPauseIcon, playPauseTitle, piPlay)
-        NotificationHelper.addAction(this, builder, R.drawable.ic_media_next, LanguageUtils.getString(this, R.string.btn_next_short), piNext)
+        NotificationHelper.addAction(this, builder, R.drawable.ic_media_next, LanguageUtils.getString(this, R.string.next), piNext)
         return builder.build()
     }
 
@@ -1307,11 +1272,9 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         }
     }
     private fun startForegroundWithType(id: Int, notification: Notification) {
-        // 开机那一路不允许把 mediaPlayback 服务提为前台，此时直接跳过。
+
         if (foregroundDeferred) return
-        // 兜底：某些后台场景下系统会把这次提升拒掉（抛
-        // ForegroundServiceStartNotAllowedException）。抛出前系统已清掉 fgRequired 并取消
-        // 5 秒计时，所以吞掉异常不会引发二次崩溃，只是服务暂时留在后台。
+
         runCatching {
             NotificationHelper.startForegroundWithMediaPlayback(this, id, notification)
         }.onFailure { AppLog.d(TAG, "进入前台失败: ${it.message}") }
@@ -1351,20 +1314,17 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
 
     private fun startProgressUpdates() {
         stopProgressUpdates()
-        // 统计用的曲目锚点：切歌后重新开始计时，避免把新歌的时间记到旧歌上
+
         var statsTrack: String? = null
-        // 上一次已计入统计的播放位置，用它做增量，天然免疫卡顿造成的跳秒
+
         var lastStatsPositionMs = 0L
-        // 固定相位基准：长时间运行也不会因为单次执行耗时累积漂移。
-        // 注意必须用 uptimeMillis()，因为 Handler.postAtTime / postDelayed 都以它为基准；
-        // 用 elapsedRealtime() 会因包含深睡眠时长而落到遥远的未来，导致 tick 永远不再触发。
+
         var tickPhase = SystemClock.uptimeMillis()
 
         progressUpdateRunnable = object : Runnable {
             override fun run() {
                 try {
-                    // 注意：不能用 `?: return` 直接跳出，那样会连后面的重新调度一起跳过，
-                    // 轮询链就永久断掉了（表现为进度条卡死）
+
                     val mp = mediaPlayer
                     if (mp != null && mp.isPlaying) {
                         val current = mp.currentPosition
@@ -1393,11 +1353,11 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                         val track = currentPlayingRawName ?: currentPlayingName
                         if (track != null) {
                             if (track != statsTrack) {
-                                // 换歌：重新对锚点，不把上一首的时间记到这一首
+
                                 statsTrack = track
                                 lastStatsPositionMs = current.toLong()
                             } else {
-                                // 以播放器实际推进的时间为准，主线程卡顿也不会少记
+
                                 val advance = current.toLong() - lastStatsPositionMs
                                 if (advance > 0L) {
                                     val seconds = advance / 1000L
@@ -1406,28 +1366,26 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
                                         lastStatsPositionMs += seconds * 1000L
                                     }
                                 } else if (advance < -SEEK_BACK_TOLERANCE_MS) {
-                                    // 只有明显后退才认为是用户拖动进度条，重置锚点、不补记；
-                                    // 小幅回退（解码器抖动常见 1~2 帧）直接忽略，避免反复重置导致漏记
+
                                     lastStatsPositionMs = current.toLong()
                                 }
                             }
                         }
                         tickNotificationLyric(current.toLong())
                     } else {
-                        // 暂停/缓冲期间不计数；把锚点清空，恢复播放后从当时的位置重新累积
+
                         statsTrack = null
                     }
                 } catch (e: IllegalStateException) {
                     AppLog.d(TAG, "进度轮询时 MediaPlayer 状态异常: ${e.message}")
                 } finally {
-                    // 锚定到固定相位调度：按"下一个整秒边界"投递，
-                    // 而不是"从现在起再等 1000ms"，避免每次执行耗时累积成漂移。
+
                     tickPhase += TICK_INTERVAL_MS
                     val delayMs = tickPhase - SystemClock.uptimeMillis()
                     if (delayMs > 0L) {
                         mainHandler.postAtTime(this, tickPhase)
                     } else {
-                        // 落后太多（例如主线程长时间卡顿）：重新对齐相位，避免连发补帧
+
                         tickPhase = SystemClock.uptimeMillis() + TICK_INTERVAL_MS
                         mainHandler.postAtTime(this, tickPhase)
                     }
@@ -1470,7 +1428,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         val name = currentPlayingName ?: ""
         updateNotification(name, isPlaying())
     }
-
 
     private fun restorePlayState() {
         val savedDisplayName = SpUtils.getCurrentMusicName(this)
@@ -1529,7 +1486,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
         PlaybackStatsWriter.flush()
     }
 
-    /** onDestroy 之后进程可能被回收，这里同步落一次，避免丢掉最后几秒统计。 */
     private fun flushStatsBlocking() {
         PlaybackStatsWriter.flushBlocking()
     }
@@ -1539,19 +1495,8 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     }
 
     private fun updateMediaPlayerUsage() {
-        val usage = when (SpUtils.getAudioFocusMode(this)) {
-            SpUtils.AUDIO_FOCUS_CALL_LEVEL   -> AudioAttributes.USAGE_VOICE_COMMUNICATION
-            SpUtils.AUDIO_FOCUS_FULL_EXCLUSIVE -> AudioAttributes.USAGE_MEDIA
-            SpUtils.AUDIO_FOCUS_TRANSIENT    -> AudioAttributes.USAGE_MEDIA
-            else -> AudioAttributes.USAGE_MEDIA
-        }
-        val attributes = AudioAttributes.Builder()
-            .setUsage(usage)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-        mediaPlayer?.setAudioAttributes(attributes)
+        mediaPlayer?.setAudioAttributes(mediaAudioAttributes())
     }
-
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -1572,14 +1517,7 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         savePlayState()
-        // 划掉任务卡后立即自拉起。
-        //
-        // 这里刻意不用 AlarmManager：那需要 SCHEDULE_EXACT_ALARM 权限，而且最少也有数百毫秒延迟。
-        // 当前 App 仍在前台服务状态（stopWithTask="false" 时服务不会被一起停掉），
-        // 直接 startForegroundService 是允许的。
-        //
-        // 传 ACTION_KEEP_ALIVE 而不是空 Intent：空 Intent 会走 onStartCommand 的
-        // `intent == null` 分支去 restorePlayState()，把正在播放的状态重置掉。
+
         runCatching {
             val keepAlive = Intent(this, MusicPlayerService::class.java).apply {
                 action = ACTION_KEEP_ALIVE
@@ -1587,7 +1525,6 @@ class MusicPlayerService : Service(), MediaPlayer.OnPreparedListener,
             startForegroundService(keepAlive)
         }.onFailure { AppLog.d(TAG, "任务移除后自拉起失败: ${it.message}") }
     }
-
 
     override fun onPlayRequested() {
         if (isPaused) {

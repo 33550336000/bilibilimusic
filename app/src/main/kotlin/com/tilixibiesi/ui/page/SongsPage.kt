@@ -81,7 +81,6 @@ class SongsPage(base: Context) : BasePage(base) {
     private var originalSearchBg: Drawable? = null
     private val handler = Handler(Looper.getMainLooper())
 
-
     private lateinit var btnTimer: ImageButton
 
     private lateinit var lvMusic: ListView
@@ -123,21 +122,17 @@ class SongsPage(base: Context) : BasePage(base) {
     private val biliHistoryLock = Any()
     private var isLoadingBiliHistory = false
 
-    /** 音乐分区翻页状态：下一页下标 / 是否还有更多 / 是否正在加载。 */
     private var zoneNextPage = 1
     private var zoneHasMore = true
     private var zoneLoading = false
 
-    /** 连续空页计数：用于区分「翻到底了」和「这一页刚好请求失败」。 */
     private var zoneEmptyStreak = 0
 
-    /** 下拉刷新进行中（防止连续下拉重复请求）。 */
     private var zoneRefreshing = false
 
     private var nowPlaying: NowPlayingPage? = null
 
     private var currentPlayBean: MusicBean? = null
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setContentView(R.layout.activity_main)
@@ -196,9 +191,9 @@ class SongsPage(base: Context) : BasePage(base) {
         if (!::musicAdapter.isInitialized) return
         val biliZone = SpUtils.isMainSourceBiliZone(this)
         val showAdd = SpUtils.isMainAddButtonVisible(this)
-        // 分区列表里的条目不可从主页删除，只有内置歌曲列表才提供删除按钮
+
         val showDelete = !biliZone && SpUtils.isMainDeleteButtonVisible(this)
-        // 下拉刷新只在分区模式有意义，内置列表保持原来的行为
+
         if (::pullRefresh.isInitialized) pullRefresh.refreshEnabled = biliZone
         if (musicAdapter.showAddButton == showAdd &&
             musicAdapter.showDeleteButton == showDelete &&
@@ -211,7 +206,6 @@ class SongsPage(base: Context) : BasePage(base) {
         (activity as? MainPagerActivity)?.invalidateGlassBackdrop()
     }
 
-    /** “我的”页切换数据源后调用：重新加载列表并立即换掉封面表现。 */
     internal fun onMainSourceChanged() {
         if (!::musicAdapter.isInitialized) return
         applyMainRowButtonSettings()
@@ -281,7 +275,6 @@ class SongsPage(base: Context) : BasePage(base) {
     ) {
         AppPermissionsBridge.onResult(this, requestCode, permissions, grantResults)
     }
-
 
     private fun startMusicService() {
         startForegroundService(Intent(this, MusicPlayerService::class.java))
@@ -381,7 +374,6 @@ class SongsPage(base: Context) : BasePage(base) {
             }
         })
 
-        // 下拉刷新：仅 B站音乐分区模式启用，内置列表保持原样
         pullRefresh.refreshEnabled = SpUtils.isMainSourceBiliZone(this)
         pullRefresh.onRefresh = { refreshZoneFromTop() }
 
@@ -446,7 +438,6 @@ class SongsPage(base: Context) : BasePage(base) {
         registerPageReceiver(playStateReceiver, filter)
     }
 
-
     private fun loadMusicList() {
         if (SpUtils.isMainSourceBiliZone(this)) {
             loadBiliZoneMusicList()
@@ -487,7 +478,7 @@ class SongsPage(base: Context) : BasePage(base) {
                     DataFileUtils.saveMusicList(filtered)
                     checkLocalFiles()
                     musicAdapter.notifyDataSetChanged()
-                    ToastUtils.show(this@SongsPage, 
+                    ToastUtils.show(this@SongsPage,
                         LanguageUtils.getString(this@SongsPage, R.string.music_list_updated, musicList.size)
                     )
                     loadBiliHistoryToMusicList()
@@ -505,12 +496,6 @@ class SongsPage(base: Context) : BasePage(base) {
         })
     }
 
-    /**
-     * B站音乐分区模式：先用本地缓存铺满，再在后台从第 1 页开始拉。
-     *
-     * 该模式下列表完全由分区数据构成，不再混入内置歌曲/播放历史；
-     * 下拉到底由 [loadNextZonePage] 继续翻页追加。
-     */
     private fun loadBiliZoneMusicList() {
         val cached = BiliMusicZone.loadCached()
         if (cached.isNotEmpty()) {
@@ -536,7 +521,7 @@ class SongsPage(base: Context) : BasePage(base) {
                 }
                 return@execute
             }
-            // 刷新只更新第 1 页，已翻出来的后续页要保留（否则每次启动都会掉回 10 条）
+
             val merged = LinkedHashMap<String, MusicBean>()
             for (bean in fetched) bean.biliKey?.let { merged[it] = bean }
             for (bean in cached) bean.biliKey?.let { merged.putIfAbsent(it, bean) }
@@ -555,12 +540,6 @@ class SongsPage(base: Context) : BasePage(base) {
         }
     }
 
-    /**
-     * 下拉刷新：整体重置列表。
-     *
-     * 搜索同一关键词的同一页结果是稳定的，直接重置到第 1 页会刷出一模一样的内容，
-     * 所以这里跳到「下一个关键词」的第 1 页，用不同关键词拿到新的一批音乐。
-     */
     private fun refreshZoneFromTop() {
         if (!SpUtils.isMainSourceBiliZone(this)) {
             pullRefresh.finishRefresh(false)
@@ -586,7 +565,7 @@ class SongsPage(base: Context) : BasePage(base) {
                 page.zoneEmptyStreak = 0
                 page.zoneNextPage = startPage + 1
                 page.zoneHasMore = BiliMusicZone.canFetch(startPage + 1)
-                // 整体替换：旧的分页内容全部作废
+
                 page.applyZoneListUpdate(fetched)
                 page.showZoneList()
                 page.lvMusic.setSelection(0)
@@ -596,7 +575,6 @@ class SongsPage(base: Context) : BasePage(base) {
         }
     }
 
-    /** 下拉到底时追加下一页；[zoneLoading] 防重入。 */
     private fun loadNextZonePage() {
         if (!SpUtils.isMainSourceBiliZone(this)) return
         if (zoneLoading || !zoneHasMore) return
@@ -611,8 +589,7 @@ class SongsPage(base: Context) : BasePage(base) {
                 page.zoneLoading = false
                 if (!SpUtils.isMainSourceBiliZone(page)) return@post
                 if (fetched.isEmpty()) {
-                    // 空结果可能只是这一页请求失败（风控/网络），不能直接判定「没有更多」，
-                    // 否则一次失败就会让整条列表停止加载。最多容忍连续 3 次，之后才收尾。
+
                     page.zoneEmptyStreak++
                     if (page.zoneEmptyStreak >= 3) {
                         page.zoneHasMore = false
@@ -626,7 +603,7 @@ class SongsPage(base: Context) : BasePage(base) {
                 page.zoneNextPage = pageIndex + 1
                 page.zoneHasMore = BiliMusicZone.canFetch(pageIndex + 1)
                 page.appendZoneBeans(fetched)
-                // 追加后把「已翻到第几页」落盘，重启才不会重复拉同一页
+
                 BiliMusicZone.saveCache(musicList, pageIndex + 1)
             }
         }
@@ -653,14 +630,13 @@ class SongsPage(base: Context) : BasePage(base) {
                 currentPlayPosition = newPos
                 musicList.forEachIndexed { i, bean -> bean.isPlaying = (i == newPos) }
             } else {
-                // 正在播放的若是内置歌曲，切到分区后列表里没有它，旧下标会指向错的条目
+
                 currentPlayPosition = -1
                 musicList.forEach { it.isPlaying = false }
             }
         }
     }
 
-    /** 追加下一页到列表尾部（已存在的条目按 aid/bvid 去重）。 */
     private fun appendZoneBeans(beans: List<MusicBean>) {
         val existing = musicList.mapNotNullTo(HashSet()) { it.biliKey }
         val added = DataFileUtils.filterBlocked(beans, DataFileUtils.loadBlockedWords())
@@ -675,8 +651,7 @@ class SongsPage(base: Context) : BasePage(base) {
         musicList.clear()
         musicList.addAll(newList)
         MusicPlayerService.musicList = musicList
-        // 分区模式下列表归分区管，搜索页的临时播放请求不能覆盖内置歌曲文件，
-        // 否则切回内置列表时会读到一份被清空的缓存
+
         if (SpUtils.isMainSourceBiliZone(this)) return
         val pureList = musicList.filter { !it.isBilibili }
         SpUtils.saveMusicList(this, pureList)
@@ -693,7 +668,7 @@ class SongsPage(base: Context) : BasePage(base) {
     }
 
     private fun loadBiliHistoryToMusicList() {
-        // 分区模式下列表就是分区内容本身，混入播放历史会破坏“封面+作者”的展示预期
+
         if (SpUtils.isMainSourceBiliZone(this)) return
         synchronized(biliHistoryLock) {
             if (isLoadingBiliHistory) return
@@ -783,7 +758,6 @@ class SongsPage(base: Context) : BasePage(base) {
         }
     }
 
-
     private fun playPrevious() {
         if (currentPlayPosition == -1 || musicList.isEmpty()) return
         val prevPos = if (currentPlayPosition - 1 < 0) musicList.size - 1 else currentPlayPosition - 1
@@ -871,7 +845,6 @@ class SongsPage(base: Context) : BasePage(base) {
             lvMusic.smoothScrollToPosition(position)
         }
     }
-
 
     private fun openNowPlaying() {
         val bean = resolveCurrentBean() ?: return
@@ -973,7 +946,6 @@ class SongsPage(base: Context) : BasePage(base) {
             if (notifyList) musicAdapter.notifyDataSetChanged()
         }
     }
-
 
     private fun enterAdjustMode() {
         isAdjustMode = true
@@ -1100,14 +1072,13 @@ class SongsPage(base: Context) : BasePage(base) {
         } catch (e: Exception) { AppLog.d(TAG, "停止背景视频失败: ${e.message}") }
     }
 
-
     private fun applyStorageRootFromIntent(intent: Intent?) {
         if (intent == null) return
         val copyFrom = intent.getStringExtra(StoragePaths.EXTRA_COPY_FROM)
         val copyTo = intent.getStringExtra(StoragePaths.EXTRA_COPY_TO)
         if (!copyFrom.isNullOrBlank() && !copyTo.isNullOrBlank()) {
             val copied = StoragePaths.copyFileTo(copyFrom, copyTo)
-            ToastUtils.show(this@SongsPage, 
+            ToastUtils.show(this@SongsPage,
                 if (copied) LanguageUtils.getString(this@SongsPage, R.string.toast_file_copied)
                 else LanguageUtils.getString(this@SongsPage, R.string.toast_file_copy_failed)
             )
@@ -1117,12 +1088,11 @@ class SongsPage(base: Context) : BasePage(base) {
         if (path == StoragePaths.root()) return
         val success = StoragePaths.applyNewRoot(this, path)
         if (success) {
-            ToastUtils.show(this@SongsPage, 
+            ToastUtils.show(this@SongsPage,
                 LanguageUtils.getString(this@SongsPage, R.string.toast_storage_switched, StoragePaths.root())
             )
         }
     }
-
 
     private fun showMaterialDialog(builder: AlertDialog.Builder): AlertDialog =
         DialogHelper.createStyledDialog(this, builder, makeMessageBoldItalic = true, overrideListViewItemColors = true)
@@ -1135,7 +1105,7 @@ class SongsPage(base: Context) : BasePage(base) {
         val builder = AlertDialog.Builder(this, R.style.TransparentDialog)
             .setTitle(title)
             .setMessage(message)
-            .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.ok)) { _, _ -> action?.invoke() }
+            .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.btn_ok)) { _, _ -> action?.invoke() }
         showMaterialDialog(builder)
     }
     private fun showTimerDialog() {
@@ -1151,9 +1121,9 @@ class SongsPage(base: Context) : BasePage(base) {
         }
         showMaterialDialog(
             AlertDialog.Builder(this, R.style.TransparentDialog)
-                .setTitle(LanguageUtils.getString(this@SongsPage, R.string.timer_title))
+                .setTitle(LanguageUtils.getString(this@SongsPage, R.string.timer))
                 .setView(dialogView)
-                .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.ok)) { _, _ ->
+                .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.btn_ok)) { _, _ ->
                     val hour = etHour.text.toString().toIntOrNull() ?: 0
                     val minute = etMinute.text.toString().toIntOrNull() ?: 0
                     val second = etSecond.text.toString().toIntOrNull() ?: 0
@@ -1164,7 +1134,7 @@ class SongsPage(base: Context) : BasePage(base) {
                     }
                     playTimer.start(totalSeconds)
                 }
-                .setNegativeButton(LanguageUtils.getString(this@SongsPage, R.string.cancel), null)
+                .setNegativeButton(LanguageUtils.getString(this@SongsPage, R.string.btn_cancel), null)
                 .setNeutralButton(LanguageUtils.getString(this@SongsPage, R.string.timer_cancel_btn)) { _, _ -> playTimer.cancel() }
         )
     }
@@ -1213,7 +1183,7 @@ class SongsPage(base: Context) : BasePage(base) {
                 .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.rename_button)) { _, _ ->
                     showRenameInputDialog(bean.musicName)
                 }
-                .setNegativeButton(LanguageUtils.getString(this@SongsPage, R.string.cancel), null)
+                .setNegativeButton(LanguageUtils.getString(this@SongsPage, R.string.btn_cancel), null)
         )
     }
 
@@ -1231,7 +1201,7 @@ class SongsPage(base: Context) : BasePage(base) {
             AlertDialog.Builder(this, R.style.TransparentDialog)
                 .setTitle(LanguageUtils.getString(this@SongsPage, R.string.rename_input_title))
                 .setView(input)
-                .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.ok)) { _, _ ->
+                .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.btn_ok)) { _, _ ->
                     val newName = input.text.toString().trim()
                     if (newName.isEmpty()) {
                         ToastUtils.show(this@SongsPage, LanguageUtils.getString(this@SongsPage, R.string.rename_empty_error))
@@ -1253,7 +1223,7 @@ class SongsPage(base: Context) : BasePage(base) {
                     }
                     ToastUtils.show(this@SongsPage, LanguageUtils.getString(this@SongsPage, R.string.rename_success))
                 }
-                .setNegativeButton(LanguageUtils.getString(this@SongsPage, R.string.cancel), null)
+                .setNegativeButton(LanguageUtils.getString(this@SongsPage, R.string.btn_cancel), null)
         )
     }
 
@@ -1271,12 +1241,12 @@ class SongsPage(base: Context) : BasePage(base) {
             AlertDialog.Builder(this, R.style.TransparentDialog)
                 .setTitle(LanguageUtils.getString(this@SongsPage, R.string.delete_song_title))
                 .setMessage(
-                    LanguageUtils.getString(this@SongsPage, R.string.delete_song_message, displayName)
+                    LanguageUtils.getString(this@SongsPage, R.string.delete_history_message, displayName)
                 )
-                .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.ok)) { _, _ ->
+                .setPositiveButton(LanguageUtils.getString(this@SongsPage, R.string.btn_ok)) { _, _ ->
                     executeDeleteMusic(bean)
                 }
-                .setNegativeButton(LanguageUtils.getString(this@SongsPage, R.string.cancel), null)
+                .setNegativeButton(LanguageUtils.getString(this@SongsPage, R.string.btn_cancel), null)
         )
     }
 
@@ -1320,7 +1290,6 @@ class SongsPage(base: Context) : BasePage(base) {
         }
     }
 
-
     private inner class PlayStateReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != MusicPlayerService.BROADCAST_PLAY_STATE) return
@@ -1329,7 +1298,7 @@ class SongsPage(base: Context) : BasePage(base) {
                 val playing = intent.getBooleanExtra(MusicPlayerService.EXTRA_IS_PLAYING, false)
                 updatePlayPauseButton(playing)
                 if (playing) {
-                    // 每秒都会收到一次带 IS_PLAYING 的广播，startUpdater 内部已做幂等保护
+
                     PlaybackStatsManager.startUpdater()
                 } else {
                     PlaybackStatsManager.refresh()

@@ -130,8 +130,7 @@ object ViewUtils {
                         .setDuration(duration)
                         .start()
                     if (!isSwiped && !isLongPressed) {
-                        // 只走 ListView 的 itemClick 路径，避免 performClick + performItemClick
-                        // 双触发导致点击被处理两次（表现为点击动画抖动、长按菜单与点击同时响应）
+
                         val position = positionProvider()
                         val listView = v.parent as? ListView
                         if (position >= 0 && listView != null) {

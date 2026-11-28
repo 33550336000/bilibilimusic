@@ -26,7 +26,6 @@ enum class BiliAudioQuality(
             val distinct = availableIds.distinct()
             if (distinct.isEmpty()) return emptyList()
 
-            // 先按所选音质逐档下降，降到最低后再从低往高回升，确保任何可用音质都能被选中
             val ordered = distinct.sortedBy { rankOf(it) }
             val lower = ordered.filter { rankOf(it) <= preferredRank }.reversed()
             val higher = ordered.filter { rankOf(it) > preferredRank }

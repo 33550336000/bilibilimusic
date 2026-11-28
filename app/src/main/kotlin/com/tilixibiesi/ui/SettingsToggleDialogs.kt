@@ -28,7 +28,7 @@ class SettingsToggleDialogs(
     fun showSaveAsDefaultDialog() {
         showDialog(
             AlertDialog.Builder(context)
-                .setTitle(str(R.string.dialog_title_save_default))
+                .setTitle(str(R.string.btn_save_as_default))
                 .setMessage(str(R.string.dialog_msg_save_default))
                 .setPositiveButton(str(R.string.btn_ok)) { _, _ ->
                     SettingsStore.saveToFile(context)
@@ -131,7 +131,7 @@ class SettingsToggleDialogs(
                     btn.text = if (!current) str(R.string.btn_toggle_search_page)
                     else str(R.string.btn_toggle_search_button)
                     onSearchModeChanged()
-                    ToastUtils.show(context, str(R.string.toast_search_mode_changed))
+                    ToastUtils.show(context, str(R.string.toast_click_fx_changed))
                 }
                 .setNegativeButton(str(R.string.btn_cancel), null)
         )

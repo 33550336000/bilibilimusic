@@ -23,13 +23,10 @@ object BiliCoverLoader {
 
     private const val TAG = "BiliCoverLoader"
 
-    /** 解码上限：封面显示尺寸在 1080p 屏上不超过 1080px，2560 会白白多占 5 倍内存。 */
     private const val MAX_DECODE_DIMENSION = 1280
 
-    /** 列表行、浮动播放条这类小尺寸控件用的缩略图宽度（同时也是它们的解码上限）。 */
     const val THUMBNAIL_WIDTH = 320
 
-    /** 缓存额度 = 运行时最大内存的 1/8，且不小于 16MB、不大于 64MB（单位 KB）。 */
     private val CACHE_BUDGET_KB: Int = run {
         val maxKb = (Runtime.getRuntime().maxMemory() / 1024).toInt()
         (maxKb / 8).coerceIn(16 * 1024, 64 * 1024)
@@ -39,7 +36,6 @@ object BiliCoverLoader {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount / 1024
     }
 
-    /** 失败集合上限，避免长期运行后无限增长。 */
     private const val MAX_FAILED = 256
 
     private val failed = object : LinkedHashMap<String, Boolean>(16, 0.75f, true) {
@@ -63,10 +59,7 @@ object BiliCoverLoader {
             imageView.setImageBitmap(cached)
             return
         }
-        // 列表每次 notifyDataSetChanged 都会把所有可见行重新 bind 一遍。
-        // 这里若先清空，就会出现「点一下就整屏封面消失再逐个加载」。
-        // 所以只有当这张 View 之前显示的是「别的封面」时才清空；同一 URL 的
-        // 重复绑定保留现有图片，等新图下载完再替换。
+
         if (previous != url) imageView.setImageResource(R.drawable.ic_cover_placeholder)
         if (isFailed(url)) return
         AppExecutors.io.execute {
@@ -119,8 +112,7 @@ object BiliCoverLoader {
             onBitmap?.invoke(null)
             return
         }
-        // 列表行已经通过 load() 把封面放进内存缓存，点击播放/打开详情时若仍先铺占位图，
-        // 会闪一下占位图再换回来。命中缓存就直接用，不再清空现有图片。
+
         val cached = bean.coverUrl?.takeIf { it.isNotEmpty() }
             ?.let { cache.get(variantUrl(it, reqWidth)) }
         if (cached != null) {
@@ -194,18 +186,12 @@ object BiliCoverLoader {
 
     private fun normalize(original: String): String = highestQualityUrl(original)
 
-    /**
-     * 按用途取图：`reqWidth > 0`（列表行、浮动播放条）用 B 站图片服务的 `@320w.webp` 缩略图，
-     * 省带宽也省解码内存；`reqWidth == 0` 保持原图（播放页、视频切换预览、头像）。
-     * 同时用它作为内存缓存 key，原图与缩略图不会互相顶掉。
-     */
     private fun variantUrl(original: String, reqWidth: Int): String {
         val full = normalize(original)
         if (reqWidth <= 0 || full.isEmpty()) return full
         return "$full@${reqWidth}w.webp"
     }
 
-    /** 对应 [variantUrl] 的解码上限：缩略图按请求宽度解码，原图仍走 [MAX_DECODE_DIMENSION]。 */
     private fun decodeLimit(reqWidth: Int): Int =
         if (reqWidth > 0) reqWidth else MAX_DECODE_DIMENSION
 
@@ -233,7 +219,6 @@ object BiliCoverLoader {
     fun localCoverFile(displayName: String): File =
         File(AppPaths.biliCoverDir(), localCoverName(displayName))
 
-    /** 目录扫描结果缓存：列表滚动时 localCoverName 会被高频调用，每次都 listFiles 是明显的 IO 浪费。 */
     private var coverIndex: Map<String, String>? = null
 
     fun invalidateCoverIndex() {

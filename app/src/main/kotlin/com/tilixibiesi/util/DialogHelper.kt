@@ -81,7 +81,6 @@ object DialogHelper {
 
         applyAdaptiveWidth(dialog, activity, 0.85f)
 
-        // 顶部可拖拽。挂在 show() 之后，等首帧布局完成才知道有没有标题栏。
         DialogDragHelper.attach(dialog)
 
         val displayMetrics = activity.resources.displayMetrics

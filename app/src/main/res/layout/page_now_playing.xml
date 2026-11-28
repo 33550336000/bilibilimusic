@@ -30,7 +30,7 @@
                 android:layout_height="44dp"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_chevron_down"
-                android:contentDescription="@string/now_playing_collapse" />
+                android:contentDescription="@string/btn_collapse" />
         </LinearLayout>
 
         <LinearLayout

@@ -32,13 +32,6 @@ object StoragePaths {
 
     fun resolveWrite(relativePath: String): File = File(currentRoot, relativePath)
 
-    /**
-     * 切换存储根目录。
-     *
-     * 旧实现在复制失败时静默继续，然后无条件删除源目录——等于数据丢失。
-     * 现在要求：复制过程中出现的任何失败都中止迁移、保留源目录；
-     * 只有确认目标端文件数与源端一致后才删除源。
-     */
     @Synchronized
     fun applyNewRoot(context: Context, newRoot: String): Boolean {
         val normalized = normalizeRoot(newRoot) ?: return false

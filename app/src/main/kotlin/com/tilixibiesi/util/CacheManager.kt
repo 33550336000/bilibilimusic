@@ -1,6 +1,5 @@
 package com.tilixibiesi.util
 
-
 import com.tilixibiesi.bili.BiliApiHelper
 import com.tilixibiesi.bili.BiliAudioQuality
 import com.tilixibiesi.bili.BiliCoverLoader
@@ -114,7 +113,6 @@ class CacheManager {
                     return@execute
                 }
 
-                // 临时文件带唯一后缀，避免同名歌曲并发下载时互相覆盖
                 val tempFile = File(dir, finalFile.name + "." + System.nanoTime() + ".tmp")
                 val ok = downloadToFile(context, audioUrl, tempFile, notifyId, notifyName)
                 if (!ok) {
@@ -122,7 +120,7 @@ class CacheManager {
                     DownloadNotifier.cancel(context, notifyId)
                     return@execute
                 }
-                // 先把旧文件挪开而不是直接删，rename 失败还能恢复
+
                 val backup = if (finalFile.exists()) File(dir, finalFile.name + ".bak") else null
                 backup?.let { b ->
                     if (b.exists()) b.delete()
@@ -221,7 +219,7 @@ class CacheManager {
 
     private fun downloadCoverIfNeeded(musicBean: MusicBean) {
         if (!musicBean.isBilibili) return
-        // 分区条目没有 bvid，但 feed 已经给出封面地址；只有缺封面时才需要 bvid 去查
+
         val bvid = musicBean.bvid?.takeIf { it.isNotEmpty() }
         if (bvid == null && musicBean.coverUrl.isNullOrEmpty()) return
         val baseName = baseNameOf(musicBean)
@@ -261,8 +259,7 @@ class CacheManager {
         if (ok && tempFile.length() > 0) {
             if (target.exists()) target.delete()
             if (tempFile.renameTo(target)) {
-                // 封面目录新增了文件，让 BiliCoverLoader 的目录索引失效，
-                // 否则本进程内后续查找会一直命中旧的（不含新封面的）快照
+
                 BiliCoverLoader.invalidateCoverIndex()
             } else {
                 tempFile.delete()
@@ -312,7 +309,7 @@ class CacheManager {
     }
 
     private fun writeQuality(file: File, qualityId: Int) {
-        // 读-改-写放在同一个临界区，避免两首歌并发写索引时互相覆盖
+
         synchronized(qualityIndexLock) {
             val map = readQualityIndex().toMutableMap()
             map[file.name] = qualityId

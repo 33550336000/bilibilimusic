@@ -64,7 +64,7 @@ object AppPermissions {
                         }
                     )
                 }
-                .setNegativeButton(LanguageUtils.getString(activity, R.string.cancel), null)
+                .setNegativeButton(LanguageUtils.getString(activity, R.string.btn_cancel), null)
         )
     }
 

@@ -85,7 +85,7 @@ object ShareHelper {
 
     private fun shareUrl(bean: MusicBean): String? {
         if (bean.isBilibili) {
-            // 分区条目可能还没回填 bvid（方案 C 后台补），此时退回 aid 形式的可访问链接
+
             val bvid = bean.bvid?.takeIf { it.isNotEmpty() }
             if (bvid != null) return "$BILI_SHORT_LINK_PREFIX$bvid"
             return bean.aid.takeIf { it > 0L }?.let { "https://www.bilibili.com/video/av$it" }

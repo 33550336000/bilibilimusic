@@ -346,7 +346,7 @@ private fun confirmRemoveFromPlaylist(musicBean: MusicBean) {
                 refreshMusicList()
                 Toast.makeText(this, R.string.removed_from_playlist, Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton(R.string.cancel, null)
+            .setNegativeButton(R.string.btn_cancel, null)
     )
 }
 
@@ -358,7 +358,7 @@ private fun showRenameDialog(musicBean: MusicBean) {
             .setTitle(R.string.rename_song_title)
             .setMessage(LanguageUtils.getString(this@PlaylistDetailActivity, R.string.rename_current_name, currentDisplay))
             .setPositiveButton(R.string.rename_button) { _, _ -> showRenameInputDialog(original) }
-            .setNegativeButton(R.string.cancel, null)
+            .setNegativeButton(R.string.btn_cancel, null)
     )
 }
 
@@ -374,7 +374,7 @@ private fun showRenameInputDialog(originalName: String) {
         AlertDialog.Builder(this)
             .setTitle(R.string.rename_input_title)
             .setView(input)
-            .setPositiveButton(R.string.confirm) { _, _ ->
+            .setPositiveButton(R.string.btn_ok) { _, _ ->
                 val newName = input.text.toString().trim()
                 if (newName.isEmpty()) {
                     Toast.makeText(this, R.string.rename_empty_error, Toast.LENGTH_SHORT).show()
@@ -384,9 +384,9 @@ private fun showRenameInputDialog(originalName: String) {
                     if (originalName.contains(keyword)) {
                         showMaterialDialog(
                             AlertDialog.Builder(this)
-                                .setTitle(R.string.rename_restricted_title)
+                                .setTitle(R.string.delete_restricted_title)
                                 .setMessage(LanguageUtils.getString(this@PlaylistDetailActivity, R.string.rename_restricted_message, DataFileUtils.getDisplayName(originalName)))
-                                .setPositiveButton(R.string.confirm, null)
+                                .setPositiveButton(R.string.btn_ok, null)
                         )
                         return@setPositiveButton
                     }
@@ -395,7 +395,7 @@ private fun showRenameInputDialog(originalName: String) {
                 musicAdapter.notifyDataSetChanged()
                 Toast.makeText(this, R.string.rename_success, Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton(R.string.cancel, null)
+            .setNegativeButton(R.string.btn_cancel, null)
     )
 }
 private fun showCreateSubPlaylistDialog() {
@@ -423,7 +423,7 @@ private fun showCreateSubPlaylistDialog() {
                 Toast.makeText(this, LanguageUtils.getString(this@PlaylistDetailActivity, R.string.sub_playlist_created, name), Toast.LENGTH_SHORT).show()
                 refreshSubPlaylists()
             }
-            .setNegativeButton(R.string.cancel, null)
+            .setNegativeButton(R.string.btn_cancel, null)
     )
 }
 private fun setFullScreen() {
@@ -513,7 +513,6 @@ inner class SubPlaylistAdapter(
     private val list: List<PlaylistBean>
 ) : BaseAdapter() {
 
-
     private val inflater = LayoutInflater.from(context)
 
     override fun getCount(): Int = list.size
@@ -535,7 +534,7 @@ inner class SubPlaylistAdapter(
         }
 
         val sub = list[pos]
-        holder.tvName.text = LanguageUtils.getString(context, R.string.sub_playlist_item_format, sub.name, sub.musicList.size)
+        holder.tvName.text = LanguageUtils.getString(context, R.string.playlist_item_format, sub.name, sub.musicList.size)
 
         holder.tvName.setTextColor(FontUtils.color(context))
         holder.tvName.textSize = (SpUtils.getFontSize(context) + 2).toFloat()
@@ -582,7 +581,7 @@ inner class SubPlaylistAdapter(
 private fun showSubPlaylistDeleteConfirm(sub: PlaylistBean) {
     this@PlaylistDetailActivity.showMaterialDialog(
         AlertDialog.Builder(context)
-            .setTitle(R.string.sub_playlist_delete_title)
+            .setTitle(R.string.sub_playlist_delete)
             .setMessage(LanguageUtils.getString(this@PlaylistDetailActivity, R.string.sub_playlist_delete_message, sub.name))
             .setPositiveButton(R.string.delete) { _, _ ->
                 val parentId = playlistId ?: return@setPositiveButton
@@ -595,7 +594,7 @@ private fun showSubPlaylistDeleteConfirm(sub: PlaylistBean) {
                 refreshSubPlaylists()
                 Toast.makeText(context, R.string.sub_playlist_deleted, Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton(R.string.cancel, null)
+            .setNegativeButton(R.string.btn_cancel, null)
     )
 }
 
@@ -611,7 +610,7 @@ private fun showSubPlaylistRenameDialog(sub: PlaylistBean) {
         AlertDialog.Builder(context)
             .setTitle(R.string.rename_playlist_title)
             .setView(input)
-            .setPositiveButton(R.string.confirm) { _, _ ->
+            .setPositiveButton(R.string.btn_ok) { _, _ ->
                 val newName = input.text.toString().trim()
                 if (newName.isEmpty()) {
                     Toast.makeText(context, R.string.rename_empty_error, Toast.LENGTH_SHORT).show()
@@ -628,7 +627,7 @@ private fun showSubPlaylistRenameDialog(sub: PlaylistBean) {
                 refreshSubPlaylists()
                 Toast.makeText(context, R.string.rename_success, Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton(R.string.cancel, null)
+            .setNegativeButton(R.string.btn_cancel, null)
     )
 }
 }

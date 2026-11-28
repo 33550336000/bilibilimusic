@@ -20,7 +20,6 @@ import com.tilixibiesi.util.ShareHelper
 import com.tilixibiesi.util.ViewUtils
 import com.tilixibiesi.ui.widget.SquareLayout
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
@@ -198,7 +197,6 @@ class NowPlayingPage(
             )
         )
     }
-
 
     private fun detectLandscape(): Boolean {
         val w = root.width
@@ -393,7 +391,6 @@ class NowPlayingPage(
         ViewUtils.applyScaleToButton(ivCollapse)
     }
 
-
     fun show() {
         if (isVisible) return
         isVisible = true
@@ -469,7 +466,6 @@ class NowPlayingPage(
         return true
     }
 
-
     fun updateTrack(bean: MusicBean?) {
         this.bean = bean
 
@@ -535,7 +531,6 @@ class NowPlayingPage(
         }
     }
 
-
     fun updateProgress(positionMs: Int?, durationMs: Int?, isPlaying: Boolean) {
         btnPlay.setImageResource(
             if (isPlaying) R.drawable.ic_media_pause
@@ -557,7 +552,6 @@ class NowPlayingPage(
     fun refresh() {
         updateProgress(null, null, MusicPlayerService.isPlaying)
     }
-
 
     private fun showLyrics() {
         isLyricsVisible = true
@@ -707,7 +701,6 @@ class NowPlayingPage(
         svLyrics.smoothScrollTo(0, target.coerceAtLeast(0))
     }
 
-
     private fun formatTime(ms: Int): String {
         val sec = (ms / 1000).coerceAtLeast(0)
         return String.format(Locale.ROOT, "%02d:%02d", sec / 60, sec % 60)
@@ -716,10 +709,7 @@ class NowPlayingPage(
     private fun dp(value: Float): Int = (value * context.resources.displayMetrics.density).toInt()
 
     fun release() {
-        // 旧实现只 removeCallbacks + removeView，漏了 unregister：
-        // 用户打开「现在播放」后不按返回直接退出（或收到语言更新广播触发 recreate）时，
-        // TAG_NOW_PLAYING 会一直留在 PredictiveBack 的静态表里，把整个 Activity 钉住。
-        // hide() 里有这行，但 hide() 只在用户按返回时触发，覆盖不到上面两条路径。
+
         PredictiveBack.unregister(activity, PredictiveBack.TAG_NOW_PLAYING)
         handler.removeCallbacksAndMessages(null)
         runCatching { (root.parent as? ViewGroup)?.removeView(root) }

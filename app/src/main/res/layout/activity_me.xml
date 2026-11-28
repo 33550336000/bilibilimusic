@@ -129,7 +129,7 @@
                 android:id="@+id/btn_me_settings"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/btn_me_settings"
+                android:text="@string/settings_title"
                 android:background="@drawable/button_background"
                 android:textColor="#000000"
                 android:padding="12dp"

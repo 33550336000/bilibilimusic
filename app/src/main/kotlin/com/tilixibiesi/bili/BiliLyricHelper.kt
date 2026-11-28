@@ -73,7 +73,6 @@ object BiliLyricHelper {
         }
     }
 
-
     private fun fetchFromMusicLibrary(bvid: String, cid: Long, durationSec: Int, cookie: String): BiliLyric? {
         val musicId = try {
             val json = HttpUtils.get(
@@ -132,7 +131,6 @@ object BiliLyricHelper {
         return BiliLyric(lines, BiliLyric.Source.MUSIC_LIBRARY)
     }
 
-
     private val timeTag = Regex("""\[(\d{1,3}):(\d{1,2})(?:[.:](\d{1,3}))?]""")
 
     private val metaTag = Regex("""^\[[a-zA-Z#]+:.*]$""")
@@ -187,7 +185,6 @@ object BiliLyricHelper {
         }
         return lines
     }
-
 
     private fun timelineLooksSane(lines: List<LyricLine>, durationSec: Int): Boolean {
         if (durationSec <= 0) return true

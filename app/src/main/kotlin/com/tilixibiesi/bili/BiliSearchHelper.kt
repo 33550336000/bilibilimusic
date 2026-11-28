@@ -95,8 +95,7 @@ object BiliSearchHelper {
                         val id = a.optInt("id", 0)
                         val base = a.optString("baseUrl", "")
                         if (id == 0 || base.isEmpty() || byId.containsKey(id)) continue
-                        // 主地址 + 备用地址一起收：主地址的 CDN 节点偶尔 403/超时，
-                        // 备用地址通常落在 bilivideo.com，可以顶上（播放器的失败重试会依次尝试）
+
                         val urls = mutableListOf(normalizeUrl(base))
                         val backup = a.optJSONArray("backupUrl")
                         if (backup != null) {
@@ -268,7 +267,6 @@ object BiliSearchHelper {
             null
         }
     }
-
 
     private fun formatResolution(w: Int, h: Int): String = when {
         h >= 2160 -> "4K"

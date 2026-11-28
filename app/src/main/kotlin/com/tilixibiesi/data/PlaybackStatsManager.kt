@@ -15,13 +15,6 @@ import android.view.View
 import android.widget.TextView
 import java.lang.ref.WeakReference
 
-/**
- * 播放时长统计的显示层。
- *
- * 数据读写全部委托给 [PlaybackStatsWriter]：
- * - 逐秒刷新的“今日时长”只读内存快照，不再每秒读文件；
- * - 按日期分组的明细查询改到 IO 线程，结果回主线程弹窗。
- */
 object PlaybackStatsManager {
 
     private const val TAG = "PlaybackStatsManager"
@@ -34,7 +27,6 @@ object PlaybackStatsManager {
     private var tvToday: WeakReference<TextView>? = null
     private var tvTotal: WeakReference<TextView>? = null
 
-    /** 最近一次渲染的文本，避免每秒无谓地重设 TextView（会触发 measure/layout）。 */
     private var lastTodayText: String? = null
     private var lastTotalText: String? = null
 
@@ -56,15 +48,15 @@ object PlaybackStatsManager {
 
     fun startUpdater() {
         if (updaterRunnable != null) {
-            // 已经在跑就不打断节奏，避免每秒重建 Runnable
+
             return
         }
-        // 必须用 uptimeMillis()：Handler 的所有定时 API 都以它为基准
+
         var phase = android.os.SystemClock.uptimeMillis()
         updaterRunnable = object : Runnable {
             override fun run() {
                 updateDisplay()
-                // 固定相位调度，避免与 Service 的统计 tick 产生系统性错拍
+
                 phase += TICK_MS
                 val delayMs = phase - android.os.SystemClock.uptimeMillis()
                 if (delayMs > 0L) {
@@ -79,17 +71,16 @@ object PlaybackStatsManager {
     }
 
     fun stopUpdater() {
-        // removeCallbacks 能移除 postAtTime 投递的任务（同一个 callback token），
-        // 这里只移除自己的任务，不要用 removeCallbacksAndMessages(null) 误伤同 handler 的其他任务
+
         updaterRunnable?.let { handler.removeCallbacks(it) }
         updaterRunnable = null
-        // 重置缓存，下次显示时强制刷新一次，避免沿用停止前的文本判重结果
+
         lastTodayText = null
         lastTotalText = null
     }
 
     fun refresh() {
-        // 冷启动时内存里还没有今天的基线，先确保磁盘值读入，读完再补刷一次
+
         PlaybackStatsWriter.ensureTodayLoaded { handler.post { updateDisplay() } }
         updateDisplay()
     }
@@ -110,7 +101,6 @@ object PlaybackStatsManager {
             return
         }
 
-        // 纯内存读取：本进程已累计的秒数 + 今天已落盘部分（由 writer 合并）
         val snapshot = PlaybackStatsWriter.todaySnapshot()
         val totalSeconds = PlaybackStatsWriter.todayTotalSeconds()
 
@@ -155,8 +145,6 @@ object PlaybackStatsManager {
         parts.add(LanguageUtils.getString(context, R.string.duration_seconds_format, s.toInt()))
         return parts.joinToString("")
     }
-
-    // ------------------------------------------------------------ 明细查询（异步）
 
     fun loadPlaybackDetailsAsync(onResult: (Map<String, Map<String, Long>>) -> Unit) {
         AppExecutors.io.execute {

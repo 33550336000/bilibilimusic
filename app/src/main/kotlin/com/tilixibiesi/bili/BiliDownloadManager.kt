@@ -75,7 +75,7 @@ fun downloadVideoWithQuality(
     desc: String
 ) {
     if (videoUrl.isEmpty()) {
-        Toast.makeText(context, LanguageUtils.getString(context, R.string.video_url_unavailable_bili), Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, LanguageUtils.getString(context, R.string.video_url_not_available), Toast.LENGTH_SHORT).show()
         return
     }
     val (dialog, progressBar) = createProgressDialog(context, LanguageUtils.getString(context, R.string.download_desc, desc))
@@ -144,7 +144,7 @@ fun downloadVideoWithQuality(
         desc: String
     ) {
         if (audioUrl.isEmpty()) {
-            Toast.makeText(context, LanguageUtils.getString(context, R.string.audio_url_unavailable), Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, LanguageUtils.getString(context, R.string.audio_url_not_available), Toast.LENGTH_SHORT).show()
             return
         }
         val (dialog, progressBar) = createProgressDialog(context, LanguageUtils.getString(context, R.string.download_desc, desc))
@@ -265,7 +265,7 @@ fun downloadVideoWithQuality(
             AppLog.d(TAG, "下载分P失败: ${e.javaClass.simpleName}")
             dest.delete()
             handler.post {
-                Toast.makeText(context, LanguageUtils.getString(context, R.string.download_failed_class, e.javaClass.simpleName), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, LanguageUtils.getString(context, R.string.download_failed_msg, e.javaClass.simpleName), Toast.LENGTH_SHORT).show()
             }
             return false
         } finally {
@@ -302,7 +302,6 @@ private fun muxVideoAndAudio(videoFile: File, audioFile: File, outputFile: File)
 
         val buffer = ByteArray(256 * 1024)
         val bufferInfo = MediaCodec.BufferInfo()
-
 
         fun readVideoSample(): Boolean {
             val size = videoExtractor.readSampleData(ByteBuffer.wrap(buffer), 0)

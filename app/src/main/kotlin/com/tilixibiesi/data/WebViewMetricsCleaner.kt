@@ -45,7 +45,6 @@ object WebViewMetricsCleaner {
         listeners.remove(listener)
     }
 
-
     fun onForeground() {
         handler.removeCallbacksAndMessages(null)
         roundsLeft = 0
@@ -81,7 +80,6 @@ object WebViewMetricsCleaner {
             }
         }, delayMs)
     }
-
 
     fun purge(context: Context): Boolean {
         return try {

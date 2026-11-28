@@ -144,7 +144,7 @@ internal fun SettingsPage.updateClickFxButtonText() {
         if (SpUtils.getClickFxEnabled(this))
             LanguageUtils.getString(this, R.string.state_on)
         else
-            LanguageUtils.getString(this, R.string.state_off)
+            LanguageUtils.getString(this, R.string.bili_toggle_off)
     )
 }
 

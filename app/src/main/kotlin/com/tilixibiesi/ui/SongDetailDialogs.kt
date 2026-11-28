@@ -18,7 +18,6 @@ class SongDetailDialogs(
 
     private var currentDialog: AlertDialog? = null
 
-    /** 异步读取完成后，宿主的 Activity 可能已经销毁，此时弹窗会抛 BadTokenException。 */
     private fun canShowDialog(): Boolean {
         val activity = context as? Activity ?: return true
         return !activity.isDestroyed && !activity.isFinishing
@@ -60,7 +59,7 @@ class SongDetailDialogs(
                 .setItems(displayNames) { _, which ->
                     showDailyDetail(rawNames[which])
                 }
-                .setPositiveButton(LanguageUtils.getString(context, R.string.close), null)
+                .setPositiveButton(LanguageUtils.getString(context, R.string.btn_close), null)
                 .setOnDismissListener {
                     if (currentDialog === dialog) currentDialog = null
                 }

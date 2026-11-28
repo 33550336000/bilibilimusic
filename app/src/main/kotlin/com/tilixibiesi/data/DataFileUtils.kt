@@ -153,10 +153,10 @@ object DataFileUtils {
             if (musicName.contains(keyword)) {
                 Handler(Looper.getMainLooper()).post {
                     AlertDialog.Builder(context)
-                        .setTitle(LanguageUtils.getString(context, R.string.op_restricted))
-                        .setMessage(LanguageUtils.getString(context, R.string.delete_restricted_song, musicName))
-                        .setPositiveButton(LanguageUtils.getString(context, R.string.confirm), null)
-                        .setNegativeButton(LanguageUtils.getString(context, R.string.confirm), null)
+                        .setTitle(LanguageUtils.getString(context, R.string.delete_restricted_title))
+                        .setMessage(LanguageUtils.getString(context, R.string.delete_restricted_message, musicName))
+                        .setPositiveButton(LanguageUtils.getString(context, R.string.btn_ok), null)
+                        .setNegativeButton(LanguageUtils.getString(context, R.string.btn_ok), null)
                         .create()
                         .apply {
                             setCanceledOnTouchOutside(false)

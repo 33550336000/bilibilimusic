@@ -76,10 +76,7 @@ class HorizontalPager @JvmOverloads constructor(
             currentPage = fallback
             onPageChangeListener?.invoke(fallback)
         }
-        for (i in 0 until views.size()) {
-            val p = views.keyAt(i)
-            views.valueAt(i).visibility = if (isEnabled(p)) VISIBLE else GONE
-        }
+        updateVisibility()
         pendingPage = currentPage
         requestLayout()
         invalidate()
@@ -149,11 +146,15 @@ class HorizontalPager @JvmOverloads constructor(
 
     fun clearPendingTemporaryClear() = cancelPendingClear()
 
-    private fun applyViewVisibility() {
+    private fun updateVisibility() {
         for (i in 0 until views.size()) {
             val p = views.keyAt(i)
             views.valueAt(i).visibility = if (isEnabled(p)) VISIBLE else GONE
         }
+    }
+
+    private fun applyViewVisibility() {
+        updateVisibility()
         ensurePages(currentPage)
     }
 
@@ -180,7 +181,6 @@ class HorizontalPager @JvmOverloads constructor(
 
     private fun pageAtSlot(slot: Int): Int = visibleOrder.getOrElse(slot) { currentPage }
 
-
     private val scroller = OverScroller(context, DecelerateInterpolator(SETTLE_DECELERATION))
 
     private val touchSlop: Int
@@ -204,13 +204,6 @@ class HorizontalPager @JvmOverloads constructor(
     private var pendingPage: Int? = null
     private var pendingClearTemporary: Int? = null
 
-    /**
-     * 滚动推进挂在 OnPreDrawListener 上，保证每个 vsync 都严格推进一次 scroller。
-     *
-     * 之前为了省开销改成 computeScroll 驱动，但 computeScroll 的调用时机依赖父容器的
-     * 绘制路径，滚动推进节奏会变得不均匀，直接反映为翻页时画面抖动。
-     * 这里恢复 pre-draw 驱动，并在空闲帧直接早退，静止时几乎没有开销。
-     */
     private val frameStartWatcher = android.view.ViewTreeObserver.OnPreDrawListener {
         if (needsFrameAdvance()) advanceScrollForFrame()
         true
@@ -245,7 +238,6 @@ class HorizontalPager @JvmOverloads constructor(
             rebuildVisibleOrder()
         }
     }
-
 
     private fun ensurePages(position: Int) {
         if (position < 0 || position >= pageCount) return
@@ -282,7 +274,6 @@ class HorizontalPager @JvmOverloads constructor(
             }
         }
     }
-
 
     override fun generateDefaultLayoutParams(): LayoutParams =
         LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
@@ -372,9 +363,8 @@ class HorizontalPager @JvmOverloads constructor(
         return indexOfChild(child).coerceAtLeast(0)
     }
 
-
     override fun computeScroll() {
-        // 由 frameStartWatcher 统一驱动，避免同一帧被推进两次
+
     }
 
     private fun advanceScrollForFrame() {
@@ -459,7 +449,6 @@ class HorizontalPager @JvmOverloads constructor(
         scroller.startScroll(scrollX, scrollY, dest - scrollX, 0, SETTLE_DURATION)
         postInvalidateOnAnimation()
     }
-
 
     fun pageScrollX(page: Int): Int? {
         if (pageWidthPx <= 0) return null
@@ -705,7 +694,6 @@ class HorizontalPager @JvmOverloads constructor(
     }
 
     private fun computeSettleDuration(): Int = SETTLE_DURATION
-
 
     private fun isDragBlocked(rawX: Float, rawY: Float, localX: Float, localY: Float, dx: Float): Boolean {
         if (dragGuard?.invoke(rawX, rawY) == true) return true

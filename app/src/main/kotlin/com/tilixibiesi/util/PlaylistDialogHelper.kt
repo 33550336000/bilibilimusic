@@ -53,11 +53,11 @@ object PlaylistDialogHelper {
                                     selected.name
                                 )
                             )
-                            .setPositiveButton(LanguageUtils.getString(context, R.string.ok)) { _, _ ->
+                            .setPositiveButton(LanguageUtils.getString(context, R.string.btn_ok)) { _, _ ->
                                 PlaylistManager.addMusicToPlaylist(context, selected.id, bean)
-                                ToastUtils.show(context, LanguageUtils.getString(context, R.string.added))
+                                ToastUtils.show(context, LanguageUtils.getString(context, R.string.toast_word_added))
                             }
-                            .setNegativeButton(LanguageUtils.getString(context, R.string.cancel), null)
+                            .setNegativeButton(LanguageUtils.getString(context, R.string.btn_cancel), null)
                     )
                 }
         )

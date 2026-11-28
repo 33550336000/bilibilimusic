@@ -43,7 +43,7 @@ internal fun SettingsPage.showSendNotificationDialog() {
 
     page.showMaterialDialog(
         AlertDialog.Builder(page)
-            .setTitle(LanguageUtils.getString(page, R.string.dialog_title_send_notification))
+            .setTitle(LanguageUtils.getString(page, R.string.btn_send_notification))
             .setView(layout)
             .setPositiveButton(LanguageUtils.getString(page, R.string.btn_ok)) { _, _ ->
                 val title = etTitle.text.toString().trim()

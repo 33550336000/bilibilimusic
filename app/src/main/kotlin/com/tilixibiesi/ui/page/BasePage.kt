@@ -42,7 +42,6 @@ abstract class BasePage(base: Context) : ContextWrapper(base) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val receivers = mutableListOf<BroadcastReceiver>()
 
-
     private var localizedResources: Resources? = null
 
     override fun getResources(): Resources {
@@ -61,10 +60,6 @@ abstract class BasePage(base: Context) : ContextWrapper(base) {
 
     fun setContentView(layoutResId: Int) {
         pageView = layoutInflater.inflate(layoutResId, null)
-    }
-
-    fun setContentView(v: View) {
-        pageView = v
     }
 
     fun runOnUiThread(action: () -> Unit) {
@@ -87,7 +82,7 @@ abstract class BasePage(base: Context) : ContextWrapper(base) {
         if (Build.VERSION.SDK_INT >= 33) {
             activity.registerReceiver(receiver, filter, android.content.Context.RECEIVER_EXPORTED)
         } else {
-            // API 33 以下没有 flag 参数；此分支仅在旧系统执行。
+
             @SuppressLint("UnspecifiedRegisterReceiverFlag")
             activity.registerReceiver(receiver, filter)
         }
@@ -102,7 +97,6 @@ abstract class BasePage(base: Context) : ContextWrapper(base) {
     fun gotoPage(position: Int, smooth: Boolean = true) {
         host?.setPage(position, smooth)
     }
-
 
     open fun onCreate(savedInstanceState: Bundle?) {}
     open fun onPageShow() {}
@@ -127,10 +121,8 @@ abstract class BasePage(base: Context) : ContextWrapper(base) {
     open fun onNewIntent(intent: Intent) {}
     open fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean = false
 
-
     internal fun performCreate(host: PageHost, savedInstanceState: Bundle?): View {
         this.host = host
-        LocalizedViewFactory.install(LayoutInflater.from(this))
         onCreate(savedInstanceState)
         val v = pageView ?: error("${javaClass.simpleName} 未在 onCreate 中调用 setContentView")
         if (v is ViewGroup) ViewUtils.applyScaleOnTouch(v)
