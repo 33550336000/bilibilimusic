@@ -6,6 +6,7 @@ import com.tilixibiesi.util.AppExecutors
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.ActivityInfo
 import android.os.Build
 import org.json.JSONArray
 import org.json.JSONObject
@@ -39,6 +40,7 @@ object SpUtils {
     private const val KEY_MAIN_SOURCE_BILI_ZONE = "main_source_bili_zone"
 
     private const val KEY_CLICK_FX_ENABLED = "click_fx_enabled"
+    private const val KEY_APP_ORIENTATION = "app_orientation"
     private const val KEY_COLLAPSED_SECTIONS = "collapsed_sections"
     private const val KEY_STORAGE_ROOT = "storage_root"
     private const val KEY_DANMAKU_ENABLED = "danmaku_enabled"
@@ -185,6 +187,24 @@ object SpUtils {
         getSp(context).getBoolean(KEY_CLICK_FX_ENABLED, false)
     fun setClickFxEnabled(context: Context, enabled: Boolean) {
         getSp(context).edit().putBoolean(KEY_CLICK_FX_ENABLED, enabled).apply()
+    }
+
+    const val APP_ORIENTATION_FOLLOW_SYSTEM = 0
+    const val APP_ORIENTATION_LANDSCAPE = 1
+    const val APP_ORIENTATION_PORTRAIT = 2
+
+    fun getAppOrientation(context: Context): Int =
+        getSp(context).getInt(KEY_APP_ORIENTATION, APP_ORIENTATION_FOLLOW_SYSTEM)
+
+    fun saveAppOrientation(context: Context, orientation: Int) {
+        getSp(context).edit().putInt(KEY_APP_ORIENTATION, orientation).apply()
+    }
+
+    /** 把应用方向设置换算成 ActivityInfo 的 screenOrientation 常量。 */
+    fun getScreenOrientation(context: Context): Int = when (getAppOrientation(context)) {
+        APP_ORIENTATION_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        APP_ORIENTATION_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
     fun getCollapsedSections(context: Context): Set<String> =

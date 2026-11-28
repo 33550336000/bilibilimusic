@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.view.Window
+import android.view.WindowManager
 import android.widget.EditText
 import android.widget.FrameLayout
 import kotlin.math.hypot
@@ -44,6 +45,7 @@ object DialogDragHelper {
     fun attach(dialog: Dialog?) {
         val window = dialog?.window ?: return
         val decor = window.decorView as? ViewGroup ?: return
+        window.addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
 
         val titlePanel = findTitlePanel(window)
         if (titlePanel != null) {

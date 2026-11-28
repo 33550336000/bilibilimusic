@@ -421,6 +421,10 @@ class SettingsPage(base: Context) : BasePage(base) {
         updateClickFxButtonText()
         btnToggleClickFx.setOnClickListener { toggleDialogs.showClickFxDialog() }
 
+        findViewById<Button>(R.id.btn_app_orientation)!!.setOnClickListener {
+            toggleDialogs.showAppOrientationDialog()
+        }
+
         val btnToggleSearchMode = findViewById<Button>(R.id.btn_toggle_search_mode)!!
         btnToggleSearchMode.text = if (SpUtils.getSearchMode(this))
             LanguageUtils.getString(this@SettingsPage, R.string.btn_toggle_search_page)

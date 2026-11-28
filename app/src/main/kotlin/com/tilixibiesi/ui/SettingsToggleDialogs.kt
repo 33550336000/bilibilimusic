@@ -6,6 +6,7 @@ import com.tilixibiesi.data.LanguageUtils
 import com.tilixibiesi.data.SettingsStore
 import com.tilixibiesi.data.SpUtils
 import com.tilixibiesi.service.MusicPlayerService
+import com.tilixibiesi.util.ContextUtils
 import com.tilixibiesi.util.ToastUtils
 
 import android.app.AlertDialog
@@ -70,6 +71,47 @@ class SettingsToggleDialogs(
                     SpUtils.setClickFxEnabled(context, !current)
                     onClickFxChanged()
                     ToastUtils.show(context, str(R.string.toast_click_fx_changed))
+                }
+                .setNegativeButton(str(R.string.btn_cancel), null)
+        )
+    }
+
+    fun showAppOrientationDialog() {
+        val orientations = intArrayOf(
+            SpUtils.APP_ORIENTATION_FOLLOW_SYSTEM,
+            SpUtils.APP_ORIENTATION_LANDSCAPE,
+            SpUtils.APP_ORIENTATION_PORTRAIT
+        )
+        val labels = arrayOf(
+            str(R.string.orientation_follow_system),
+            str(R.string.orientation_landscape),
+            str(R.string.orientation_portrait)
+        )
+        val messages = intArrayOf(
+            R.string.dialog_msg_orientation_follow_system,
+            R.string.dialog_msg_orientation_landscape,
+            R.string.dialog_msg_orientation_portrait
+        )
+        val checked = orientations.indexOf(SpUtils.getAppOrientation(context)).coerceAtLeast(0)
+
+        showDialog(
+            AlertDialog.Builder(context)
+                .setTitle(str(R.string.btn_app_orientation))
+                .setSingleChoiceItems(labels, checked) { listDialog, which ->
+                    listDialog.dismiss()
+                    val target = orientations[which]
+                    showDialog(
+                        AlertDialog.Builder(context)
+                            .setTitle(str(R.string.btn_app_orientation))
+                            .setMessage(str(messages[which]))
+                            .setPositiveButton(str(R.string.btn_ok)) { _, _ ->
+                                SpUtils.saveAppOrientation(context, target)
+                                ContextUtils.unwrapActivity(context)?.requestedOrientation =
+                                    SpUtils.getScreenOrientation(context)
+                                ToastUtils.show(context, str(R.string.toast_orientation_changed))
+                            }
+                            .setNegativeButton(str(R.string.btn_cancel), null)
+                    )
                 }
                 .setNegativeButton(str(R.string.btn_cancel), null)
         )

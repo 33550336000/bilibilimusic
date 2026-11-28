@@ -12,7 +12,6 @@ import com.tilixibiesi.util.VideoPlaybackController
 import com.tilixibiesi.service.VideoPlaybackService
 
 import android.content.Context
-import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.SurfaceTexture
@@ -338,7 +337,7 @@ fun close() {
     currentVideoTitle = ""
     currentVideoAuthor = ""
     currentBvid = null
-    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    activity.requestedOrientation = SpUtils.getScreenOrientation(activity)
     synchronized(BiliVideoPlayer::class.java) {
         val current = currentPlayingInstance?.get()
         if (current === this) {

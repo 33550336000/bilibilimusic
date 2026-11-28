@@ -61,6 +61,8 @@ open class BaseActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 应用方向对全部页面生效：每个 Activity 创建时按设置锁一次屏幕方向。
+        requestedOrientation = SpUtils.getScreenOrientation(this)
         LocalizedViewFactory.install(layoutInflater)
         LocalizedViewFactory.install(LayoutInflater.from(this))
         lastLanguageCode = LanguageUtils.getEffectiveLanguage(applicationContext)

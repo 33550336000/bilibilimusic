@@ -41,6 +41,14 @@
 <string name="dialog_msg_click_fx_on">将会启用点击特效</string>
 <string name="dialog_msg_click_fx_off">不再显示点击特效</string>
 <string name="toast_click_fx_changed">已切换</string>
+    <string name="btn_app_orientation">应用方向</string>
+    <string name="orientation_follow_system">跟随系统方向</string>
+    <string name="orientation_landscape">默认横屏</string>
+    <string name="orientation_portrait">默认竖屏</string>
+    <string name="dialog_msg_orientation_follow_system">应用方向将跟随系统</string>
+    <string name="dialog_msg_orientation_landscape">应用将固定为横屏显示</string>
+    <string name="dialog_msg_orientation_portrait">应用将固定为竖屏显示，不再跟随系统方向</string>
+    <string name="toast_orientation_changed">应用方向已切换</string>
 <string name="btn_toggle_search_page">启用搜索页面</string>
     <string name="btn_toggle_search_button">启用搜索按钮</string>
     <string name="btn_adjust_search_position">调整搜索按钮位置</string>

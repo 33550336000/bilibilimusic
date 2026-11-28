@@ -148,6 +148,7 @@ internal fun SettingsPage.restoreDefaultSettings() {
                 page.resetToggleButtonLabels()
 
                 page.applyBackground()
+                page.activity.requestedOrientation = SpUtils.getScreenOrientation(page)
                 ToastUtils.show(page, LanguageUtils.getString(page, R.string.toast_settings_restored))
             }
             .setNegativeButton(LanguageUtils.getString(page, R.string.btn_cancel), null)
